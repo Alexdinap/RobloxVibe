@@ -1,490 +1,467 @@
---!nonstrict
---[[
-	GameConfig - SOLO tabelle dati.
-
-	Qui non c'e' una riga di logica: tutto il bilanciamento, le posizioni sulla
-	mappa e i colori del tema stanno in questo modulo, cosi' il resto del codice
-	(GameEngine, WorldBuilder, ClientEffects) legga soltanto.
-
-	Convenzioni:
-	- i costi sono sempre numeri (i Watt possono essere enormi, vedi BigNum)
-	- "Pos" dei pulsanti e' la posizione MONDIALE del centro del pad a terra
-	- "position" dei nodi e' normalizzata 0..1 sul pannello del muro (x a destra, y in basso)
-]]
-
 local GameConfig = {}
 
---------------------------------------------------------------------------------
--- META
---------------------------------------------------------------------------------
-
-GameConfig.Meta = {
-	GameName = "Quantum Core",
-	DataStoreName = "QuantumCore_v1",
-	LeaderboardStoreName = "QuantumCoreLeaderboard_v1",
-	LeaderboardStatLabel = "Watt totali",
-	MaxLeaderboardEntries = 10,
-}
-
---------------------------------------------------------------------------------
--- VALUTE
---------------------------------------------------------------------------------
-
-GameConfig.Currencies = {
-	Watt = {
-		id = "Watt",
-		nome = "Watt",
-		sigla = "W",
-		colore = Color3.fromRGB(0, 245, 255),
-		descrizione = "Valuta base, generata dai pulsanti a terra.",
-	},
-	Plasma = {
-		id = "Plasma",
-		nome = "Plasma",
-		sigla = "PL",
-		colore = Color3.fromRGB(255, 60, 230),
-		descrizione = "Valuta secondaria sbloccabile, non resetta i Watt.",
-	},
-	MateriaOscura = {
-		id = "MateriaOscura",
-		nome = "Materia Oscura",
-		sigla = "DM",
-		colore = Color3.fromRGB(165, 90, 255),
-		descrizione = "Valuta di prestigio, ottenuta col Collasso Quantistico.",
-	},
-}
-
---------------------------------------------------------------------------------
--- ECONOMIA
---------------------------------------------------------------------------------
-
-GameConfig.Economy = {
-	TickInterval = 0.1, -- loop principale del server
-	SyncInterval = 0.2, -- invio stato ai client
-	PurchaseCooldown = 0.15, -- livelli/s mentre si resta sopra un pulsante
-	AutoBuyInterval = 1, -- gli Auto-Buyer comprano 1 livello al secondo
-	SaveInterval = 60, -- autosalvataggio
-	LeaderboardInterval = 60, -- refresh classifica globale
-
-	BonusInterval = 20, -- secondi base tra una Sfera di Sovraccarico e l'altra
-	BonusLifetime = 25, -- secondi in cui la sfera resta raccoglibile
-	BonusDuration = 30, -- durata del boost x2
-	BonusMultiplier = 2,
-	BonusCollectRadius = 7,
-
-	OfflineEfficiency = 0.25, -- quota del rate accreditata offline
-	OfflineMaxSeconds = 8 * 3600, -- tetto di 8 ore
-
-	MaxLevels = 5000, -- limite di sicurezza per i livelli dei pulsanti
-
-	-- Watt regalati a un profilo nuovo: senza questi il primo pulsante
-	-- (che costa 10) sarebbe impossibile da comprare con 0 produzione.
-	StartingWatt = 25,
-}
-
---------------------------------------------------------------------------------
--- PRESTIGE
---------------------------------------------------------------------------------
-
-GameConfig.Prestige = {
-	NodeId = "CollassoQuantistico",
-	RequiredWatt = 1e15,
-	GainExponent = 0.5, -- materia oscura = floor((watt / soglia) ^ 0.5)
-	MultiplierPerDarkMatter = 2, -- moltiplicatore globale = 2 ^ materia oscura
-	MaxMultiplier = 1e300, -- tetto per non arrivare a inf
-}
-
---------------------------------------------------------------------------------
--- MAPPA (coordinate mondiali)
---------------------------------------------------------------------------------
-
-GameConfig.Map = {
-	PlatformCenter = Vector3.new(0, 300, 0),
-	PlatformSize = Vector3.new(300, 10, 300),
-	PlatformTopY = 305,
-
-	SpawnPosition = Vector3.new(0, 306, 120),
-	SpawnSize = Vector3.new(26, 1, 26),
-
-	CorePosition = Vector3.new(0, 305, 45),
-	CorePedestalHeight = 6,
-	CoreBaseRadius = 4,
-
-	WallCenter = Vector3.new(0, 365, -140),
-	WallSize = Vector3.new(240, 120, 10),
-	WallPixelsPerStud = 8, -- risoluzione della SurfaceGui: 1920x960
-
-	LeaderboardCenter = Vector3.new(-140, 340, 20),
-	LeaderboardSize = Vector3.new(4, 60, 90),
-	LeaderboardPixelsPerStud = 6,
-
-	ButtonPadRadius = 9, -- raggio visivo del pad
-	ButtonDetectRadius = 12, -- raggio di attivazione lato server
-	ButtonPadY = 305.4,
-
-	-- Area in cui possono apparire le Sfere di Sovraccarico.
-	BonusAreaMin = Vector3.new(-120, 0, -105),
-	BonusAreaMax = Vector3.new(120, 0, 100),
-	BonusHeight = 3.5,
-}
-
---------------------------------------------------------------------------------
--- PULSANTI A TERRA (2 file ordinate da 3)
---------------------------------------------------------------------------------
-
+-- 9 Pulsanti a terra disposti in una griglia ordinata 3x3
 GameConfig.Buttons = {
+	-- Fila 1 (Base)
 	{
-		id = "GeneratoreBase",
-		nome = "Generatore Base",
-		descrizione = "+1 Watt/s per livello",
-		baseCost = 10,
-		costMultiplier = 1.15,
-		effectType = "WattPerSecond",
-		value = 1,
-		coloreNeon = Color3.fromRGB(0, 245, 255),
-		row = 1,
-		column = 1,
-		pos = Vector3.new(-70, 305.4, -15),
+		Id = "btn1",
+		Name = "Generatore Base",
+		Desc = "+1 Watt/s",
+		BaseCost = 10,
+		CostMult = 1.15,
+		Type = "AddWatt",
+		Value = 1,
+		Color = Color3.fromRGB(0, 225, 255),
+		Pos = Vector3.new(-18, 1.6, 4),
 	},
 	{
-		id = "Amplificatore",
-		nome = "Amplificatore",
-		descrizione = "+5 Watt/s per livello",
-		baseCost = 140,
-		costMultiplier = 1.17,
-		effectType = "WattPerSecond",
-		value = 5,
-		coloreNeon = Color3.fromRGB(110, 255, 120),
-		row = 1,
-		column = 2,
-		pos = Vector3.new(0, 305.4, -15),
+		Id = "btn2",
+		Name = "Amplificatore",
+		Desc = "+8 Watt/s",
+		BaseCost = 100,
+		CostMult = 1.17,
+		Type = "AddWatt",
+		Value = 8,
+		Color = Color3.fromRGB(0, 255, 165),
+		Pos = Vector3.new(0, 1.6, 4),
 	},
 	{
-		id = "Condensatore",
-		nome = "Condensatore",
-		descrizione = "x1.25 Watt totali per livello",
-		baseCost = 900,
-		costMultiplier = 1.22,
-		effectType = "WattMultiplier",
-		value = 1.25,
-		coloreNeon = Color3.fromRGB(255, 200, 60),
-		row = 1,
-		column = 3,
-		pos = Vector3.new(70, 305.4, -15),
+		Id = "btn3",
+		Name = "Condensatore",
+		Desc = "x1.25 Watt/s",
+		BaseCost = 500,
+		CostMult = 1.35,
+		Type = "MultWatt",
+		Value = 1.25,
+		Color = Color3.fromRGB(255, 205, 0),
+		Pos = Vector3.new(18, 1.6, 4),
+	},
+
+	-- Fila 2 (Avanzata)
+	{
+		Id = "btn4",
+		Name = "Turbina Quantica",
+		Desc = "+65 Watt/s",
+		BaseCost = 2500,
+		CostMult = 1.19,
+		Type = "AddWatt",
+		Value = 65,
+		Color = Color3.fromRGB(130, 105, 255),
+		Pos = Vector3.new(-18, 1.6, -10),
 	},
 	{
-		id = "TurbinaQuantica",
-		nome = "Turbina Quantica",
-		descrizione = "+50 Watt/s per livello",
-		baseCost = 7500,
-		costMultiplier = 1.2,
-		effectType = "WattPerSecond",
-		value = 50,
-		coloreNeon = Color3.fromRGB(255, 80, 210),
-		row = 2,
-		column = 1,
-		pos = Vector3.new(-70, 305.4, -60),
+		Id = "btn5",
+		Name = "Sovralimentatore",
+		Desc = "x1.50 Watt/s",
+		BaseCost = 15000,
+		CostMult = 1.45,
+		Type = "MultWatt",
+		Value = 1.50,
+		Color = Color3.fromRGB(255, 80, 160),
+		Pos = Vector3.new(0, 1.6, -10),
 	},
 	{
-		id = "Sovralimentatore",
-		nome = "Sovralimentatore",
-		descrizione = "x1.5 Watt totali per livello",
-		baseCost = 60000,
-		costMultiplier = 1.25,
-		effectType = "WattMultiplier",
-		value = 1.5,
-		coloreNeon = Color3.fromRGB(255, 120, 60),
-		row = 2,
-		column = 2,
-		pos = Vector3.new(0, 305.4, -60),
+		Id = "btn6",
+		Name = "Sintetizzatore",
+		Desc = "+850 Watt/s",
+		BaseCost = 100000,
+		CostMult = 1.21,
+		Type = "AddWatt",
+		Value = 850,
+		Color = Color3.fromRGB(255, 115, 45),
+		Pos = Vector3.new(18, 1.6, -10),
+	},
+
+	-- Fila 3 (Endgame)
+	{
+		Id = "btn7",
+		Name = "Reattore ad Arco",
+		Desc = "+12K Watt/s",
+		BaseCost = 1500000,
+		CostMult = 1.23,
+		Type = "AddWatt",
+		Value = 12000,
+		Color = Color3.fromRGB(60, 175, 255),
+		Pos = Vector3.new(-18, 1.6, -24),
 	},
 	{
-		id = "Sintetizzatore",
-		nome = "Sintetizzatore",
-		descrizione = "+500 Watt/s per livello",
-		baseCost = 500000,
-		costMultiplier = 1.23,
-		effectType = "WattPerSecond",
-		value = 500,
-		coloreNeon = Color3.fromRGB(190, 120, 255),
-		row = 2,
-		column = 3,
-		pos = Vector3.new(70, 305.4, -60),
+		Id = "btn8",
+		Name = "Matrice Fotonica",
+		Desc = "x2.00 Watt/s",
+		BaseCost = 25000000,
+		CostMult = 1.60,
+		Type = "MultWatt",
+		Value = 2.00,
+		Color = Color3.fromRGB(210, 70, 255),
+		Pos = Vector3.new(0, 1.6, -24),
+	},
+	{
+		Id = "btn9",
+		Name = "Motore Singolarità",
+		Desc = "+250K Watt/s",
+		BaseCost = 500000000,
+		CostMult = 1.25,
+		Type = "AddWatt",
+		Value = 250000,
+		Color = Color3.fromRGB(255, 50, 85),
+		Pos = Vector3.new(18, 1.6, -24),
 	},
 }
 
---------------------------------------------------------------------------------
--- ALBERO DEI POTENZIAMENTI SUL MURO (15 nodi)
--- kind supportati:
---   GeneratorPower   moltiplica la produzione Watt/s dei pulsanti
---   CostReduction    moltiplica (riduce) il costo dei pulsanti
---   GlobalWatt       moltiplica il Watt/s finale
---   BonusFrequency   moltiplica la frequenza delle Sfere di Sovraccarico
---   PlasmaRate       aggiunge Plasma/s
---   PlasmaMultiplier moltiplica il Plasma/s
---   AutoBuyLevels    quanti pulsanti vengono comprati automaticamente
---   Prestige         nodo azione: esegue il Collasso Quantistico
---------------------------------------------------------------------------------
+-- 17 Nodi sull'Upgrade Tree principale (progressione continua senza reset forzati)
+GameConfig.Upgrades = {
+	-- Tier 1
+	{
+		Id = "u1",
+		Name = "Raffreddamento",
+		Desc = "Watt/s x1.5 per liv.",
+		Cost = 25,
+		CostMult = 2.5,
+		Currency = "Watt",
+		MaxLevel = 5,
+		Prereq = nil,
+		GridX = 0.50,
+		GridY = 0.10,
+		Effect = "WattMult",
+		Value = 1.5,
+	},
 
-GameConfig.Nodes = {
+	-- Tier 2
 	{
-		id = "BobinaSovraccarico",
-		nome = "Bobina di Sovraccarico",
-		descrizione = "+25% potenza dei generatori",
-		currency = "Watt",
-		cost = 60,
-		requires = {},
-		branch = "Watt",
-		position = Vector2.new(0.10, 0.80),
-		effects = { { kind = "GeneratorPower", value = 1.25 } },
+		Id = "u2",
+		Name = "Superconduttori",
+		Desc = "Costi pulsanti -7%",
+		Cost = 150,
+		CostMult = 3.0,
+		Currency = "Watt",
+		MaxLevel = 6,
+		Prereq = "u1",
+		GridX = 0.20,
+		GridY = 0.26,
+		Effect = "CostDiscount",
+		Value = 0.07,
 	},
 	{
-		id = "CircuitoRefrigerante",
-		nome = "Circuito Refrigerante",
-		descrizione = "-10% costo dei pulsanti",
-		currency = "Watt",
-		cost = 400,
-		requires = { "BobinaSovraccarico" },
-		branch = "Watt",
-		position = Vector2.new(0.10, 0.58),
-		effects = { { kind = "CostReduction", value = 0.90 } },
+		Id = "u3",
+		Name = "Risonanza Nucleo",
+		Desc = "Click Nucleo x2.5",
+		Cost = 200,
+		CostMult = 2.8,
+		Currency = "Watt",
+		MaxLevel = 6,
+		Prereq = "u1",
+		GridX = 0.50,
+		GridY = 0.26,
+		Effect = "ClickMult",
+		Value = 2.5,
 	},
 	{
-		id = "RisonanzaArmonica",
-		nome = "Risonanza Armonica",
-		descrizione = "+25% potenza dei generatori",
-		currency = "Watt",
-		cost = 2500,
-		requires = { "BobinaSovraccarico" },
-		branch = "Watt",
-		position = Vector2.new(0.27, 0.86),
-		effects = { { kind = "GeneratorPower", value = 1.25 } },
+		Id = "u4",
+		Name = "Magnetismo Sfere",
+		Desc = "Valore Sfere +50%",
+		Cost = 350,
+		CostMult = 3.2,
+		Currency = "Watt",
+		MaxLevel = 5,
+		Prereq = "u1",
+		GridX = 0.80,
+		GridY = 0.26,
+		Effect = "OrbBonus",
+		Value = 0.5,
+	},
+
+	-- Tier 3
+	{
+		Id = "u5",
+		Name = "Sovraccarico Rete",
+		Desc = "Watt/s x2.0 per liv.",
+		Cost = 1800,
+		CostMult = 3.5,
+		Currency = "Watt",
+		MaxLevel = 6,
+		Prereq = "u2",
+		GridX = 0.13,
+		GridY = 0.43,
+		Effect = "WattMult",
+		Value = 2.0,
 	},
 	{
-		id = "ComponentiRiciclati",
-		nome = "Componenti Riciclati",
-		descrizione = "-15% costo dei pulsanti",
-		currency = "Watt",
-		cost = 1.5e4,
-		requires = { "CircuitoRefrigerante" },
-		branch = "Watt",
-		position = Vector2.new(0.27, 0.62),
-		effects = { { kind = "CostReduction", value = 0.85 } },
+		Id = "u6",
+		Name = "Auto-Buyer Fila 1",
+		Desc = "Compra Pulsanti 1-3",
+		Cost = 2500,
+		CostMult = 1,
+		Currency = "Watt",
+		MaxLevel = 1,
+		Prereq = "u2",
+		GridX = 0.31,
+		GridY = 0.43,
+		Effect = "AutoRow1",
+		Value = 1,
 	},
 	{
-		id = "RilevatoreAnomalie",
-		nome = "Rilevatore di Anomalie",
-		descrizione = "+30% frequenza Sfere di Sovraccarico",
-		currency = "Watt",
-		cost = 8e4,
-		requires = { "RisonanzaArmonica" },
-		branch = "Watt",
-		position = Vector2.new(0.45, 0.88),
-		effects = { { kind = "BonusFrequency", value = 1.30 } },
+		Id = "u7",
+		Name = "INIETTORE PLASMA",
+		Desc = "Sblocca Plasma/s!",
+		Cost = 5000,
+		CostMult = 1,
+		Currency = "Watt",
+		MaxLevel = 1,
+		Prereq = "u3",
+		GridX = 0.50,
+		GridY = 0.43,
+		Effect = "UnlockPlasma",
+		Value = 1,
 	},
 	{
-		id = "Overclock",
-		nome = "Overclock",
-		descrizione = "+50% potenza dei generatori",
-		currency = "Watt",
-		cost = 4e5,
-		requires = { "RisonanzaArmonica" },
-		branch = "Watt",
-		position = Vector2.new(0.45, 0.72),
-		effects = { { kind = "GeneratorPower", value = 1.50 } },
+		Id = "u8",
+		Name = "Condensatore Combo",
+		Desc = "Max Combo +2.0x",
+		Cost = 3500,
+		CostMult = 3.4,
+		Currency = "Watt",
+		MaxLevel = 5,
+		Prereq = "u3",
+		GridX = 0.69,
+		GridY = 0.43,
+		Effect = "ComboBonus",
+		Value = 2.0,
 	},
 	{
-		id = "ChipContrattazione",
-		nome = "Chip di Contrattazione",
-		descrizione = "-25% costo dei pulsanti",
-		currency = "Watt",
-		cost = 2e6,
-		requires = { "ComponentiRiciclati" },
-		branch = "Watt",
-		position = Vector2.new(0.45, 0.52),
-		effects = { { kind = "CostReduction", value = 0.75 } },
+		Id = "u9",
+		Name = "Attrazione Gravitazionale",
+		Desc = "Attira le sfere bonus!",
+		Cost = 4000,
+		CostMult = 1,
+		Currency = "Watt",
+		MaxLevel = 1,
+		Prereq = "u4",
+		GridX = 0.87,
+		GridY = 0.43,
+		Effect = "MagnetPull",
+		Value = 1,
+	},
+
+	-- Tier 4 (Plasma)
+	{
+		Id = "u10",
+		Name = "Auto-Buyer Fila 2",
+		Desc = "Compra Pulsanti 4-6",
+		Cost = 20,
+		CostMult = 1,
+		Currency = "Plasma",
+		MaxLevel = 1,
+		Prereq = "u6",
+		GridX = 0.16,
+		GridY = 0.60,
+		Effect = "AutoRow2",
+		Value = 1,
 	},
 	{
-		id = "IniettoreAlPlasma",
-		nome = "Iniettore al Plasma",
-		descrizione = "Sblocca +1 Plasma/s (i Watt restano)",
-		currency = "Watt",
-		cost = 1.2e7,
-		requires = { "Overclock", "ChipContrattazione" },
-		branch = "Plasma",
-		position = Vector2.new(0.61, 0.60),
-		effects = { { kind = "PlasmaRate", value = 1 } },
+		Id = "u11",
+		Name = "Sintesi al Plasma",
+		Desc = "Plasma/s x2.2 per liv.",
+		Cost = 30,
+		CostMult = 2.7,
+		Currency = "Plasma",
+		MaxLevel = 6,
+		Prereq = "u7",
+		GridX = 0.38,
+		GridY = 0.60,
+		Effect = "PlasmaMult",
+		Value = 2.2,
 	},
 	{
-		id = "CondottoPlasma",
-		nome = "Condotto di Plasma",
-		descrizione = "+1.5 Plasma/s",
-		currency = "Plasma",
-		cost = 40,
-		requires = { "IniettoreAlPlasma" },
-		branch = "Plasma",
-		position = Vector2.new(0.74, 0.84),
-		effects = { { kind = "PlasmaRate", value = 1.5 } },
+		Id = "u12",
+		Name = "Sinergia Droni",
+		Desc = "Bonus Droni +60%",
+		Cost = 45,
+		CostMult = 2.9,
+		Currency = "Plasma",
+		MaxLevel = 5,
+		Prereq = "u7",
+		GridX = 0.62,
+		GridY = 0.60,
+		Effect = "DroneSynergy",
+		Value = 0.6,
 	},
 	{
-		id = "AutoBuyerBase",
-		nome = "Auto-Buyer Base",
-		descrizione = "Compra da solo i primi 3 pulsanti, senza Watt",
-		currency = "Plasma",
-		cost = 150,
-		requires = { "IniettoreAlPlasma" },
-		branch = "Plasma",
-		position = Vector2.new(0.74, 0.46),
-		effects = { { kind = "AutoBuyLevels", value = 3 } },
+		Id = "u13",
+		Name = "Auto-Buyer Fila 3",
+		Desc = "Compra Pulsanti 7-9",
+		Cost = 120,
+		CostMult = 1,
+		Currency = "Plasma",
+		MaxLevel = 1,
+		Prereq = "u7",
+		GridX = 0.84,
+		GridY = 0.60,
+		Effect = "AutoRow3",
+		Value = 1,
+	},
+
+	-- Tier 5 (Endgame Plasma)
+	{
+		Id = "u14",
+		Name = "Motore a Fusione",
+		Desc = "Watt/s x3.5 per liv.",
+		Cost = 200,
+		CostMult = 3.2,
+		Currency = "Plasma",
+		MaxLevel = 6,
+		Prereq = "u10",
+		GridX = 0.16,
+		GridY = 0.77,
+		Effect = "WattMult",
+		Value = 3.5,
 	},
 	{
-		id = "LentePlasma",
-		nome = "Lente al Plasma",
-		descrizione = "x2 Watt totali",
-		currency = "Plasma",
-		cost = 900,
-		requires = { "CondottoPlasma" },
-		branch = "Plasma",
-		position = Vector2.new(0.90, 0.86),
-		effects = { { kind = "GlobalWatt", value = 2 } },
+		Id = "u15",
+		Name = "Reattore Quantico",
+		Desc = "Plasma/s x3.5 per liv.",
+		Cost = 350,
+		CostMult = 3.4,
+		Currency = "Plasma",
+		MaxLevel = 6,
+		Prereq = "u11",
+		GridX = 0.38,
+		GridY = 0.77,
+		Effect = "PlasmaMult",
+		Value = 3.5,
 	},
 	{
-		id = "AutoBuyerAvanzato",
-		nome = "Auto-Buyer Avanzato",
-		descrizione = "Compra da solo tutti e 6 i pulsanti",
-		currency = "Plasma",
-		cost = 4000,
-		requires = { "AutoBuyerBase", "LentePlasma" },
-		branch = "Plasma",
-		position = Vector2.new(0.89, 0.68),
-		effects = { { kind = "AutoBuyLevels", value = 6 } },
+		Id = "u16",
+		Name = "Slot Drone Extra",
+		Desc = "+1 Drone equipaggiato",
+		Cost = 500,
+		CostMult = 4.0,
+		Currency = "Plasma",
+		MaxLevel = 2,
+		Prereq = "u12",
+		GridX = 0.62,
+		GridY = 0.77,
+		Effect = "ExtraDroneSlot",
+		Value = 1,
 	},
 	{
-		id = "SpecchioQuantistico",
-		nome = "Specchio Quantistico",
-		descrizione = "x5 Watt totali",
-		currency = "Plasma",
-		cost = 3e5,
-		requires = { "AutoBuyerAvanzato" },
-		branch = "Plasma",
-		position = Vector2.new(0.90, 0.42),
-		effects = { { kind = "GlobalWatt", value = 5 } },
-	},
-	{
-		id = "Singolarita",
-		nome = "Singolarita",
-		descrizione = "x10 Watt e x2 Plasma",
-		currency = "Plasma",
-		cost = 2e7,
-		requires = { "SpecchioQuantistico" },
-		branch = "Plasma",
-		position = Vector2.new(0.74, 0.26),
-		effects = {
-			{ kind = "GlobalWatt", value = 10 },
-			{ kind = "PlasmaMultiplier", value = 2 },
-		},
-	},
-	{
-		id = "CollassoQuantistico",
-		nome = "Collasso Quantistico",
-		descrizione = "Prestige: resetta Watt e Plasma in Materia Oscura permanente",
-		currency = "Watt",
-		cost = 1e15,
-		requires = { "Singolarita" },
-		branch = "Prestige",
-		isPrestige = true,
-		position = Vector2.new(0.36, 0.20),
-		effects = { { kind = "Prestige", value = 1 } },
+		Id = "u17",
+		Name = "Singolarità Stabile",
+		Desc = "Watt/s x6.0 per liv.",
+		Cost = 1500,
+		CostMult = 4.0,
+		Currency = "Plasma",
+		MaxLevel = 6,
+		Prereq = "u13",
+		GridX = 0.84,
+		GridY = 0.77,
+		Effect = "WattMult",
+		Value = 6.0,
 	},
 }
 
---------------------------------------------------------------------------------
--- 5 STADI EVOLUTIVI DEL NUCLEO (in base ai Watt del giocatore)
---------------------------------------------------------------------------------
+-- Santuario Materia Oscura (Potenziamenti Permanenti post-Prestige)
+GameConfig.PrestigeCost = 1e12 -- 1 Trilione di Watt
+GameConfig.DarkUpgrades = {
+	{
+		Id = "dm1",
+		Name = "Nucleo Primordiale",
+		Desc = "Inizi con 25K Watt e 50 Plasma",
+		Cost = 1,
+		CostMult = 2,
+		MaxLevel = 3,
+		Effect = "StartBoost",
+	},
+	{
+		Id = "dm2",
+		Name = "Fabbrica Iper-Quanta",
+		Desc = "Costo Droni -50% (25 Plasma)",
+		Cost = 1,
+		CostMult = 1,
+		MaxLevel = 1,
+		Effect = "CheapDrones",
+	},
+	{
+		Id = "dm3",
+		Name = "Fortuna Astrale",
+		Desc = "2x Probabilità Droni Rari",
+		Cost = 2,
+		CostMult = 3,
+		MaxLevel = 2,
+		Effect = "DroneLuck",
+	},
+	{
+		Id = "dm4",
+		Name = "Iper-Produzione",
+		Desc = "Watt/s e Plasma/s x25!",
+		Cost = 2,
+		CostMult = 3,
+		MaxLevel = 5,
+		Effect = "HyperProd",
+	},
+	{
+		Id = "dm5",
+		Name = "Memoria Quantica",
+		Desc = "Mantieni gli Auto-Buyer al reset",
+		Cost = 3,
+		CostMult = 1,
+		MaxLevel = 1,
+		Effect = "KeepAuto",
+	},
+	{
+		Id = "dm6",
+		Name = "Eternità Offline",
+		Desc = "Guadagno offline 100% (24h)",
+		Cost = 4,
+		CostMult = 1,
+		MaxLevel = 1,
+		Effect = "FullOffline",
+	},
+}
 
+-- Fabbrica Droni (7 Rarità)
+GameConfig.BaseDroneCost = 50
+GameConfig.BaseEquippedDrones = 3
+GameConfig.Drones = {
+	{ Id = "d_base", Name = "Drone Base", Chance = "50.0%", Weight = 500, WattMult = 1.5, PlasmaMult = 1.0, Color = Color3.fromRGB(0, 230, 255) },
+	{ Id = "d_ioni", Name = "Drone Ioni", Chance = "26.0%", Weight = 260, WattMult = 2.4, PlasmaMult = 1.3, Color = Color3.fromRGB(80, 255, 110) },
+	{ Id = "d_plasma", Name = "Drone Plasma", Chance = "13.0%", Weight = 130, WattMult = 4.0, PlasmaMult = 2.0, Color = Color3.fromRGB(210, 75, 255) },
+	{ Id = "d_quantico", Name = "Drone Quantico", Chance = "6.5%", Weight = 65, WattMult = 7.5, PlasmaMult = 3.5, Color = Color3.fromRGB(255, 210, 40) },
+	{ Id = "d_stellare", Name = "Drone Stellare", Chance = "3.0%", Weight = 30, WattMult = 15.0, PlasmaMult = 6.0, Color = Color3.fromRGB(255, 110, 30) },
+	{ Id = "d_singolarita", Name = "Singolarità", Chance = "1.2%", Weight = 12, WattMult = 35.0, PlasmaMult = 12.0, Color = Color3.fromRGB(255, 45, 95) },
+	{ Id = "d_divino", Name = "Divinità Quantica", Chance = "0.3%", Weight = 3, WattMult = 100.0, PlasmaMult = 30.0, Color = Color3.fromRGB(255, 255, 255) },
+}
+
+-- 10 Obiettivi permanenti con bonus moltiplicativi
+GameConfig.Achievements = {
+	{ Id = "ach_click1", Name = "Primo Impulso", Desc = "Clicca il Nucleo 25 volte", Stat = "TotalClicks", Target = 25, BonusText = "+25% Click", MultType = "Click", MultVal = 1.25 },
+	{ Id = "ach_click2", Name = "Dita Veloci", Desc = "Clicca il Nucleo 250 volte", Stat = "TotalClicks", Target = 250, BonusText = "+50% Click", MultType = "Click", MultVal = 1.50 },
+	{ Id = "ach_watt1", Name = "Centrale Elettrica", Desc = "Accumula 10K Watt totali", Stat = "TotalWatt", Target = 1e4, BonusText = "+25% Watt/s", MultType = "Watt", MultVal = 1.25 },
+	{ Id = "ach_watt2", Name = "Megawatt", Desc = "Accumula 10M Watt totali", Stat = "TotalWatt", Target = 1e7, BonusText = "+50% Watt/s", MultType = "Watt", MultVal = 1.50 },
+	{ Id = "ach_watt3", Name = "Signore dell'Energia", Desc = "Accumula 10B Watt totali", Stat = "TotalWatt", Target = 1e10, BonusText = "x2.0 Watt/s", MultType = "Watt", MultVal = 2.00 },
+	{ Id = "ach_btn1", Name = "Ingegnere", Desc = "Compra 50 livelli pulsanti", Stat = "TotalButtonLevels", Target = 50, BonusText = "+25% Watt/s", MultType = "Watt", MultVal = 1.25 },
+	{ Id = "ach_btn2", Name = "Architetto Quantico", Desc = "Compra 250 livelli pulsanti", Stat = "TotalButtonLevels", Target = 250, BonusText = "+50% Watt/s", MultType = "Watt", MultVal = 1.50 },
+	{ Id = "ach_drone1", Name = "Primo Satellite", Desc = "Fabbrica 1 Drone", Stat = "DronesCrafted", Target = 1, BonusText = "+25% Plasma/s", MultType = "Plasma", MultVal = 1.25 },
+	{ Id = "ach_drone2", Name = "Flotta Orbitale", Desc = "Fabbrica 15 Droni", Stat = "DronesCrafted", Target = 15, BonusText = "+50% Plasma/s", MultType = "Plasma", MultVal = 1.50 },
+	{ Id = "ach_dm1", Name = "Oltre il Limite", Desc = "Completa 1 Collasso Quantistico", Stat = "DarkMatterEarned", Target = 1, BonusText = "x3.0 Tutto", MultType = "All", MultVal = 3.00 },
+}
+
+-- Codici Promo
+GameConfig.PromoCodes = {
+	["QUANTUM100"] = { Watt = 300, Plasma = 0, Msg = "+300 Watt riscattati!" },
+	["NEON2026"] = { Watt = 0, Plasma = 60, Msg = "+60 Plasma riscattati!" },
+	["CORE500"] = { Watt = 1500, Plasma = 35, Msg = "+1.5K Watt e +35 Plasma!" },
+	["DRONEFREE"] = { Watt = 0, Plasma = 50, Msg = "+50 Plasma per un Drone gratis!" },
+}
+
+-- 7 Stadi Evolutivi del Nucleo Centrale
 GameConfig.CoreStages = {
-	{
-		soglia = 0,
-		raggio = 3.5,
-		colore = Color3.fromRGB(0, 245, 255),
-		velocitaRotazione = 0.6,
-		anelli = 1,
-		scalaAnelli = 1.0,
-	},
-	{
-		soglia = 1e3,
-		raggio = 4.4,
-		colore = Color3.fromRGB(0, 200, 255),
-		velocitaRotazione = 0.9,
-		anelli = 2,
-		scalaAnelli = 1.1,
-	},
-	{
-		soglia = 1e6,
-		raggio = 5.4,
-		colore = Color3.fromRGB(120, 90, 255),
-		velocitaRotazione = 1.35,
-		anelli = 2,
-		scalaAnelli = 1.25,
-	},
-	{
-		soglia = 1e9,
-		raggio = 6.6,
-		colore = Color3.fromRGB(255, 60, 230),
-		velocitaRotazione = 1.9,
-		anelli = 3,
-		scalaAnelli = 1.45,
-	},
-	{
-		soglia = 1e12,
-		raggio = 7.8,
-		colore = Color3.fromRGB(255, 170, 40),
-		velocitaRotazione = 2.6,
-		anelli = 4,
-		scalaAnelli = 1.65,
-	},
-}
-
---------------------------------------------------------------------------------
--- TEMA / COLORI / TESTI
---------------------------------------------------------------------------------
-
-GameConfig.Theme = {
-	Sfondo = Color3.fromRGB(8, 10, 18),
-	Pannello = Color3.fromRGB(14, 18, 30),
-	PannelloChiaro = Color3.fromRGB(24, 30, 48),
-	Bordo = Color3.fromRGB(55, 70, 105),
-	Testo = Color3.fromRGB(235, 240, 255),
-	["Testo attenuato"] = Color3.fromRGB(140, 155, 185),
-	Accento = Color3.fromRGB(0, 245, 255),
-	AccentoSecondario = Color3.fromRGB(255, 60, 230),
-	MateriaOscura = Color3.fromRGB(165, 90, 255),
-	Successo = Color3.fromRGB(80, 255, 170),
-	Pericolo = Color3.fromRGB(255, 90, 120),
-	PavimentoScuro = Color3.fromRGB(14, 16, 24),
-	PavimentoChiaro = Color3.fromRGB(22, 26, 38),
-	Muro = Color3.fromRGB(10, 12, 20),
-	Oro = Color3.fromRGB(255, 200, 60),
-}
-
-GameConfig.Testi = {
-	HudWatt = "WATT",
-	HudRate = "al secondo",
-	HudPlasma = "PLASMA",
-	HudMateriaOscura = "MATERIA OSCURA",
-	HudBoost = "SOVRACCARICO x2",
-	Suggerimento = "Cammina sui pulsanti per comprare livelli - clicca i nodi sul muro",
-	OfflineTitolo = "BENTORNATO, OPERATORE",
-	OfflineTesto = "Il nucleo ha continuato a produrre mentre eri via:",
-	OfflineBottone = "RISCUOTI",
-	PrestigeTitolo = "COLLASSO QUANTISTICO",
-	PrestigePronto = "PRONTO AL COLLASSO",
-	PrestigeBloccato = "Richiede 1e15 Watt",
-	MuroTitolo = "UPGRADE TREE",
-	MuroSottotitolo = "POTENZIA IL NUCLEO - NESSUNA PERDITA DI PROGRESSO",
-	NodoBloccato = "BLOCCATO",
-	NodoAttivo = "ATTIVO",
-	NodoAcquistabile = "ACQUISTA",
+	{ MinWatt = 0, Size = 5.2, Color = Color3.fromRGB(0, 225, 255), Spin = 1.0 },
+	{ MinWatt = 1e3, Size = 6.0, Color = Color3.fromRGB(0, 255, 155), Spin = 1.4 },
+	{ MinWatt = 1e5, Size = 6.8, Color = Color3.fromRGB(110, 140, 255), Spin = 1.9 },
+	{ MinWatt = 1e7, Size = 7.8, Color = Color3.fromRGB(195, 75, 255), Spin = 2.4 },
+	{ MinWatt = 1e9, Size = 8.8, Color = Color3.fromRGB(255, 195, 0), Spin = 3.0 },
+	{ MinWatt = 1e11, Size = 9.8, Color = Color3.fromRGB(255, 95, 35), Spin = 3.8 },
+	{ MinWatt = 1e13, Size = 11.0, Color = Color3.fromRGB(255, 45, 95), Spin = 4.6 },
 }
 
 return GameConfig

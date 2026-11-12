@@ -1,905 +1,833 @@
---!nonstrict
---[[
-	GameEngine - tutta l'economia del gioco vive qui, sul server.
-
-	Il client e' puramente estetico: manda solo richieste ("voglio comprare X")
-	che vengono ricalcolate e validate qui. Nessun numero che arriva dal client
-	viene mai usato per aumentare Watt, Plasma o Materia Oscura.
-
-	Contenuti:
-	  - creazione automatica dei RemoteEvent / RemoteFunction
-	  - DataStore con pcall (funziona anche in locale senza API attive)
-	  - guadagno offline calcolato con os.time()
-	  - loop principale a 0.1s: Watt, Plasma, Auto-Buyer, leaderstats
-	  - acquisto continuo mentre si resta sopra un pulsante (0.15s)
-	  - validazione nodi del muro e Collasso Quantistico (prestige)
-	  - Sfere di Sovraccarico: boost x2 per 30s
-	  - classifica globale su OrderedDataStore (Top 10)
-]]
-
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local DataStoreService = game:GetService("DataStoreService")
-local Workspace = game:GetService("Workspace")
+local HttpService = game:GetService("HttpService")
 
-local Shared = ReplicatedStorage:WaitForChild("Shared")
-local BigNum = require(Shared:WaitForChild("BigNum"))
-local GameConfig = require(Shared:WaitForChild("GameConfig"))
+local Modules = ReplicatedStorage:WaitForChild("Modules")
+local BigNum = require(Modules:WaitForChild("BigNum"))
+local GameConfig = require(Modules:WaitForChild("GameConfig"))
 
---------------------------------------------------------------------------------
--- REMOTES (creati se non esistono)
---------------------------------------------------------------------------------
+local world = workspace:WaitForChild("QuantumWorld")
+local corePart = world:WaitForChild("QuantumCoreAssembly"):WaitForChild("CorePart")
+local floorButtons = world:WaitForChild("FloorButtons")
+local droneStation = world:WaitForChild("DroneStation")
+local lbList = world:WaitForChild("LeaderboardWall"):WaitForChild("LeaderboardGui"):WaitForChild("List")
 
-local REMOTES_FOLDER = "QuantumCoreRemotes"
+-- Creazione Remotes
+local remotes = Instance.new("Folder")
+remotes.Name = "Remotes"
+remotes.Parent = ReplicatedStorage
 
-local function cartellaRemotes()
-	local esistente = ReplicatedStorage:FindFirstChild(REMOTES_FOLDER)
-	if esistente then
-		return esistente
-	end
-	local cartella = Instance.new("Folder")
-	cartella.Name = REMOTES_FOLDER
-	cartella.Parent = ReplicatedStorage
-	return cartella
+local function newRemote(className, name)
+	local r = Instance.new(className)
+	r.Name = name
+	r.Parent = remotes
+	return r
 end
 
-local function creaRemote(nome, classe)
-	local cartella = cartellaRemotes()
-	local esistente = cartella:FindFirstChild(nome)
-	if esistente and esistente:IsA(classe) then
-		return esistente
-	end
-	if esistente then
-		esistente:Destroy()
-	end
-	local nuovo = Instance.new(classe)
-	nuovo.Name = nome
-	nuovo.Parent = cartella
-	return nuovo
-end
+local StateSync = newRemote("RemoteEvent", "StateSync")
+local BuyUpgrade = newRemote("RemoteEvent", "BuyUpgrade")
+local BuyDarkUpgrade = newRemote("RemoteEvent", "BuyDarkUpgrade")
+local PrestigeEvent = newRemote("RemoteEvent", "Prestige")
+local CraftDroneEvent = newRemote("RemoteEvent", "CraftDrone")
+local RedeemCode = newRemote("RemoteFunction", "RedeemCode")
+local ClaimDaily = newRemote("RemoteFunction", "ClaimDaily")
 
-local Remotes = {
-	State = creaRemote("State", "RemoteEvent"),
-	Feedback = creaRemote("Feedback", "RemoteEvent"),
-	Offline = creaRemote("Offline", "RemoteEvent"),
-	GetProfile = creaRemote("GetProfile", "RemoteFunction"),
-	Purchase = creaRemote("Purchase", "RemoteFunction"),
-	BuyNode = creaRemote("BuyNode", "RemoteFunction"),
-	Prestige = creaRemote("Prestige", "RemoteFunction"),
+-- DataStores protetti
+local mainStore, orderedStore
+pcall(function()
+	mainStore = DataStoreService:GetDataStore("QuantumCore_Full_V1")
+	orderedStore = DataStoreService:GetOrderedDataStore("QuantumCore_TopWatt_Full_V1")
+end)
+
+local PlayerData = {}
+local ActiveOrbs = {}
+local ActiveEvents = {
+	CoreOverloadUntil = 0,
+	CrystalRainUntil = 0,
+	GoldenSurgeUntil = 0,
 }
 
---------------------------------------------------------------------------------
--- DATASTORE (sempre protetto da pcall: in locale puo' non essere disponibile)
---------------------------------------------------------------------------------
+local function defaultData()
+	return {
+		Watt = 15,
+		TotalWatt = 15,
+		Plasma = 0,
+		DarkMatter = 0,
+		DarkMatterEarned = 0,
+		TotalClicks = 0,
+		DronesCrafted = 0,
+		Buttons = {},
+		Upgrades = {},
+		DarkUpgrades = {},
+		Drones = {},
+		Achievements = {},
+		UsedCodes = {},
+		LastDaily = 0,
+		LastLogout = os.time(),
+	}
+end
 
-local function creaDataStore(nome, ordinato)
-	local ok, risultato = pcall(function()
-		if ordinato then
-			return DataStoreService:GetOrderedDataStore(nome)
+local function getLvl(tbl, id)
+	return (tbl and tbl[id]) or 0
+end
+
+local function getMaxDroneSlots(data)
+	return GameConfig.BaseEquippedDrones + getLvl(data.Upgrades, "u16")
+end
+
+local function getDroneCost(data)
+	if getLvl(data.DarkUpgrades, "dm2") > 0 then
+		return math.floor(GameConfig.BaseDroneCost * 0.5)
+	end
+	return GameConfig.BaseDroneCost
+end
+
+local function getEquippedDrones(data)
+	local list = {}
+	for _, dId in ipairs(data.Drones) do
+		for _, cfg in ipairs(GameConfig.Drones) do
+			if cfg.Id == dId then
+				table.insert(list, cfg)
+				break
+			end
 		end
-		return DataStoreService:GetDataStore(nome)
+	end
+	table.sort(list, function(a, b)
+		return a.WattMult > b.WattMult
 	end)
-	if ok then
-		return risultato
+	local maxSlots = getMaxDroneSlots(data)
+	local equipped = {}
+	for i = 1, math.min(maxSlots, #list) do
+		table.insert(equipped, list[i])
 	end
-	warn("[Quantum Core] DataStore '" .. nome .. "' non disponibile: si gioca in memoria. " .. tostring(risultato))
-	return nil
+	return equipped
 end
 
-local storeProfili = creaDataStore(GameConfig.Meta.DataStoreName, false)
-local storeClassifica = creaDataStore(GameConfig.Meta.LeaderboardStoreName, true)
-
---------------------------------------------------------------------------------
--- TABELLE DI LOOKUP
---------------------------------------------------------------------------------
-
-local PULSANTI_PER_ID = {}
-for _, pulsante in GameConfig.Buttons do
-	PULSANTI_PER_ID[pulsante.id] = pulsante
-end
-
-local NODI_PER_ID = {}
-for _, nodo in GameConfig.Nodes do
-	NODI_PER_ID[nodo.id] = nodo
-end
-
-local NODO_PRESTIGIO = NODI_PER_ID[GameConfig.Prestige.NodeId]
-
---------------------------------------------------------------------------------
--- PROFILI
---------------------------------------------------------------------------------
-
-local profili = {} -- [userId] = profilo
-local ultimiAcquisti = {} -- [userId] = os.clock dell'ultimo acquisto
-
-local rng = Random.new()
-
-local function numeroSicuro(valore)
-	if type(valore) ~= "number" or valore ~= valore then
-		return 0
+local function getTotalButtonLevels(data)
+	local sum = 0
+	for _, v in pairs(data.Buttons) do
+		sum += v
 	end
-	if valore < 0 then
-		return 0
-	end
-	return BigNum.clamp(valore)
+	return sum
 end
 
-local function nuovoProfilo()
+local function calculateStats(data)
+	local baseWattSec = 0
+	local wattMult = 1
+	local plasmaSec = 0
+	local plasmaMult = 1
+	local clickMult = 1
+	local costDiscount = 0
+	local droneSynergy = 1
+	local orbBonus = 1
+	local comboBonus = 0
+
+	-- Pulsanti a terra
+	for _, btn in ipairs(GameConfig.Buttons) do
+		local lvl = getLvl(data.Buttons, btn.Id)
+		if lvl > 0 then
+			if btn.Type == "AddWatt" then
+				baseWattSec += btn.Value * lvl
+			elseif btn.Type == "MultWatt" then
+				wattMult *= (btn.Value ^ lvl)
+			end
+		end
+	end
+
+	-- Upgrade Tree principale
+	for _, upg in ipairs(GameConfig.Upgrades) do
+		local lvl = getLvl(data.Upgrades, upg.Id)
+		if lvl > 0 then
+			if upg.Effect == "WattMult" then
+				wattMult *= (upg.Value ^ lvl)
+			elseif upg.Effect == "PlasmaMult" then
+				plasmaMult *= (upg.Value ^ lvl)
+			elseif upg.Effect == "ClickMult" then
+				clickMult *= (upg.Value ^ lvl)
+			elseif upg.Effect == "CostDiscount" then
+				costDiscount = math.min(0.75, costDiscount + upg.Value * lvl)
+			elseif upg.Effect == "UnlockPlasma" then
+				plasmaSec += 1
+			elseif upg.Effect == "DroneSynergy" then
+				droneSynergy += upg.Value * lvl
+			elseif upg.Effect == "OrbBonus" then
+				orbBonus += upg.Value * lvl
+			elseif upg.Effect == "ComboBonus" then
+				comboBonus += upg.Value * lvl
+			end
+		end
+	end
+
+	-- Bonus Droni equipaggiati
+	local equipped = getEquippedDrones(data)
+	local droneWattBonus = 1
+	local dronePlasmaBonus = 1
+	for _, d in ipairs(equipped) do
+		droneWattBonus += (d.WattMult - 1) * droneSynergy
+		dronePlasmaBonus += (d.PlasmaMult - 1) * droneSynergy
+	end
+	wattMult *= droneWattBonus
+	plasmaMult *= dronePlasmaBonus
+
+	-- Bonus Obiettivi sbloccati
+	for _, ach in ipairs(GameConfig.Achievements) do
+		if data.Achievements[ach.Id] then
+			if ach.MultType == "Watt" then
+				wattMult *= ach.MultVal
+			elseif ach.MultType == "Plasma" then
+				plasmaMult *= ach.MultVal
+			elseif ach.MultType == "Click" then
+				clickMult *= ach.MultVal
+			elseif ach.MultType == "All" then
+				wattMult *= ach.MultVal
+				plasmaMult *= ach.MultVal
+				clickMult *= ach.MultVal
+			end
+		end
+	end
+
+	-- Bonus Materia Oscura + Dark Upgrades
+	if data.DarkMatterEarned > 0 then
+		wattMult *= (5 ^ data.DarkMatterEarned)
+		plasmaMult *= (3 ^ data.DarkMatterEarned)
+	end
+	local hyperLvl = getLvl(data.DarkUpgrades, "dm4")
+	if hyperLvl > 0 then
+		wattMult *= (25 ^ hyperLvl)
+		plasmaMult *= (25 ^ hyperLvl)
+	end
+
+	-- Boost temporanei ed Eventi
+	local now = os.time()
+	if data.OrbBoostUntil and now < data.OrbBoostUntil then
+		wattMult *= 2
+	end
+	if now < ActiveEvents.CoreOverloadUntil then
+		wattMult *= 5
+		clickMult *= 5
+	end
+	if now < ActiveEvents.GoldenSurgeUntil then
+		wattMult *= 3
+		plasmaMult *= 3
+	end
+
 	return {
-		watt = GameConfig.Economy.StartingWatt,
-		plasma = 0,
-		materiaOscura = 0,
-		statisticheWatt = 0, -- Watt totali guadagnati: base della classifica
-		buttons = {},
-		nodes = {},
-		lastSeen = os.time(),
-		boostUntil = 0,
-		prestigi = 0,
+		WattPerSec = baseWattSec * wattMult,
+		PlasmaPerSec = plasmaSec * plasmaMult,
+		ClickPower = math.max(1, (1 + baseWattSec * 0.25) * clickMult),
+		CostDiscount = costDiscount,
+		DroneWattBonus = droneWattBonus,
+		DronePlasmaBonus = dronePlasmaBonus,
+		OrbBonus = orbBonus,
+		ComboBonus = comboBonus,
+		EquippedDrones = equipped,
+		MaxDroneSlots = getMaxDroneSlots(data),
+		DroneCost = getDroneCost(data),
 	}
 end
 
--- Accetta dal DataStore solo cio' che conosciamo: niente ID inventati.
-local function sanificaProfilo(dati)
-	local profilo = nuovoProfilo()
-	if type(dati) ~= "table" then
-		return profilo
-	end
-
-	profilo.watt = numeroSicuro(dati.watt)
-	profilo.plasma = numeroSicuro(dati.plasma)
-	profilo.materiaOscura = math.floor(numeroSicuro(dati.materiaOscura))
-	profilo.statisticheWatt = numeroSicuro(dati.statisticheWatt)
-	profilo.boostUntil = numeroSicuro(dati.boostUntil)
-	profilo.prestigi = math.floor(numeroSicuro(dati.prestigi))
-
-	local lastSeen = math.floor(numeroSicuro(dati.lastSeen))
-	profilo.lastSeen = lastSeen > 0 and lastSeen or os.time()
-
-	if type(dati.buttons) == "table" then
-		for id, livello in pairs(dati.buttons) do
-			if PULSANTI_PER_ID[id] and type(livello) == "number" then
-				profilo.buttons[id] = math.clamp(math.floor(livello), 0, GameConfig.Economy.MaxLevels)
-			end
-		end
-	end
-
-	if type(dati.nodes) == "table" then
-		for id, sbloccato in pairs(dati.nodes) do
-			if NODI_PER_ID[id] and sbloccato == true then
-				profilo.nodes[id] = true
-			end
-		end
-	end
-
-	return profilo
-end
-
---------------------------------------------------------------------------------
--- CALCOLI ECONOMICI
---------------------------------------------------------------------------------
-
--- Ricalcola da zero produzione e moltiplicatori: nessun valore "accumulato" fidato.
-local function calcolaStatistiche(profilo)
-	local produzioneBase = 0
-	local moltiplicatorePulsanti = 1
-
-	for _, pulsante in GameConfig.Buttons do
-		local livello = profilo.buttons[pulsante.id] or 0
-		if livello > 0 then
-			if pulsante.effectType == "WattPerSecond" then
-				produzioneBase += pulsante.value * livello
-			elseif pulsante.effectType == "WattMultiplier" then
-				moltiplicatorePulsanti *= pulsante.value ^ livello
-			end
-		end
-	end
-
-	local potenzaGeneratori = 1
-	local moltiplicatoreGlobale = 1
-	local riduzioneCosto = 1
-	local frequenzaBonus = 1
-	local plasmaAdditivo = 0
-	local moltiplicatorePlasma = 1
-	local autoBuy = 0
-
-	for _, nodo in GameConfig.Nodes do
-		if profilo.nodes[nodo.id] then
-			for _, effetto in nodo.effects do
-				local tipo = effetto.kind
-				local valore = effetto.value
-				if tipo == "GeneratorPower" then
-					potenzaGeneratori *= valore
-				elseif tipo == "CostReduction" then
-					riduzioneCosto *= valore
-				elseif tipo == "GlobalWatt" then
-					moltiplicatoreGlobale *= valore
-				elseif tipo == "BonusFrequency" then
-					frequenzaBonus *= valore
-				elseif tipo == "PlasmaRate" then
-					plasmaAdditivo += valore
-				elseif tipo == "PlasmaMultiplier" then
-					moltiplicatorePlasma *= valore
-				elseif tipo == "AutoBuyLevels" then
-					autoBuy = math.max(autoBuy, valore)
-				end
-			end
-		end
-	end
-
-	local moltiplicatorePrestigio = math.min(
-		GameConfig.Prestige.MultiplierPerDarkMatter ^ profilo.materiaOscura,
-		GameConfig.Prestige.MaxMultiplier
-	)
-
-	local wattPerSecondo = produzioneBase
-		* moltiplicatorePulsanti
-		* potenzaGeneratori
-		* moltiplicatoreGlobale
-		* moltiplicatorePrestigio
-
-	return {
-		wattPerSecondo = BigNum.clamp(wattPerSecondo),
-		plasmaPerSecondo = plasmaAdditivo * moltiplicatorePlasma,
-		riduzioneCosto = riduzioneCosto,
-		frequenzaBonus = frequenzaBonus,
-		autoBuy = autoBuy,
-		moltiplicatorePrestigio = moltiplicatorePrestigio,
+local function checkAchievements(data)
+	local unlockedNew = nil
+	local statValues = {
+		TotalClicks = data.TotalClicks or 0,
+		TotalWatt = data.TotalWatt or 0,
+		TotalButtonLevels = getTotalButtonLevels(data),
+		DronesCrafted = data.DronesCrafted or 0,
+		DarkMatterEarned = data.DarkMatterEarned or 0,
 	}
-end
-
-local function costoPulsante(profilo, pulsante, riduzioneCosto)
-	local livello = profilo.buttons[pulsante.id] or 0
-	return BigNum.clamp(pulsante.baseCost * (pulsante.costMultiplier ^ livello) * riduzioneCosto)
-end
-
-local function guadagnoPrestigio(watt)
-	if watt < GameConfig.Prestige.RequiredWatt then
-		return 0
-	end
-	return math.max(1, math.floor((watt / GameConfig.Prestige.RequiredWatt) ^ GameConfig.Prestige.GainExponent))
-end
-
-local function prestigioPronto(profilo)
-	if not NODO_PRESTIGIO then
-		return false
-	end
-	for _, requisito in NODO_PRESTIGIO.requires do
-		if not profilo.nodes[requisito] then
-			return false
+	for _, ach in ipairs(GameConfig.Achievements) do
+		if not data.Achievements[ach.Id] then
+			local cur = statValues[ach.Stat] or 0
+			if cur >= ach.Target then
+				data.Achievements[ach.Id] = true
+				unlockedNew = ach.Name .. " (" .. ach.BonusText .. ")"
+			end
 		end
 	end
-	return profilo.watt >= GameConfig.Prestige.RequiredWatt
+	return unlockedNew
 end
 
---------------------------------------------------------------------------------
--- STATO INVIATO AL CLIENT
---------------------------------------------------------------------------------
+local function syncPlayer(player, extraPayload)
+	local data = PlayerData[player.UserId]
+	if not data then return end
 
-local function creaPayload(player, profilo)
-	local stats = calcolaStatistiche(profilo)
+	local newAch = checkAchievements(data)
+	local stats = calculateStats(data)
 
-	local costi = {}
-	for _, pulsante in GameConfig.Buttons do
-		costi[pulsante.id] = costoPulsante(profilo, pulsante, stats.riduzioneCosto)
+	player:SetAttribute("DarkMatter", data.DarkMatterEarned)
+	local eqIds = {}
+	for _, d in ipairs(stats.EquippedDrones) do
+		table.insert(eqIds, d.Id)
+	end
+	player:SetAttribute("EquippedDrones", HttpService:JSONEncode(eqIds))
+
+	local ls = player:FindFirstChild("leaderstats")
+	if ls then
+		ls.Watt.Value = BigNum.Format(data.Watt)
+		ls.Plasma.Value = BigNum.Format(data.Plasma)
 	end
 
-	local pulsanti = {}
-	for id, livello in pairs(profilo.buttons) do
-		pulsanti[id] = livello
+	-- Conta quanti droni possiede per tipo
+	local droneCounts = {}
+	for _, id in ipairs(data.Drones) do
+		droneCounts[id] = (droneCounts[id] or 0) + 1
 	end
 
-	local nodi = {}
-	for id in pairs(profilo.nodes) do
-		nodi[id] = true
-	end
-
-	return {
-		watt = profilo.watt,
-		wattPerSecondo = stats.wattPerSecondo,
-		plasma = profilo.plasma,
-		plasmaPerSecondo = stats.plasmaPerSecondo,
-		materiaOscura = profilo.materiaOscura,
-		boostUntil = profilo.boostUntil,
-		serverTime = os.time(),
-		buttons = pulsanti,
-		nodes = nodi,
-		costs = costi,
-		autoBuy = stats.autoBuy,
-		bonus = profilo._bonusSpot,
-		prestige = {
-			reward = guadagnoPrestigio(profilo.watt),
-			ready = prestigioPronto(profilo),
-			required = GameConfig.Prestige.RequiredWatt,
+	local now = os.time()
+	local payload = {
+		Watt = data.Watt,
+		TotalWatt = data.TotalWatt,
+		Plasma = data.Plasma,
+		DarkMatter = data.DarkMatter,
+		DarkMatterEarned = data.DarkMatterEarned,
+		WattPerSec = stats.WattPerSec,
+		PlasmaPerSec = stats.PlasmaPerSec,
+		CostDiscount = stats.CostDiscount,
+		DroneWattBonus = stats.DroneWattBonus,
+		DronePlasmaBonus = stats.DronePlasmaBonus,
+		EquippedCount = #stats.EquippedDrones,
+		MaxDroneSlots = stats.MaxDroneSlots,
+		DroneCost = stats.DroneCost,
+		DroneCounts = droneCounts,
+		Buttons = data.Buttons,
+		Upgrades = data.Upgrades,
+		DarkUpgrades = data.DarkUpgrades,
+		Achievements = data.Achievements,
+		StatProgress = {
+			TotalClicks = data.TotalClicks or 0,
+			TotalWatt = data.TotalWatt or 0,
+			TotalButtonLevels = getTotalButtonLevels(data),
+			DronesCrafted = data.DronesCrafted or 0,
+			DarkMatterEarned = data.DarkMatterEarned or 0,
 		},
-		offline = profilo._reportOffline,
+		OrbBoostLeft = math.max(0, (data.OrbBoostUntil or 0) - now),
+		CoreOverloadLeft = math.max(0, ActiveEvents.CoreOverloadUntil - now),
+		CrystalRainLeft = math.max(0, ActiveEvents.CrystalRainUntil - now),
+		GoldenSurgeLeft = math.max(0, ActiveEvents.GoldenSurgeUntil - now),
 	}
-end
 
-local function inviaStato(player, profilo)
-	local payload = creaPayload(player, profilo)
-
-	-- Il report offline viaggia una volta sola.
-	if profilo._reportOffline then
-		Remotes.Offline:FireClient(player, profilo._reportOffline)
-		profilo._reportOffline = nil
-		payload.offline = nil
+	if newAch then
+		payload.AchievementUnlocked = newAch
 	end
-
-	Remotes.State:FireClient(player, payload)
+	if extraPayload then
+		for k, v in pairs(extraPayload) do
+			payload[k] = v
+		end
+	end
+	StateSync:FireClient(player, payload)
 end
 
---------------------------------------------------------------------------------
--- LEADERSTATS
---------------------------------------------------------------------------------
-
-local function creaLeaderstats(player)
-	local cartella = Instance.new("Folder")
-	cartella.Name = "leaderstats"
-
-	local watt = Instance.new("IntValue")
-	watt.Name = "Watt"
-	watt.Value = 0
-	watt.Parent = cartella
-
-	local materia = Instance.new("IntValue")
-	materia.Name = "MateriaOscura"
-	materia.Value = 0
-	materia.Parent = cartella
-
-	cartella.Parent = player
-	return watt, materia
+-- Acquisto continuo sui 9 pulsanti a terra
+local function getButtonCost(btnCfg, level, discount)
+	local raw = btnCfg.BaseCost * (btnCfg.CostMult ^ level)
+	return math.max(1, math.floor(raw * (1 - discount)))
 end
 
---------------------------------------------------------------------------------
--- CARICAMENTO / SALVATAGGIO
---------------------------------------------------------------------------------
+local function tryBuyButton(player, btnCfg)
+	local data = PlayerData[player.UserId]
+	if not data then return false end
+	local stats = calculateStats(data)
+	local lvl = getLvl(data.Buttons, btnCfg.Id)
+	local cost = getButtonCost(btnCfg, lvl, stats.CostDiscount)
+	if data.Watt >= cost then
+		data.Watt -= cost
+		data.Buttons[btnCfg.Id] = lvl + 1
+		syncPlayer(player, { SoundCue = "Buy" })
+		return true
+	end
+	return false
+end
 
-local KEY_PREFIX = "player_"
-
-local function caricaProfilo(player)
-	local profilo
-
-	if storeProfili then
-		local ok, dati = pcall(function()
-			return storeProfili:GetAsync(KEY_PREFIX .. player.UserId)
+local TouchingMap = {}
+for _, btnCfg in ipairs(GameConfig.Buttons) do
+	local pad = floorButtons:FindFirstChild(btnCfg.Id)
+	if pad then
+		TouchingMap[btnCfg.Id] = {}
+		pad.Touched:Connect(function(hit)
+			local plr = Players:GetPlayerFromCharacter(hit.Parent)
+			if plr then
+				TouchingMap[btnCfg.Id][plr.UserId] = plr
+			end
 		end)
-		if ok then
-			profilo = sanificaProfilo(dati)
-		else
-			warn("[Quantum Core] Caricamento fallito per " .. player.Name .. ": " .. tostring(dati))
-			profilo = nuovoProfilo()
-		end
-	else
-		profilo = nuovoProfilo()
-	end
-
-	-- Guadagno offline: tempo trascorso * produzione * efficienza offline.
-	local trascorso = math.clamp(os.time() - profilo.lastSeen, 0, GameConfig.Economy.OfflineMaxSeconds)
-	if trascorso >= 60 then
-		local stats = calcolaStatistiche(profilo)
-		local guadagno = stats.wattPerSecondo * trascorso * GameConfig.Economy.OfflineEfficiency
-		if guadagno > 0 then
-			profilo.watt += guadagno
-			profilo.statisticheWatt += guadagno
-			profilo._reportOffline = {
-				secondi = trascorso,
-				watt = guadagno,
-			}
-		end
-	end
-
-	profilo.lastSeen = os.time()
-	profilo._autoBuyTimer = 0
-	profilo._prossimoBonus = os.clock() + GameConfig.Economy.BonusInterval
-	profilo._bonusSpot = nil
-	profilo._bonusBorn = 0
-
-	return profilo
-end
-
-local function salvaProfilo(player, profilo)
-	if not profilo then
-		return
-	end
-	profilo.lastSeen = os.time()
-
-	if not storeProfili then
-		return
-	end
-
-	local dati = {
-		watt = profilo.watt,
-		plasma = profilo.plasma,
-		materiaOscura = profilo.materiaOscura,
-		statisticheWatt = profilo.statisticheWatt,
-		buttons = profilo.buttons,
-		nodes = profilo.nodes,
-		lastSeen = profilo.lastSeen,
-		boostUntil = profilo.boostUntil,
-		prestigi = profilo.prestigi,
-	}
-
-	local ok, errore = pcall(function()
-		storeProfili:SetAsync(KEY_PREFIX .. player.UserId, dati)
-	end)
-	if not ok then
-		warn("[Quantum Core] Salvataggio fallito per " .. player.Name .. ": " .. tostring(errore))
-	end
-
-	if storeClassifica then
-		pcall(function()
-			storeClassifica:SetAsync(player.UserId, math.floor(profilo.statisticheWatt))
+		pad.TouchEnded:Connect(function(hit)
+			local plr = Players:GetPlayerFromCharacter(hit.Parent)
+			if plr then
+				TouchingMap[btnCfg.Id][plr.UserId] = nil
+			end
 		end)
 	end
 end
-
---------------------------------------------------------------------------------
--- CLASSIFICA GLOBALE (SurfaceGui sul muro laterale)
---------------------------------------------------------------------------------
-
-local cacheNomi = {}
-
-local function nomeDaUserId(userId)
-	local cached = cacheNomi[userId]
-	if cached then
-		return cached
-	end
-	local ok, nome = pcall(function()
-		return Players:GetNameFromUserIdAsync(userId)
-	end)
-	nome = (ok and nome) or ("Player" .. tostring(userId))
-	cacheNomi[userId] = nome
-	return nome
-end
-
-local function sfondoClassifica()
-	local mappa = Workspace:FindFirstChild("QuantumCoreMap")
-	local pannello = mappa and mappa:FindFirstChild("LeaderboardBoard")
-	local gui = pannello and pannello:FindFirstChild("LeaderboardGui")
-	return gui and gui:FindFirstChild("Sfondo")
-end
-
-local function scriviRighe(sfondo, voci)
-	for indice = 1, GameConfig.Meta.MaxLeaderboardEntries do
-		local etichetta = sfondo:FindFirstChild("Row" .. indice)
-		if etichetta then
-			local voce = voci[indice]
-			if voce then
-				etichetta.Text = string.format("%d. %s - %s", indice, voce.nome, BigNum.format(voce.valore))
-			else
-				etichetta.Text = string.format("%d. ---", indice)
-			end
-		end
-	end
-end
-
--- Fallback usato quando OrderedDataStore non e' disponibile (es. Studio locale).
-local function classificaDaMemoria(sfondo)
-	local voci = {}
-	for _, player in Players:GetPlayers() do
-		local profilo = profili[player.UserId]
-		if profilo then
-			table.insert(voci, { nome = player.DisplayName, valore = profilo.statisticheWatt })
-		end
-	end
-	table.sort(voci, function(a, b)
-		return a.valore > b.valore
-	end)
-	scriviRighe(sfondo, voci)
-end
-
-local function aggiornaClassifica()
-	local sfondo = sfondoClassifica()
-	if not sfondo then
-		return
-	end
-
-	if not storeClassifica then
-		classificaDaMemoria(sfondo)
-		return
-	end
-
-	local ok, pagine = pcall(function()
-		return storeClassifica:GetSortedAsync(false, GameConfig.Meta.MaxLeaderboardEntries)
-	end)
-	if not ok or not pagine then
-		classificaDaMemoria(sfondo)
-		return
-	end
-
-	local okPagina, pagina = pcall(function()
-		return pagine:GetCurrentPage()
-	end)
-	if not okPagina or not pagina then
-		classificaDaMemoria(sfondo)
-		return
-	end
-
-	local voci = {}
-	for _, elemento in pagina do
-		table.insert(voci, {
-			nome = nomeDaUserId(elemento.key),
-			valore = elemento.value,
-		})
-	end
-	scriviRighe(sfondo, voci)
-end
-
---------------------------------------------------------------------------------
--- AZIONI DI GIOCO (tutte validate lato server)
---------------------------------------------------------------------------------
-
--- Cerca il pulsante su cui il giocatore e' davvero in piedi (posizione del server).
-local function padSottoGiocatore(player)
-	local character = player.Character
-	local root = character and character:FindFirstChild("HumanoidRootPart")
-	if not root then
-		return nil
-	end
-
-	local posizione = root.Position
-	if math.abs(posizione.Y - GameConfig.Map.PlatformTopY) > 10 then
-		return nil
-	end
-
-	for _, pulsante in GameConfig.Buttons do
-		local pad = pulsante.pos
-		local dx = posizione.X - pad.X
-		local dz = posizione.Z - pad.Z
-		if math.sqrt(dx * dx + dz * dz) <= GameConfig.Map.ButtonDetectRadius then
-			return pulsante
-		end
-	end
-
-	return nil
-end
-
-local function acquistaPulsante(player, profilo, pulsante, stats)
-	stats = stats or calcolaStatistiche(profilo)
-
-	local livello = profilo.buttons[pulsante.id] or 0
-	if livello >= GameConfig.Economy.MaxLevels then
-		return false, "Livello massimo raggiunto"
-	end
-
-	local costo = costoPulsante(profilo, pulsante, stats.riduzioneCosto)
-	if profilo.watt < costo then
-		return false, "Watt insufficienti"
-	end
-
-	profilo.watt -= costo
-	profilo.buttons[pulsante.id] = livello + 1
-
-	Remotes.Feedback:FireClient(player, {
-		kind = "Purchase",
-		buttonId = pulsante.id,
-		level = livello + 1,
-	})
-
-	return true
-end
-
-local function acquistaNodo(player, profilo, nodoId)
-	local nodo = NODI_PER_ID[nodoId]
-	if not nodo then
-		return false, "Nodo inesistente"
-	end
-
-	-- Il nodo finale non si "compra": esegue il prestige.
-	if nodo.isPrestige then
-		return false, "Usa il pulsante Collasso Quantistico"
-	end
-
-	if profilo.nodes[nodo.id] then
-		return false, "Nodo gia' sbloccato"
-	end
-
-	for _, requisito in nodo.requires do
-		if not profilo.nodes[requisito] then
-			return false, "Prerequisiti mancanti"
-		end
-	end
-
-	local saldo = nodo.currency == "Plasma" and profilo.plasma or profilo.watt
-	if saldo < nodo.cost then
-		return false, "Risorse insufficienti"
-	end
-
-	if nodo.currency == "Plasma" then
-		profilo.plasma -= nodo.cost
-	else
-		profilo.watt -= nodo.cost
-	end
-
-	profilo.nodes[nodo.id] = true
-	Remotes.Feedback:FireClient(player, { kind = "Node", nodeId = nodo.id })
-
-	return true, "Sbloccato: " .. nodo.nome
-end
-
-local function eseguiPrestigio(player, profilo)
-	if not prestigioPronto(profilo) then
-		return false, "Servono 1e15 Watt e il nodo Singolarita'"
-	end
-
-	local guadagno = guadagnoPrestigio(profilo.watt)
-	if guadagno <= 0 then
-		return false, "Watt insufficienti"
-	end
-
-	profilo.materiaOscura += guadagno
-	profilo.prestigi += 1
-	profilo.watt = 0
-	profilo.plasma = 0
-	profilo.boostUntil = 0
-	profilo._bonusSpot = nil
-	profilo._prossimoBonus = os.clock() + GameConfig.Economy.BonusInterval
-
-	Remotes.Feedback:FireClient(player, { kind = "Prestige", darkMatter = guadagno })
-
-	return true, string.format("Collasso completato: +%d Materia Oscura", guadagno)
-end
-
---------------------------------------------------------------------------------
--- SFERE DI SOVRACCARICO (per giocatore, cosi' la frequenza dei nodi ha senso)
---------------------------------------------------------------------------------
-
-local function aggiornaSferaBonus(player, profilo, stats, adesso)
-	local intervallo = GameConfig.Economy.BonusInterval / math.max(stats.frequenzaBonus, 0.05)
-	profilo._prossimoBonus = profilo._prossimoBonus or (adesso + GameConfig.Economy.BonusInterval)
-
-	if profilo._bonusSpot then
-		-- Scaduta: sparisce e si riprogramma.
-		if adesso - profilo._bonusBorn > GameConfig.Economy.BonusLifetime then
-			profilo._bonusSpot = nil
-			profilo._prossimoBonus = adesso + intervallo
-			return
-		end
-
-		local character = player.Character
-		local root = character and character:FindFirstChild("HumanoidRootPart")
-		if root and (root.Position - profilo._bonusSpot).Magnitude <= GameConfig.Economy.BonusCollectRadius then
-			profilo._bonusSpot = nil
-			profilo._prossimoBonus = adesso + intervallo
-			profilo.boostUntil = os.time() + GameConfig.Economy.BonusDuration
-			Remotes.Feedback:FireClient(player, { kind = "Bonus" })
-		end
-	elseif adesso >= profilo._prossimoBonus then
-		local minimo = GameConfig.Map.BonusAreaMin
-		local massimo = GameConfig.Map.BonusAreaMax
-		profilo._bonusSpot = Vector3.new(
-			rng:NextNumber(minimo.X, massimo.X),
-			GameConfig.Map.PlatformTopY + GameConfig.Map.BonusHeight,
-			rng:NextNumber(minimo.Z, massimo.Z)
-		)
-		profilo._bonusBorn = adesso
-		Remotes.Feedback:FireClient(player, { kind = "BonusSpawn" })
-	end
-end
-
---------------------------------------------------------------------------------
--- AGGIORNAMENTO DI UN GIOCATORE (chiamato ogni 0.1s)
---------------------------------------------------------------------------------
-
-local function aggiornaGiocatore(player, profilo, dt, adesso)
-	local stats = calcolaStatistiche(profilo)
-	local boostAttivo = profilo.boostUntil > os.time()
-	local moltiplicatoreBoost = boostAttivo and GameConfig.Economy.BonusMultiplier or 1
-
-	local guadagno = stats.wattPerSecondo * moltiplicatoreBoost * dt
-	profilo.watt += guadagno
-	profilo.statisticheWatt += guadagno
-	profilo.plasma += stats.plasmaPerSecondo * dt
-
-	-- leaderstats (IntValue: limitiamo per evitare overflow)
-	if profilo._leaderstatsWatt then
-		profilo._leaderstatsWatt.Value = math.clamp(math.floor(profilo.watt), 0, 9e18)
-	end
-	if profilo._leaderstatsMateria then
-		profilo._leaderstatsMateria.Value = math.clamp(profilo.materiaOscura, 0, 9e18)
-	end
-
-	-- Auto-Buyer: comprano livelli gratis, senza consumare Watt.
-	if stats.autoBuy > 0 then
-		profilo._autoBuyTimer = (profilo._autoBuyTimer or 0) + dt
-		if profilo._autoBuyTimer >= GameConfig.Economy.AutoBuyInterval then
-			profilo._autoBuyTimer -= GameConfig.Economy.AutoBuyInterval
-			for indice = 1, math.min(stats.autoBuy, #GameConfig.Buttons) do
-				local pulsante = GameConfig.Buttons[indice]
-				local livello = profilo.buttons[pulsante.id] or 0
-				if livello < GameConfig.Economy.MaxLevels then
-					profilo.buttons[pulsante.id] = livello + 1
-				end
-			end
-			Remotes.Feedback:FireClient(player, { kind = "AutoBuy" })
-		end
-	end
-
-	-- Acquisto continuo: basta restare fermi sul pad.
-	local pulsante = padSottoGiocatore(player)
-	if pulsante then
-		local ultimo = ultimiAcquisti[player.UserId] or 0
-		if adesso - ultimo >= GameConfig.Economy.PurchaseCooldown then
-			ultimiAcquisti[player.UserId] = adesso
-			acquistaPulsante(player, profilo, pulsante, stats)
-		end
-	end
-
-	aggiornaSferaBonus(player, profilo, stats, adesso)
-end
-
---------------------------------------------------------------------------------
--- LOOP PRINCIPALE
---------------------------------------------------------------------------------
 
 task.spawn(function()
-	local ultimoTick = os.clock()
-	local accumulatoreSync = 0
-	local accumulatoreSalvataggio = 0
-	local accumulatoreClassifica = GameConfig.Economy.LeaderboardInterval
-
 	while true do
-		local adesso = os.clock()
-		local dt = math.clamp(adesso - ultimoTick, 0, 1) -- tetto anti-freeze
-		ultimoTick = adesso
-
-		for _, player in Players:GetPlayers() do
-			local profilo = profili[player.UserId]
-			if profilo then
-				aggiornaGiocatore(player, profilo, dt, adesso)
-			end
-		end
-
-		accumulatoreSync += dt
-		if accumulatoreSync >= GameConfig.Economy.SyncInterval then
-			accumulatoreSync = 0
-			for _, player in Players:GetPlayers() do
-				local profilo = profili[player.UserId]
-				if profilo then
-					inviaStato(player, profilo)
+		task.wait(0.12)
+		for _, btnCfg in ipairs(GameConfig.Buttons) do
+			for _, plr in pairs(TouchingMap[btnCfg.Id]) do
+				if plr and plr.Parent then
+					tryBuyButton(plr, btnCfg)
 				end
 			end
 		end
-
-		accumulatoreSalvataggio += dt
-		if accumulatoreSalvataggio >= GameConfig.Economy.SaveInterval then
-			accumulatoreSalvataggio = 0
-			for _, player in Players:GetPlayers() do
-				local profilo = profili[player.UserId]
-				if profilo then
-					salvaProfilo(player, profilo)
-				end
-			end
-		end
-
-		accumulatoreClassifica += dt
-		if accumulatoreClassifica >= GameConfig.Economy.LeaderboardInterval then
-			accumulatoreClassifica = 0
-			aggiornaClassifica()
-		end
-
-		task.wait(GameConfig.Economy.TickInterval)
 	end
 end)
 
---------------------------------------------------------------------------------
--- EVENTI GIOCATORE
---------------------------------------------------------------------------------
+-- Clicker con Combo sul Nucleo Centrale
+local ClickCombos = {}
+corePart.CoreClick.MouseClick:Connect(function(player)
+	local data = PlayerData[player.UserId]
+	if not data then return end
+	local stats = calculateStats(data)
 
-local function onPlayerAdded(player)
-	local profilo = caricaProfilo(player)
-	profili[player.UserId] = profilo
-	profilo._leaderstatsWatt, profilo._leaderstatsMateria = creaLeaderstats(player)
+	local now = os.clock()
+	local combo = ClickCombos[player.UserId] or { Count = 0, Last = 0 }
+	if now - combo.Last <= 2.5 then
+		combo.Count += 1
+	else
+		combo.Count = 1
+	end
+	combo.Last = now
+	ClickCombos[player.UserId] = combo
 
-	-- Stato iniziale (il client lo richiede anche con GetProfile come backup).
-	task.defer(function()
-		if player.Parent then
-			inviaStato(player, profilo)
+	local maxCombo = 5.0 + stats.ComboBonus
+	local comboMult = math.min(maxCombo, 1 + (combo.Count - 1) * 0.15)
+	local gain = stats.ClickPower * comboMult
+
+	data.Watt += gain
+	data.TotalWatt += gain
+	data.TotalClicks = (data.TotalClicks or 0) + 1
+
+	syncPlayer(player, {
+		SoundCue = "Click",
+		CorePulse = true,
+		PopupText = "+" .. BigNum.Format(gain) .. " W (x" .. string.format("%.1f", comboMult) .. ")",
+	})
+end)
+
+-- Acquisto Upgrade Tree principale
+BuyUpgrade.OnServerEvent:Connect(function(player, upgId)
+	local data = PlayerData[player.UserId]
+	if not data then return end
+
+	local target
+	for _, u in ipairs(GameConfig.Upgrades) do
+		if u.Id == upgId then
+			target = u
+			break
+		end
+	end
+	if not target then return end
+	if target.Prereq and getLvl(data.Upgrades, target.Prereq) <= 0 then return end
+
+	local curLvl = getLvl(data.Upgrades, target.Id)
+	if curLvl >= target.MaxLevel then return end
+
+	local cost = math.floor(target.Cost * (target.CostMult ^ curLvl))
+	if target.Currency == "Watt" and data.Watt >= cost then
+		data.Watt -= cost
+		data.Upgrades[target.Id] = curLvl + 1
+		syncPlayer(player, { SoundCue = "Upgrade" })
+	elseif target.Currency == "Plasma" and data.Plasma >= cost then
+		data.Plasma -= cost
+		data.Upgrades[target.Id] = curLvl + 1
+		syncPlayer(player, { SoundCue = "Upgrade" })
+	end
+end)
+
+-- Acquisto Dark Matter Upgrades (Santuario Materia Oscura)
+BuyDarkUpgrade.OnServerEvent:Connect(function(player, dmId)
+	local data = PlayerData[player.UserId]
+	if not data then return end
+
+	local target
+	for _, d in ipairs(GameConfig.DarkUpgrades) do
+		if d.Id == dmId then
+			target = d
+			break
+		end
+	end
+	if not target then return end
+
+	local curLvl = getLvl(data.DarkUpgrades, target.Id)
+	if curLvl >= target.MaxLevel then return end
+
+	local cost = math.floor(target.Cost * (target.CostMult ^ curLvl))
+	if data.DarkMatter >= cost then
+		data.DarkMatter -= cost
+		data.DarkUpgrades[target.Id] = curLvl + 1
+		syncPlayer(player, { SoundCue = "Upgrade", PopupText = "🌌 Potenziamento Oscuro sbloccato!" })
+	end
+end)
+
+-- Collasso Quantistico (Prestige Endgame)
+PrestigeEvent.OnServerEvent:Connect(function(player)
+	local data = PlayerData[player.UserId]
+	if not data or data.Watt < GameConfig.PrestigeCost then return end
+
+	local gained = math.max(1, math.floor(math.log10(data.Watt / 1e11)))
+	data.DarkMatter += gained
+	data.DarkMatterEarned += gained
+
+	local startLvl = getLvl(data.DarkUpgrades, "dm1")
+	data.Watt = startLvl > 0 and (25000 * startLvl) or 25
+	data.Plasma = startLvl > 0 and (50 * startLvl) or 0
+	data.Buttons = {}
+
+	local savedAutos = {}
+	if getLvl(data.DarkUpgrades, "dm5") > 0 then
+		if getLvl(data.Upgrades, "u6") > 0 then savedAutos["u6"] = 1 end
+		if getLvl(data.Upgrades, "u10") > 0 then savedAutos["u10"] = 1 end
+		if getLvl(data.Upgrades, "u13") > 0 then savedAutos["u13"] = 1 end
+	end
+	data.Upgrades = savedAutos
+
+	syncPlayer(player, {
+		SoundCue = "Prestige",
+		PopupText = "🌌 COLLASSO QUANTISTICO! +" .. gained .. " Materia Oscura!",
+	})
+end)
+
+-- Fabbricazione Droni (sia da Stazione 3D che da UI)
+local function craftDrones(player, amount)
+	local data = PlayerData[player.UserId]
+	if not data then return end
+	amount = math.clamp(math.floor(amount or 1), 1, 5)
+	local unitCost = getDroneCost(data)
+	local totalCost = unitCost * amount
+
+	if data.Plasma < totalCost then
+		syncPlayer(player, { PopupText = "Servono " .. totalCost .. " Plasma!" })
+		return
+	end
+
+	data.Plasma -= totalCost
+	local luckMult = 1 + getLvl(data.DarkUpgrades, "dm3")
+	local bestChosen = nil
+
+	for _ = 1, amount do
+		local weights = {}
+		local totalWeight = 0
+		for i, d in ipairs(GameConfig.Drones) do
+			local w = d.Weight
+			if i >= 3 then
+				w = w * luckMult
+			end
+			weights[i] = w
+			totalWeight += w
+		end
+
+		local roll = math.random() * totalWeight
+		local acc = 0
+		local chosen = GameConfig.Drones[1]
+		for i, d in ipairs(GameConfig.Drones) do
+			acc += weights[i]
+			if roll <= acc then
+				chosen = d
+				break
+			end
+		end
+
+		table.insert(data.Drones, chosen.Id)
+		data.DronesCrafted = (data.DronesCrafted or 0) + 1
+		if not bestChosen or chosen.WattMult > bestChosen.WattMult then
+			bestChosen = chosen
+		end
+	end
+
+	local msg = amount == 1
+		and ("🛸 Creato: " .. bestChosen.Name .. " (x" .. bestChosen.WattMult .. " W)!")
+		or ("🛸 Creati " .. amount .. " Droni! Migliore: " .. bestChosen.Name)
+
+	syncPlayer(player, {
+		SoundCue = "Upgrade",
+		PopupText = msg,
+	})
+end
+
+droneStation.HatchClick.MouseClick:Connect(function(player)
+	craftDrones(player, 1)
+end)
+CraftDroneEvent.OnServerEvent:Connect(function(player, amount)
+	craftDrones(player, amount)
+end)
+
+-- Codici Promo
+RedeemCode.OnServerInvoke = function(player, rawCode)
+	local data = PlayerData[player.UserId]
+	if not data or type(rawCode) ~= "string" then return false, "Errore" end
+	local code = string.upper(string.gsub(rawCode, "%s+", ""))
+	if data.UsedCodes[code] then return false, "Codice già usato!" end
+	local reward = GameConfig.PromoCodes[code]
+	if not reward then return false, "Codice non valido!" end
+
+	data.UsedCodes[code] = true
+	data.Watt += reward.Watt
+	data.TotalWatt += reward.Watt
+	data.Plasma += reward.Plasma
+	syncPlayer(player, { SoundCue = "Upgrade" })
+	return true, reward.Msg
+end
+
+-- Premio Giornaliero
+ClaimDaily.OnServerInvoke = function(player)
+	local data = PlayerData[player.UserId]
+	if not data then return false, "Errore" end
+	local now = os.time()
+	local diff = now - (data.LastDaily or 0)
+	if diff < 86400 then
+		return false, "Torna tra " .. BigNum.FormatTime(86400 - diff)
+	end
+
+	data.LastDaily = now
+	local stats = calculateStats(data)
+	local bonusWatt = math.max(500, stats.WattPerSec * 180)
+	data.Watt += bonusWatt
+	data.TotalWatt += bonusWatt
+	data.Plasma += 40
+	syncPlayer(player, { SoundCue = "Upgrade" })
+	return true, "+" .. BigNum.Format(bonusWatt) .. " W e +40 Plasma!"
+end
+
+-- Spawner Sfere di Sovraccarico
+local function spawnBonusOrb(isCrystalEvent)
+	local orb = Instance.new("Part")
+	orb.Shape = Enum.PartType.Ball
+	orb.Size = isCrystalEvent and Vector3.new(2.6, 2.6, 2.6) or Vector3.new(3.6, 3.6, 3.6)
+	orb.Position = Vector3.new(math.random(-46, 46), 3.2, math.random(-34, 42))
+	orb.Anchored = true
+	orb.CanCollide = false
+	orb.Material = Enum.Material.Neon
+	orb.Color = isCrystalEvent and Color3.fromRGB(220, 80, 255) or Color3.fromRGB(255, 230, 50)
+	orb.Parent = world
+
+	ActiveOrbs[orb] = true
+	local claimed = false
+
+	orb.Touched:Connect(function(hit)
+		if claimed then return end
+		local plr = Players:GetPlayerFromCharacter(hit.Parent)
+		if plr and PlayerData[plr.UserId] then
+			claimed = true
+			ActiveOrbs[orb] = nil
+			local data = PlayerData[plr.UserId]
+			local stats = calculateStats(data)
+			if isCrystalEvent then
+				local gain = math.max(50, stats.WattPerSec * 15 * stats.OrbBonus)
+				data.Watt += gain
+				data.TotalWatt += gain
+				data.Plasma += 3
+				syncPlayer(plr, { SoundCue = "Click", PopupText = "💎 +" .. BigNum.Format(gain) .. " W & +3 Plasma!" })
+			else
+				data.OrbBoostUntil = os.time() + math.floor(30 * stats.OrbBonus)
+				syncPlayer(plr, { SoundCue = "Upgrade", PopupText = "⚡ BOOST x2 ATTIVO!" })
+			end
+			orb:Destroy()
+		end
+	end)
+
+	task.delay(20, function()
+		ActiveOrbs[orb] = nil
+		if orb and orb.Parent then
+			orb:Destroy()
 		end
 	end)
 end
 
-Players.PlayerAdded:Connect(onPlayerAdded)
-
-Players.PlayerRemoving:Connect(function(player)
-	local profilo = profili[player.UserId]
-	if profilo then
-		salvaProfilo(player, profilo)
+task.spawn(function()
+	while true do
+		task.wait(16)
+		spawnBonusOrb(false)
 	end
-	profili[player.UserId] = nil
-	ultimiAcquisti[player.UserId] = nil
 end)
 
-for _, player in Players:GetPlayers() do
-	onPlayerAdded(player)
-end
-
---------------------------------------------------------------------------------
--- HANDLER DELLE REMOTEFUNCTION
---------------------------------------------------------------------------------
-
-Remotes.GetProfile.OnServerInvoke = function(player)
-	local profilo = profili[player.UserId]
-	if not profilo then
-		return nil
-	end
-	local payload = creaPayload(player, profilo)
-	-- Il report offline viaggia una volta sola (qui o sul RemoteEvent Offline).
-	profilo._reportOffline = nil
-	return payload
-end
-
-Remotes.Purchase.OnServerInvoke = function(player, buttonId)
-	local profilo = profili[player.UserId]
-	if not profilo then
-		return false, "Profilo non caricato"
-	end
-	if type(buttonId) ~= "string" then
-		return false, "Richiesta non valida"
-	end
-
-	local pulsante = PULSANTI_PER_ID[buttonId]
-	if not pulsante then
-		return false, "Pulsante inesistente"
-	end
-
-	-- Anti-exploit: deve essere fisicamente sopra il pad, e non troppo veloce.
-	if padSottoGiocatore(player) ~= pulsante then
-		return false, "Devi stare sopra il pulsante"
-	end
-
-	local adesso = os.clock()
-	local ultimo = ultimiAcquisti[player.UserId] or 0
-	if adesso - ultimo < GameConfig.Economy.PurchaseCooldown * 0.9 then
-		return false, "Troppo veloce"
-	end
-	ultimiAcquisti[player.UserId] = adesso
-
-	return acquistaPulsante(player, profilo, pulsante)
-end
-
-Remotes.BuyNode.OnServerInvoke = function(player, nodeId)
-	local profilo = profili[player.UserId]
-	if not profilo then
-		return false, "Profilo non caricato"
-	end
-	if type(nodeId) ~= "string" then
-		return false, "Richiesta non valida"
-	end
-
-	local nodo = NODI_PER_ID[nodeId]
-	if nodo and nodo.isPrestige then
-		return eseguiPrestigio(player, profilo)
-	end
-
-	local ok, messaggio = acquistaNodo(player, profilo, nodeId)
-	inviaStato(player, profilo)
-	return ok, messaggio
-end
-
-Remotes.Prestige.OnServerInvoke = function(player)
-	local profilo = profili[player.UserId]
-	if not profilo then
-		return false, "Profilo non caricato"
-	end
-	local ok, messaggio = eseguiPrestigio(player, profilo)
-	inviaStato(player, profilo)
-	return ok, messaggio
-end
-
---------------------------------------------------------------------------------
--- SALVATAGGIO ALLA CHIUSURA DEL SERVER
---------------------------------------------------------------------------------
-
-game:BindToClose(function()
-	for _, player in Players:GetPlayers() do
-		local profilo = profili[player.UserId]
-		if profilo then
-			salvaProfilo(player, profilo)
+-- Eventi Dinamici ogni 75 secondi
+task.spawn(function()
+	while true do
+		task.wait(75)
+		local roll = math.random(1, 3)
+		if roll == 1 then
+			ActiveEvents.CoreOverloadUntil = os.time() + 25
+		elseif roll == 2 then
+			ActiveEvents.CrystalRainUntil = os.time() + 25
+			for i = 1, 14 do
+				task.delay(i * 0.35, function()
+					spawnBonusOrb(true)
+				end)
+			end
+		else
+			ActiveEvents.GoldenSurgeUntil = os.time() + 25
 		end
 	end
-	task.wait(2)
 end)
 
-aggiornaClassifica()
-print("[Quantum Core] GameEngine avviato. Nodi: " .. #GameConfig.Nodes .. ", pulsanti: " .. #GameConfig.Buttons)
+-- Loop Economia (0.1s), Attrazione Magnetica Sfere e Auto-Buyer (1.0s)
+local autoTimer = 0
+task.spawn(function()
+	while true do
+		task.wait(0.1)
+		autoTimer += 0.1
+		local runAuto = autoTimer >= 1.0
+		if runAuto then autoTimer = 0 end
+
+		for _, plr in ipairs(Players:GetPlayers()) do
+			local data = PlayerData[plr.UserId]
+			if data then
+				local stats = calculateStats(data)
+				data.Watt += stats.WattPerSec * 0.1
+				data.TotalWatt += stats.WattPerSec * 0.1
+				data.Plasma += stats.PlasmaPerSec * 0.1
+
+				-- Attrazione sfere se u9 è sbloccato
+				if getLvl(data.Upgrades, "u9") > 0 and plr.Character and plr.Character:FindFirstChild("HumanoidRootPart") then
+					local hrpPos = plr.Character.HumanoidRootPart.Position
+					for orb in pairs(ActiveOrbs) do
+						if orb and orb.Parent then
+							local diff = hrpPos - orb.Position
+							if diff.Magnitude < 32 then
+								orb.Position += diff.Unit * 2.4
+							end
+						end
+					end
+				end
+
+				if runAuto then
+					if getLvl(data.Upgrades, "u6") > 0 then
+						for i = 1, 3 do
+							local id = GameConfig.Buttons[i].Id
+							data.Buttons[id] = getLvl(data.Buttons, id) + 1
+						end
+					end
+					if getLvl(data.Upgrades, "u10") > 0 then
+						for i = 4, 6 do
+							local id = GameConfig.Buttons[i].Id
+							data.Buttons[id] = getLvl(data.Buttons, id) + 1
+						end
+					end
+					if getLvl(data.Upgrades, "u13") > 0 then
+						for i = 7, 9 do
+							local id = GameConfig.Buttons[i].Id
+							data.Buttons[id] = getLvl(data.Buttons, id) + 1
+						end
+					end
+				end
+
+				syncPlayer(plr)
+			end
+		end
+	end
+end)
+
+-- Classifica Globale (ogni 60s)
+local function refreshLeaderboard()
+	if not orderedStore then return end
+	local ok, pages = pcall(function()
+		return orderedStore:GetSortedAsync(false, 10)
+	end)
+	if not ok or not pages then return end
+
+	for _, child in ipairs(lbList:GetChildren()) do
+		if child:IsA("TextLabel") then child:Destroy() end
+	end
+
+	for rank, entry in ipairs(pages:GetCurrentPage()) do
+		local name = "Giocatore"
+		pcall(function()
+			name = Players:GetNameFromUserIdAsync(tonumber(entry.key))
+		end)
+		local row = Instance.new("TextLabel")
+		row.Size = UDim2.new(1, 0, 0.088, 0)
+		row.BackgroundColor3 = Color3.fromRGB(22, 28, 46)
+		row.Text = string.format("#%d %s - %s W", rank, name, BigNum.Format(entry.value))
+		row.TextColor3 = rank == 1 and Color3.fromRGB(255, 215, 0) or Color3.fromRGB(220, 235, 255)
+		row.Font = Enum.Font.GothamBold
+		row.TextScaled = true
+		row.Parent = lbList
+	end
+end
+
+local function savePlayer(player, removeCache)
+	local data = PlayerData[player.UserId]
+	if not data then return end
+	data.LastLogout = os.time()
+	if mainStore then
+		pcall(function()
+			mainStore:SetAsync("Player_" .. player.UserId, data)
+		end)
+	end
+	if orderedStore then
+		pcall(function()
+			orderedStore:SetAsync(tostring(player.UserId), math.floor(data.TotalWatt))
+		end)
+	end
+	if removeCache then
+		PlayerData[player.UserId] = nil
+	end
+end
+
+task.spawn(function()
+	while true do
+		task.wait(60)
+		for _, plr in ipairs(Players:GetPlayers()) do
+			savePlayer(plr, false)
+		end
+		refreshLeaderboard()
+	end
+end)
+
+-- Join / Leave
+Players.PlayerAdded:Connect(function(player)
+	local ls = Instance.new("Folder")
+	ls.Name = "leaderstats"
+	ls.Parent = player
+
+	local wVal = Instance.new("StringValue")
+	wVal.Name = "Watt"
+	wVal.Value = "0"
+	wVal.Parent = ls
+
+	local pVal = Instance.new("StringValue")
+	pVal.Name = "Plasma"
+	pVal.Value = "0"
+	pVal.Parent = ls
+
+	local data = defaultData()
+	if mainStore then
+		local ok, saved = pcall(function()
+			return mainStore:GetAsync("Player_" .. player.UserId)
+		end)
+		if ok and type(saved) == "table" then
+			for k, v in pairs(saved) do
+				data[k] = v
+			end
+		end
+	end
+
+	PlayerData[player.UserId] = data
+	local stats = calculateStats(data)
+
+	local offlineGain = 0
+	if data.LastLogout and data.LastLogout > 0 and stats.WattPerSec > 0 then
+		local fullOffline = getLvl(data.DarkUpgrades, "dm6") > 0
+		local maxSec = fullOffline and 86400 or 28800
+		local mult = fullOffline and 1.0 or 0.5
+		local elapsed = math.min(maxSec, math.max(0, os.time() - data.LastLogout))
+		if elapsed >= 30 then
+			offlineGain = stats.WattPerSec * elapsed * mult
+			data.Watt += offlineGain
+			data.TotalWatt += offlineGain
+		end
+	end
+
+	task.wait(1)
+	syncPlayer(player, offlineGain > 0 and { OfflineGain = offlineGain } or nil)
+end)
+
+Players.PlayerRemoving:Connect(function(player)
+	savePlayer(player, true)
+end)
+
+game:BindToClose(function()
+	for _, plr in ipairs(Players:GetPlayers()) do
+		savePlayer(plr, false)
+	end
+end)
