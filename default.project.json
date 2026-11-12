@@ -1,13 +1,10 @@
 {
-  "name": "RobloxVibe",
+  "name": "QuantumCore_v2",
   "tree": {
     "$className": "DataModel",
     "ReplicatedStorage": {
       "$className": "ReplicatedStorage",
-      "Modules": {
-        "$className": "Folder",
-        "$path": "src/shared"
-      }
+      "$path": "src/shared"
     },
     "ServerScriptService": {
       "$className": "ServerScriptService",
