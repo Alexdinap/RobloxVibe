@@ -482,4 +482,175 @@ function ShopUI.Build(parentGui, remotes, popupManager, onMuteToggle)
 
 	local codeBox = Instance.new("TextBox", pAlba)
 	codeBox.Size = UDim2.new(0.66, 0, 0, 34)
-	codeBox.Position = UDim2.new(0,
+	codeBox.Position = UDim2.new(0, 0, 1, -80)
+	codeBox.PlaceholderText = "Codice (LUCE100, FIAMMA)"
+	codeBox.Text = ""
+	codeBox.BackgroundColor3 = THEME.TileLocked
+	codeBox.TextColor3 = THEME.TextMain
+	codeBox.Font = Enum.Font.GothamBold
+	codeBox.TextScaled = true
+	Instance.new("UICorner", codeBox).CornerRadius = UDim.new(0, 8)
+
+	local codeBtn = Instance.new("TextButton", pAlba)
+	codeBtn.Size = UDim2.new(0.32, 0, 0, 34)
+	codeBtn.Position = UDim2.new(0.68, 0, 1, -80)
+	codeBtn.BackgroundColor3 = THEME.Green
+	codeBtn.Text = "RISCATTA"
+	codeBtn.TextColor3 = Color3.fromRGB(16, 22, 18)
+	codeBtn.Font = Enum.Font.GothamBlack
+	codeBtn.TextScaled = true
+	Instance.new("UICorner", codeBtn).CornerRadius = UDim.new(0, 8)
+	codeBtn.MouseButton1Click:Connect(function()
+		local _, msg = remotes.RedeemCode:InvokeServer(codeBox.Text)
+		popupManager:ShowEvent(msg, THEME.Green)
+	end)
+
+	local muted = false
+	local muteBtn = Instance.new("TextButton", pAlba)
+	muteBtn.Size = UDim2.new(1, 0, 0, 34)
+	muteBtn.Position = UDim2.new(0, 0, 1, -38)
+	muteBtn.BackgroundColor3 = Color3.fromRGB(36, 40, 56)
+	muteBtn.Text = "🔊 Suoni: Attivi"
+	muteBtn.TextColor3 = THEME.TextMain
+	muteBtn.Font = Enum.Font.GothamBold
+	muteBtn.TextScaled = true
+	Instance.new("UICorner", muteBtn).CornerRadius = UDim.new(0, 8)
+	muteBtn.MouseButton1Click:Connect(function()
+		muted = not muted
+		muteBtn.Text = muted and "🔇 Suoni: Disattivati" or "🔊 Suoni: Attivi"
+		if onMuteToggle then onMuteToggle(muted) end
+	end)
+
+	selectTab("Flame")
+
+	-- Aggiornamento dinamico dei bottoni progressivi
+	local uiController = {
+		SetOpen = setShopOpen,
+		IsOpen = function()
+			return isOpen
+		end,
+	}
+
+	function uiController.Update(st)
+		local upgrades = st.Upgrades or {}
+		local points = st.Points or 0
+		local discoveredCount = 0
+		local affordableCount = 0
+		local hasWorldButtons = false
+
+		for id, entry in pairs(tileMap) do
+			local u = entry.Cfg
+			local isUnlocked = (u.ReqId == nil) or ((upgrades[u.ReqId] or 0) >= (u.ReqLvl or 1))
+
+			if isUnlocked then
+				discoveredCount += 1
+				if u.Category == "World" then
+					hasWorldButtons = true
+				end
+
+				if not unlockedSet[id] then
+					unlockedSet[id] = true
+					entry.Tile.Visible = true
+					entry.Scale.Scale = 0.25
+					TweenService:Create(entry.Scale, TweenInfo.new(0.32, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+						Scale = 1.0,
+					}):Play()
+				else
+					entry.Tile.Visible = true
+				end
+
+				local lvl = upgrades[id] or 0
+				local cost = math.floor(u.BaseCost * (u.CostMult ^ lvl))
+				entry.LvlPill.Text = string.format("Lv. %d/%d", lvl, u.MaxLevel)
+				entry.ProgFill.Size = UDim2.fromScale(math.clamp(lvl / u.MaxLevel, 0, 1), 1)
+
+				if lvl >= u.MaxLevel then
+					entry.Tile.BackgroundColor3 = THEME.TileMax
+					entry.Stroke.Color = THEME.Green
+					entry.CostPill.BackgroundColor3 = THEME.Green
+					entry.CostTxt.TextColor3 = Color3.fromRGB(16, 24, 20)
+					entry.CostTxt.Text = "✓ COMPLETATO"
+				elseif points >= cost then
+					affordableCount += 1
+					entry.Tile.BackgroundColor3 = THEME.TileReady
+					entry.Stroke.Color = THEME.Gold
+					entry.CostPill.BackgroundColor3 = THEME.Gold
+					entry.CostTxt.TextColor3 = Color3.fromRGB(18, 16, 22)
+					entry.CostTxt.Text = "🔥 " .. NumberFormat.Format(cost)
+				else
+					entry.Tile.BackgroundColor3 = THEME.TileLocked
+					entry.Stroke.Color = Color3.fromRGB(52, 56, 76)
+					entry.CostPill.BackgroundColor3 = Color3.fromRGB(34, 37, 52)
+					entry.CostTxt.TextColor3 = THEME.TextSub
+					entry.CostTxt.Text = "🔥 " .. NumberFormat.Format(cost)
+				end
+			else
+				entry.Tile.Visible = false
+			end
+		end
+
+		discoveryBadge.Text = string.format("Scoperti: %d/%d", discoveredCount, #GameConfig.Upgrades)
+
+		-- Aggiorna il badge sul pulsante retratto
+		if affordableCount > 0 then
+			readyBadge.Visible = true
+			readyBadge.Text = tostring(affordableCount)
+			toggleStroke.Color = THEME.Gold
+			toggleStroke.Transparency = 0.15
+			toggleSub.Text = affordableCount == 1 and "1 disponibile! [B]" or (affordableCount .. " disponibili! [B]")
+			toggleSub.TextColor3 = THEME.Gold
+		else
+			readyBadge.Visible = false
+			toggleStroke.Color = THEME.Gold
+			toggleStroke.Transparency = 0.55
+			toggleSub.Text = "Apri Negozio [B]"
+			toggleSub.TextColor3 = THEME.TextSub
+		end
+
+		-- Sblocca progressivamente anche le schede superiori!
+		tabButtons["World"].Visible = hasWorldButtons
+		tabButtons["Wisps"].Visible = st.WispsUnlocked == true
+		tabButtons["Alba"].Visible = st.AlbaUnlocked == true
+
+		-- Spiriti
+		wispHeader.Text = string.format("Spiriti Attivi: %d/%d (Moltiplicano i Click)", st.EquippedCount or 0, st.MaxWispSlots or 3)
+		for id, entry in pairs(wispRows) do
+			local baseCnt = (st.WispCounts and st.WispCounts[id]) or 0
+			local radCnt = (st.WispCounts and st.WispCounts[id .. "_rad"]) or 0
+			entry.Count.Text = string.format("Base: %d • Radiosi (x2.5): %d", baseCnt, radCnt)
+			local canFuse = baseCnt >= 3
+			entry.Fuse.BackgroundColor3 = canFuse and THEME.Gold or Color3.fromRGB(36, 40, 56)
+			entry.Fuse.TextColor3 = canFuse and Color3.fromRGB(18, 16, 22) or THEME.TextSub
+		end
+
+		-- Prestige
+		if points >= GameConfig.PrestigeCost then
+			local gain = math.max(1, math.floor(math.log10(points / 5e6)))
+			prestigeBtn.BackgroundColor3 = Color3.fromRGB(215, 65, 165)
+			prestigeBtn.Text = "🌅 COMPI GRANDE ALBA (+" .. gain .. " Stelle)\nStelle attuali: " .. (st.EternalStars or 0)
+		else
+			prestigeBtn.BackgroundColor3 = THEME.Purple
+			prestigeBtn.Text = "🌅 GRANDE ALBA (50M Punti)\nStelle Eterne: " .. (st.EternalStars or 0)
+		end
+
+		for id, entry in pairs(starButtons) do
+			local sp = entry.Cfg
+			local lvl = (st.StarPerks and st.StarPerks[id]) or 0
+			local cost = math.floor(sp.Cost * (sp.CostMult ^ lvl))
+			if lvl >= sp.MaxLevel then
+				entry.Btn.BackgroundColor3 = THEME.Green
+				entry.Btn.TextColor3 = Color3.fromRGB(16, 22, 18)
+				entry.Btn.Text = sp.Name .. " [MAX]"
+			else
+				local ok = (st.EternalStars or 0) >= cost
+				entry.Btn.BackgroundColor3 = ok and Color3.fromRGB(150, 65, 210) or THEME.TileLocked
+				entry.Btn.TextColor3 = THEME.TextMain
+				entry.Btn.Text = string.format("%s (%d/%d) — %d⭐", sp.Name, lvl, sp.MaxLevel, cost)
+			end
+		end
+	end
+
+	return uiController
+end
+
+return ShopUI
