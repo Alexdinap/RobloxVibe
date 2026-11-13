@@ -2,6 +2,7 @@ local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local DataStoreService = game:GetService("DataStoreService")
 local HttpService = game:GetService("HttpService")
+local MarketplaceService = game:GetService("MarketplaceService")
 
 local GameConfig = require(ReplicatedStorage:WaitForChild("GameConfig"))
 local NumberFormat = require(ReplicatedStorage:WaitForChild("NumberFormat"))
@@ -30,6 +31,7 @@ local BuyStarPerk = makeRemote("RemoteEvent", "BuyStarPerk")
 local SummonWisp = makeRemote("RemoteEvent", "SummonWisp")
 local FuseWisp = makeRemote("RemoteEvent", "FuseWisp")
 local PrestigeEvent = makeRemote("RemoteEvent", "Prestige")
+local SyncGamePass = makeRemote("RemoteEvent", "SyncGamePass")
 local RedeemCode = makeRemote("RemoteFunction", "RedeemCode")
 
 local mainStore
@@ -41,6 +43,28 @@ local PlayerData = {}
 local ClickHeat = {}
 local ActiveEmbers = {}
 local ActiveShadows = {}
+
+local function getDoubleLightPassId()
+	return (GameConfig.RobuxPasses and GameConfig.RobuxPasses.DoubleLight and GameConfig.RobuxPasses.DoubleLight.GamePassId) or 0
+end
+
+local function verifyDoubleLightOwnership(player, data)
+	if not data then return false end
+	if data.HasDoubleLight == true then
+		return true
+	end
+	local passId = getDoubleLightPassId()
+	if passId > 0 then
+		local ok, owns = pcall(function()
+			return MarketplaceService:UserOwnsGamePassAsync(player.UserId, passId)
+		end)
+		if ok and owns then
+			data.HasDoubleLight = true
+			return true
+		end
+	end
+	return false
+end
 
 local function getCurrentHeat(userId)
 	local h = ClickHeat[userId]
@@ -55,7 +79,7 @@ local function syncPlayer(player, extra)
 	local data = PlayerData[player.UserId]
 	if not data then return end
 	local buffMult, buffRem = Regno1Service.GetActiveBuff(player.UserId)
-	local stats = EconomyEngine.CalculateStats(data, getCurrentHeat(player.UserId), buffMult)
+	local stats = EconomyEngine.CalculateStats(data, getCurrentHeat(player.UserId), buffMult, data.HasDoubleLight)
 	local rank = EconomyEngine.GetRank(stats.LightPercent)
 
 	local eqIds = {}
@@ -78,7 +102,9 @@ local function syncPlayer(player, extra)
 
 	local payload = {
 		Points = data.Points,
+		TotalPoints = data.TotalPoints,
 		EternalStars = data.EternalStars,
+		HasDoubleLight = stats.HasDoubleLight,
 		ClickPower = stats.ClickPower,
 		PointsPerSec = stats.PointsPerSec,
 		Heat = stats.Heat,
@@ -106,6 +132,30 @@ end
 -- Inizializza la meccanica principale di Regno 1
 Regno1Service.Init(remotes, built.RitualFolder, PlayerData, syncPlayer)
 
+-- Gestione GamePass Robux (Luce x2 Permanente)
+MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player, gamePassId, wasPurchased)
+	local passId = getDoubleLightPassId()
+	if wasPurchased and passId > 0 and gamePassId == passId then
+		local data = PlayerData[player.UserId]
+		if data and not data.HasDoubleLight then
+			data.HasDoubleLight = true
+			syncPlayer(player, {
+				SoundCue = "Prestige",
+				Shockwave = true,
+				PopupText = "⚡ LUCE x2 PERMANENTE ATTIVATA!",
+			})
+		end
+	end
+end)
+
+SyncGamePass.OnServerEvent:Connect(function(player)
+	local data = PlayerData[player.UserId]
+	if not data then return end
+	if verifyDoubleLightOwnership(player, data) then
+		syncPlayer(player)
+	end
+end)
+
 -- Click sulla Fiamma
 local LastClickTime = {}
 local function handleFlameClick(player)
@@ -123,7 +173,7 @@ local function handleFlameClick(player)
 	ClickHeat[player.UserId] = { Heat = newHeat, LastClick = now }
 
 	local buffMult = Regno1Service.GetActiveBuff(player.UserId)
-	local stats = EconomyEngine.CalculateStats(data, newHeat, buffMult)
+	local stats = EconomyEngine.CalculateStats(data, newHeat, buffMult, data.HasDoubleLight)
 	local isCrit = math.random() < stats.CritChance
 	local gained = stats.ClickPower * (isCrit and stats.CritMult or 1)
 
@@ -156,7 +206,7 @@ for _, alt in ipairs(GameConfig.Altars) do
 		pad.Touched:Connect(function(hit)
 			local plr = Players:GetPlayerFromCharacter(hit.Parent)
 			if plr then TouchingMap[alt.Id][plr.UserId] = plr end
-		end)
+		end
 		pad.TouchEnded:Connect(function(hit)
 			local plr = Players:GetPlayerFromCharacter(hit.Parent)
 			if plr then TouchingMap[alt.Id][plr.UserId] = nil end
@@ -373,7 +423,7 @@ local function spawnWanderingEmber()
 			taken = true
 			ActiveEmbers[ember] = nil
 			local buffMult = Regno1Service.GetActiveBuff(plr.UserId)
-			local stats = EconomyEngine.CalculateStats(data, getCurrentHeat(plr.UserId), buffMult)
+			local stats = EconomyEngine.CalculateStats(data, getCurrentHeat(plr.UserId), buffMult, data.HasDoubleLight)
 			local gain = math.max(10, stats.ClickPower * 8)
 			data.Points += gain
 			data.TotalPoints += gain
@@ -396,7 +446,7 @@ local function banishShadow(shadowObj, player)
 	if player and PlayerData[player.UserId] then
 		local data = PlayerData[player.UserId]
 		local buffMult = Regno1Service.GetActiveBuff(player.UserId)
-		local stats = EconomyEngine.CalculateStats(data, getCurrentHeat(player.UserId), buffMult)
+		local stats = EconomyEngine.CalculateStats(data, getCurrentHeat(player.UserId), buffMult, data.HasDoubleLight)
 		local reward = math.max(25, stats.ClickPower * 15)
 		data.Points += reward
 		data.TotalPoints += reward
@@ -467,7 +517,7 @@ task.spawn(function()
 			local data = PlayerData[plr.UserId]
 			if data then
 				local buffMult = Regno1Service.GetActiveBuff(plr.UserId)
-				local stats = EconomyEngine.CalculateStats(data, getCurrentHeat(plr.UserId), buffMult)
+				local stats = EconomyEngine.CalculateStats(data, getCurrentHeat(plr.UserId), buffMult, data.HasDoubleLight)
 				if stats.PointsPerSec > 0 then
 					data.Points += stats.PointsPerSec * 0.1
 					data.TotalPoints += stats.PointsPerSec * 0.1
@@ -515,7 +565,7 @@ end
 Players.PlayerAdded:Connect(function(player)
 	local ls = Instance.new("Folder", player); ls.Name = "leaderstats"
 	local p = Instance.new("StringValue", ls); p.Name = "Punti"; p.Value = "0"
-	local l = Instance.new("StringValue", ls); l.Name = "Luce"; l.Value = "4%"
+	local l = Instance.new("StringValue", ls); l.Name = "Luce"; l.Value = "2%"
 
 	local data = EconomyEngine.DefaultData()
 	if mainStore then
@@ -528,6 +578,9 @@ Players.PlayerAdded:Connect(function(player)
 	if type(data.Regno1) ~= "table" then
 		data.Regno1 = { Completed = false, Completions = 0, BestTime = nil }
 	end
+	data.HasDoubleLight = (data.HasDoubleLight == true)
+
+	verifyDoubleLightOwnership(player, data)
 
 	PlayerData[player.UserId] = data
 	task.wait(0.8)

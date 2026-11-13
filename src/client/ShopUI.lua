@@ -1,5 +1,7 @@
+local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
+local MarketplaceService = game:GetService("MarketplaceService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local GameConfig = require(ReplicatedStorage:WaitForChild("GameConfig"))
@@ -21,20 +23,41 @@ local THEME = {
 }
 
 function ShopUI.Build(parentGui, remotes, popupManager, onMuteToggle)
+	local localPlayer = Players.LocalPlayer
 	local activeTab = "Flame"
 	local unlockedSet = {} -- traccia quali bottoni sono già comparsi per animarli all'ingresso
 	local isOpen = false   -- parte chiuso/retratto così non occupa il centro dello schermo
 
+	local passCfg = GameConfig.RobuxPasses and GameConfig.RobuxPasses.DoubleLight or {
+		GamePassId = 0,
+		Name = "Luce x2 Permanente",
+		Tag = "x2 PUNTI LUCE",
+		Desc = "Raddoppia per sempre tutti i Punti Luce prodotti!",
+		PriceLabel = "Robux",
+		Multiplier = 2.0,
+	}
+	local hasDoubleLight = false
+	local autoPromptShown = false
+
 	local POS_PANEL_OPEN = UDim2.new(1, -12, 0.54, 0)
 	local POS_PANEL_CLOSED = UDim2.new(1, 20, 0.54, 0)
 	local POS_TOGGLE_SHOWN = UDim2.new(1, -12, 0.54, 0)
-	local POS_TOGGLE_HIDDEN = UDim2.new(1, 200, 0.54, 0)
+	local POS_TOGGLE_HIDDEN = UDim2.new(1, 220, 0.54, 0)
 
-	-- Linguetta / Pulsante retratto sul bordo destro per aprire il menù
-	local toggleBtn = Instance.new("TextButton", parentGui)
+	-- Contenitore retratto sul bordo destro (Pulsante Negozio + Pillola x2 Robux)
+	local dockedDock = Instance.new("Frame", parentGui)
+	dockedDock.Name = "ShopDockedContainer"
+	dockedDock.AnchorPoint = Vector2.new(1, 0.5)
+	dockedDock.Position = POS_TOGGLE_SHOWN
+	dockedDock.Size = UDim2.fromOffset(172, 92)
+	dockedDock.BackgroundTransparency = 1
+	dockedDock.ZIndex = 15
+
+	-- Linguetta / Pulsante retratto per aprire il menù potenziamenti
+	local toggleBtn = Instance.new("TextButton", dockedDock)
 	toggleBtn.Name = "ShopToggleButton"
-	toggleBtn.AnchorPoint = Vector2.new(1, 0.5)
-	toggleBtn.Position = POS_TOGGLE_SHOWN
+	toggleBtn.AnchorPoint = Vector2.new(1, 0)
+	toggleBtn.Position = UDim2.new(1, 0, 0, 0)
 	toggleBtn.Size = UDim2.fromOffset(172, 46)
 	toggleBtn.BackgroundColor3 = THEME.PanelBg
 	toggleBtn.BackgroundTransparency = 0.08
@@ -93,12 +116,235 @@ function ShopUI.Build(parentGui, remotes, popupManager, onMuteToggle)
 	readyBadge.ZIndex = 17
 	Instance.new("UICorner", readyBadge).CornerRadius = UDim.new(1, 0)
 
-	-- Pannello laterale compatto e retraibile
+	-- Pulsante compatto sul bordo destro per aprire il Pop-up x2 Robux
+	local dockBoostBtn = Instance.new("TextButton", dockedDock)
+	dockBoostBtn.Name = "DoubleLightDockButton"
+	dockBoostBtn.AnchorPoint = Vector2.new(1, 0)
+	dockBoostBtn.Position = UDim2.new(1, 0, 0, 52)
+	dockBoostBtn.Size = UDim2.fromOffset(172, 36)
+	dockBoostBtn.BackgroundColor3 = Color3.fromRGB(36, 28, 16)
+	dockBoostBtn.BackgroundTransparency = 0.06
+	dockBoostBtn.Text = "⚡ LUCE x2 (ROBUX)"
+	dockBoostBtn.TextColor3 = THEME.Gold
+	dockBoostBtn.Font = Enum.Font.GothamBlack
+	dockBoostBtn.TextScaled = true
+	dockBoostBtn.ZIndex = 15
+	Instance.new("UICorner", dockBoostBtn).CornerRadius = UDim.new(0, 12)
+
+	local dockBoostStroke = Instance.new("UIStroke", dockBoostBtn)
+	dockBoostStroke.Color = THEME.Gold
+	dockBoostStroke.Transparency = 0.3
+	dockBoostStroke.Thickness = 1.5
+
+	-- =========================================================================
+	-- POP-UP ACQUISTO x2 ROBUX (Modale centrata e chiudibile)
+	-- =========================================================================
+	local popupOverlay = Instance.new("TextButton", parentGui)
+	popupOverlay.Name = "DoubleLightPopupOverlay"
+	popupOverlay.Size = UDim2.fromScale(1, 1)
+	popupOverlay.BackgroundColor3 = Color3.fromRGB(6, 7, 12)
+	popupOverlay.BackgroundTransparency = 0.42
+	popupOverlay.Text = ""
+	popupOverlay.AutoButtonColor = false
+	popupOverlay.Visible = false
+	popupOverlay.ZIndex = 40
+
+	local popupCard = Instance.new("Frame", popupOverlay)
+	popupCard.Name = "DoubleLightCard"
+	popupCard.AnchorPoint = Vector2.new(0.5, 0.5)
+	popupCard.Position = UDim2.fromScale(0.5, 0.5)
+	popupCard.Size = UDim2.fromOffset(350, 268)
+	popupCard.BackgroundColor3 = Color3.fromRGB(18, 19, 28)
+	popupCard.ZIndex = 41
+	Instance.new("UICorner", popupCard).CornerRadius = UDim.new(0, 20)
+
+	local cardStroke = Instance.new("UIStroke", popupCard)
+	cardStroke.Color = THEME.Gold
+	cardStroke.Thickness = 2.2
+
+	local cardScale = Instance.new("UIScale", popupCard)
+	cardScale.Scale = 1.0
+
+	local popupCloseBtn = Instance.new("TextButton", popupCard)
+	popupCloseBtn.AnchorPoint = Vector2.new(1, 0)
+	popupCloseBtn.Position = UDim2.new(1, -12, 0, 12)
+	popupCloseBtn.Size = UDim2.fromOffset(30, 30)
+	popupCloseBtn.BackgroundColor3 = Color3.fromRGB(34, 36, 52)
+	popupCloseBtn.Text = "✕"
+	popupCloseBtn.TextColor3 = THEME.TextMain
+	popupCloseBtn.Font = Enum.Font.GothamBlack
+	popupCloseBtn.TextScaled = true
+	popupCloseBtn.ZIndex = 43
+	Instance.new("UICorner", popupCloseBtn).CornerRadius = UDim.new(0, 9)
+
+	local popupIconBg = Instance.new("TextLabel", popupCard)
+	popupIconBg.AnchorPoint = Vector2.new(0.5, 0)
+	popupIconBg.Position = UDim2.new(0.5, 0, 0, 16)
+	popupIconBg.Size = UDim2.fromOffset(58, 58)
+	popupIconBg.BackgroundColor3 = Color3.fromRGB(42, 32, 16)
+	popupIconBg.Text = "⚡🔥"
+	popupIconBg.TextScaled = true
+	popupIconBg.ZIndex = 42
+	Instance.new("UICorner", popupIconBg).CornerRadius = UDim.new(0, 16)
+
+	local popupIconStroke = Instance.new("UIStroke", popupIconBg)
+	popupIconStroke.Color = THEME.Gold
+	popupIconStroke.Thickness = 1.6
+
+	local popupTitle = Instance.new("TextLabel", popupCard)
+	popupTitle.Size = UDim2.new(1, -32, 0, 28)
+	popupTitle.Position = UDim2.fromOffset(16, 82)
+	popupTitle.BackgroundTransparency = 1
+	popupTitle.Text = string.upper(passCfg.Name)
+	popupTitle.TextColor3 = THEME.Gold
+	popupTitle.Font = Enum.Font.GothamBlack
+	popupTitle.TextScaled = true
+	popupTitle.ZIndex = 42
+
+	local popupDesc = Instance.new("TextLabel", popupCard)
+	popupDesc.Size = UDim2.new(1, -36, 0, 56)
+	popupDesc.Position = UDim2.fromOffset(18, 114)
+	popupDesc.BackgroundTransparency = 1
+	popupDesc.Text = passCfg.Desc
+	popupDesc.TextColor3 = THEME.TextSub
+	popupDesc.Font = Enum.Font.GothamMedium
+	popupDesc.TextSize = 14
+	popupDesc.TextWrapped = true
+	popupDesc.TextYAlignment = Enum.TextYAlignment.Top
+	popupDesc.ZIndex = 42
+
+	local popupBuyBtn = Instance.new("TextButton", popupCard)
+	popupBuyBtn.Name = "BuyDoubleLightRobuxBtn"
+	popupBuyBtn.Size = UDim2.new(1, -36, 0, 44)
+	popupBuyBtn.Position = UDim2.fromOffset(18, 176)
+	popupBuyBtn.BackgroundColor3 = THEME.Green
+	popupBuyBtn.Text = "💎 COMPRA x2 (" .. (passCfg.PriceLabel or "Robux") .. ")"
+	popupBuyBtn.TextColor3 = Color3.fromRGB(14, 22, 18)
+	popupBuyBtn.Font = Enum.Font.GothamBlack
+	popupBuyBtn.TextScaled = true
+	popupBuyBtn.ZIndex = 42
+	Instance.new("UICorner", popupBuyBtn).CornerRadius = UDim.new(0, 12)
+
+	local popupLaterBtn = Instance.new("TextButton", popupCard)
+	popupLaterBtn.Size = UDim2.new(1, -36, 0, 26)
+	popupLaterBtn.Position = UDim2.fromOffset(18, 226)
+	popupLaterBtn.BackgroundTransparency = 1
+	popupLaterBtn.Text = "Non ora"
+	popupLaterBtn.TextColor3 = THEME.TextSub
+	popupLaterBtn.Font = Enum.Font.GothamBold
+	popupLaterBtn.TextSize = 13
+	popupLaterBtn.ZIndex = 42
+
+	local headerBoostBtn -- dichiarato qui per aggiornarlo insieme agli altri
+
+	local function refreshDoubleLightVisuals()
+		if hasDoubleLight then
+			dockBoostBtn.BackgroundColor3 = THEME.TileMax
+			dockBoostBtn.Text = "✓ LUCE x2 ATTIVA"
+			dockBoostBtn.TextColor3 = THEME.Green
+			dockBoostStroke.Color = THEME.Green
+
+			if headerBoostBtn then
+				headerBoostBtn.BackgroundColor3 = THEME.TileMax
+				headerBoostBtn.Text = "✓ x2"
+				headerBoostBtn.TextColor3 = THEME.Green
+			end
+
+			popupBuyBtn.BackgroundColor3 = THEME.TileMax
+			popupBuyBtn.Text = "✓ POTENZIAMENTO x2 GIÀ ATTIVO"
+			popupBuyBtn.TextColor3 = THEME.Green
+		else
+			dockBoostBtn.BackgroundColor3 = Color3.fromRGB(36, 28, 16)
+			dockBoostBtn.Text = "⚡ LUCE x2 (ROBUX)"
+			dockBoostBtn.TextColor3 = THEME.Gold
+			dockBoostStroke.Color = THEME.Gold
+
+			if headerBoostBtn then
+				headerBoostBtn.BackgroundColor3 = Color3.fromRGB(48, 36, 16)
+				headerBoostBtn.Text = "⚡ x2"
+				headerBoostBtn.TextColor3 = THEME.Gold
+			end
+
+			popupBuyBtn.BackgroundColor3 = THEME.Green
+			popupBuyBtn.Text = "💎 COMPRA x2 (" .. (passCfg.PriceLabel or "Robux") .. ")"
+			popupBuyBtn.TextColor3 = Color3.fromRGB(14, 22, 18)
+		end
+	end
+
+	local function openDoubleLightPopup()
+		refreshDoubleLightVisuals()
+		popupOverlay.Visible = true
+		cardScale.Scale = 0.82
+		TweenService:Create(cardScale, TweenInfo.new(0.22, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+			Scale = 1.0,
+		}):Play()
+	end
+
+	local function closeDoubleLightPopup()
+		popupOverlay.Visible = false
+	end
+
+	dockBoostBtn.MouseButton1Click:Connect(openDoubleLightPopup)
+	popupCloseBtn.MouseButton1Click:Connect(closeDoubleLightPopup)
+	popupLaterBtn.MouseButton1Click:Connect(closeDoubleLightPopup)
+	popupOverlay.MouseButton1Click:Connect(closeDoubleLightPopup)
+
+	popupBuyBtn.MouseButton1Click:Connect(function()
+		if hasDoubleLight then
+			closeDoubleLightPopup()
+			return
+		end
+		local passId = passCfg.GamePassId or 0
+		if passId <= 0 then
+			if popupManager then
+				popupManager:ShowEvent("Imposta GamePassId in GameConfig.lua!", THEME.Gold)
+			end
+			return
+		end
+		local ok, err = pcall(function()
+			MarketplaceService:PromptGamePassPurchase(localPlayer, passId)
+		end)
+		if not ok and popupManager then
+			popupManager:ShowEvent("Acquisto non disponibile: " .. tostring(err), THEME.Gold)
+		end
+	end)
+
+	MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player, gamePassId, wasPurchased)
+		if player == localPlayer and gamePassId == (passCfg.GamePassId or 0) and wasPurchased then
+			hasDoubleLight = true
+			refreshDoubleLightVisuals()
+			closeDoubleLightPopup()
+			if popupManager then
+				popupManager:ShowEvent("⚡ LUCE x2 PERMANENTE ATTIVATA!", THEME.Gold)
+			end
+			if remotes and remotes.SyncGamePass then
+				remotes.SyncGamePass:FireServer(gamePassId)
+			end
+		end
+	end)
+
+	-- Controllo iniziale se il giocatore possiede già il GamePass
+	task.spawn(function()
+		local passId = passCfg.GamePassId or 0
+		if passId > 0 then
+			local ok, owns = pcall(function()
+				return MarketplaceService:UserOwnsGamePassAsync(localPlayer.UserId, passId)
+			end)
+			if ok and owns then
+				hasDoubleLight = true
+				refreshDoubleLightVisuals()
+			end
+		end
+	end)
+
+	-- =========================================================================
+	-- PANNELLO LATERALE COMPASSATO E RETRAIBILE
+	-- =========================================================================
 	local panel = Instance.new("Frame", parentGui)
 	panel.Name = "ProgressiveShopPanel"
 	panel.AnchorPoint = Vector2.new(1, 0.5)
 	panel.Position = POS_PANEL_CLOSED
-	panel.Size = UDim2.new(0, 345, 0.72, 0)
+	panel.Size = UDim2.new(0, 355, 0.74, 0)
 	panel.BackgroundColor3 = THEME.PanelBg
 	panel.BackgroundTransparency = 0.08
 	panel.Visible = false
@@ -123,16 +369,16 @@ function ShopUI.Build(parentGui, remotes, popupManager, onMuteToggle)
 		if isOpen then
 			panel.Visible = true
 			TweenService:Create(panel, tweenInfo, { Position = POS_PANEL_OPEN }):Play()
-			TweenService:Create(toggleBtn, tweenInfo, { Position = POS_TOGGLE_HIDDEN }):Play()
+			TweenService:Create(dockedDock, tweenInfo, { Position = POS_TOGGLE_HIDDEN }):Play()
 			task.delay(0.25, function()
 				if animToken == currentToken and isOpen then
-					toggleBtn.Visible = false
+					dockedDock.Visible = false
 				end
 			end)
 		else
-			toggleBtn.Visible = true
+			dockedDock.Visible = true
 			TweenService:Create(panel, tweenInfo, { Position = POS_PANEL_CLOSED }):Play()
-			TweenService:Create(toggleBtn, tweenInfo, { Position = POS_TOGGLE_SHOWN }):Play()
+			TweenService:Create(dockedDock, tweenInfo, { Position = POS_TOGGLE_SHOWN }):Play()
 			task.delay(0.25, function()
 				if animToken == currentToken and not isOpen then
 					panel.Visible = false
@@ -154,14 +400,14 @@ function ShopUI.Build(parentGui, remotes, popupManager, onMuteToggle)
 		end
 	end)
 
-	-- Intestazione con contatore bottoni scoperti e pulsante chiudi/retrai
+	-- Intestazione con contatore bottoni scoperti, bottone x2 Robux e pulsante chiudi/retrai
 	local header = Instance.new("Frame", panel)
 	header.Size = UDim2.new(1, -24, 0, 32)
 	header.Position = UDim2.fromOffset(12, 10)
 	header.BackgroundTransparency = 1
 
 	local headerTitle = Instance.new("TextLabel", header)
-	headerTitle.Size = UDim2.new(0.49, 0, 1, 0)
+	headerTitle.Size = UDim2.new(0.42, 0, 1, 0)
 	headerTitle.BackgroundTransparency = 1
 	headerTitle.Text = "⚡ POTENZIAMENTI"
 	headerTitle.TextColor3 = THEME.TextMain
@@ -170,14 +416,27 @@ function ShopUI.Build(parentGui, remotes, popupManager, onMuteToggle)
 	headerTitle.TextScaled = true
 
 	local discoveryBadge = Instance.new("TextLabel", header)
-	discoveryBadge.Size = UDim2.new(0.35, 0, 0.80, 0)
-	discoveryBadge.Position = UDim2.new(0.51, 0, 0.10, 0)
+	discoveryBadge.Size = UDim2.new(0.29, 0, 0.78, 0)
+	discoveryBadge.Position = UDim2.new(0.43, 0, 0.11, 0)
 	discoveryBadge.BackgroundColor3 = Color3.fromRGB(28, 30, 44)
-	discoveryBadge.Text = "Scoperti: 1/" .. #GameConfig.Upgrades
+	discoveryBadge.Text = "1/" .. #GameConfig.Upgrades
 	discoveryBadge.TextColor3 = THEME.Gold
 	discoveryBadge.Font = Enum.Font.GothamBold
 	discoveryBadge.TextScaled = true
 	Instance.new("UICorner", discoveryBadge).CornerRadius = UDim.new(1, 0)
+
+	headerBoostBtn = Instance.new("TextButton", header)
+	headerBoostBtn.Name = "HeaderDoubleLightBtn"
+	headerBoostBtn.AnchorPoint = Vector2.new(1, 0.5)
+	headerBoostBtn.Position = UDim2.new(1, -36, 0.5, 0)
+	headerBoostBtn.Size = UDim2.fromOffset(48, 28)
+	headerBoostBtn.BackgroundColor3 = Color3.fromRGB(48, 36, 16)
+	headerBoostBtn.Text = "⚡ x2"
+	headerBoostBtn.TextColor3 = THEME.Gold
+	headerBoostBtn.Font = Enum.Font.GothamBlack
+	headerBoostBtn.TextScaled = true
+	Instance.new("UICorner", headerBoostBtn).CornerRadius = UDim.new(0, 8)
+	headerBoostBtn.MouseButton1Click:Connect(openDoubleLightPopup)
 
 	local closeBtn = Instance.new("TextButton", header)
 	closeBtn.Name = "CollapseShopButton"
@@ -249,7 +508,7 @@ function ShopUI.Build(parentGui, remotes, popupManager, onMuteToggle)
 		pages[td.Id] = pg
 	end
 
-	-- Griglia a 2 Colonne per i Bottoni a Comparsa Progressiva ("Flame" e "World")
+	-- Griglia a 2 Colonne per i Bottoni a Comparsa Progressiva ("Flame" e "World") con Descrizioni
 	local tileMap = {}
 	local function createTileGrid(parentPage, category)
 		local scroll = Instance.new("ScrollingFrame", parentPage)
@@ -261,20 +520,19 @@ function ShopUI.Build(parentGui, remotes, popupManager, onMuteToggle)
 		scroll.CanvasSize = UDim2.fromOffset(0, 0)
 
 		local grid = Instance.new("UIGridLayout", scroll)
-		grid.CellSize = UDim2.new(0.482, 0, 0, 110)
+		grid.CellSize = UDim2.new(0.482, 0, 0, 140)
 		grid.CellPadding = UDim2.new(0.036, 0, 0, 10)
 		grid.SortOrder = Enum.SortOrder.LayoutOrder
 
 		for _, u in ipairs(GameConfig.Upgrades) do
 			if u.Category == category then
-				-- Il bottone intero è una Tile cliccabile!
 				local tile = Instance.new("TextButton", scroll)
 				tile.Name = u.Id
 				tile.LayoutOrder = u.Order
 				tile.BackgroundColor3 = THEME.TileLocked
 				tile.Text = ""
 				tile.AutoButtonColor = false
-				tile.Visible = (u.ReqId == nil) -- Nascosto finché non compri il prerequisito!
+				tile.Visible = (u.ReqId == nil)
 				Instance.new("UICorner", tile).CornerRadius = UDim.new(0, 14)
 
 				local stroke = Instance.new("UIStroke", tile)
@@ -286,18 +544,18 @@ function ShopUI.Build(parentGui, remotes, popupManager, onMuteToggle)
 
 				-- Badge Icona in alto a sinistra
 				local iconBadge = Instance.new("TextLabel", tile)
-				iconBadge.Size = UDim2.fromOffset(30, 30)
+				iconBadge.Size = UDim2.fromOffset(28, 28)
 				iconBadge.Position = UDim2.fromOffset(8, 8)
 				iconBadge.BackgroundColor3 = Color3.fromRGB(32, 35, 50)
 				iconBadge.Text = u.Icon
 				iconBadge.TextScaled = true
-				Instance.new("UICorner", iconBadge).CornerRadius = UDim.new(0, 9)
+				Instance.new("UICorner", iconBadge).CornerRadius = UDim.new(0, 8)
 
 				-- Pillola Livello in alto a destra
 				local lvlPill = Instance.new("TextLabel", tile)
 				lvlPill.AnchorPoint = Vector2.new(1, 0)
 				lvlPill.Position = UDim2.new(1, -8, 0, 10)
-				lvlPill.Size = UDim2.fromOffset(60, 22)
+				lvlPill.Size = UDim2.fromOffset(62, 20)
 				lvlPill.BackgroundColor3 = Color3.fromRGB(28, 30, 44)
 				lvlPill.Text = "Lv. 0/" .. u.MaxLevel
 				lvlPill.TextColor3 = THEME.TextSub
@@ -307,8 +565,8 @@ function ShopUI.Build(parentGui, remotes, popupManager, onMuteToggle)
 
 				-- Nome Potenziamento
 				local titleLbl = Instance.new("TextLabel", tile)
-				titleLbl.Size = UDim2.new(1, -16, 0, 19)
-				titleLbl.Position = UDim2.fromOffset(8, 42)
+				titleLbl.Size = UDim2.new(1, -16, 0, 18)
+				titleLbl.Position = UDim2.fromOffset(8, 40)
 				titleLbl.BackgroundTransparency = 1
 				titleLbl.Text = u.Name
 				titleLbl.TextColor3 = THEME.TextMain
@@ -316,10 +574,10 @@ function ShopUI.Build(parentGui, remotes, popupManager, onMuteToggle)
 				titleLbl.Font = Enum.Font.GothamBlack
 				titleLbl.TextScaled = true
 
-				-- Effetto sintetico
+				-- Effetto numerico sintetico
 				local tagLbl = Instance.new("TextLabel", tile)
-				tagLbl.Size = UDim2.new(1, -16, 0, 15)
-				tagLbl.Position = UDim2.fromOffset(8, 61)
+				tagLbl.Size = UDim2.new(1, -16, 0, 14)
+				tagLbl.Position = UDim2.fromOffset(8, 58)
 				tagLbl.BackgroundTransparency = 1
 				tagLbl.Text = u.Tag
 				tagLbl.TextColor3 = THEME.Cyan
@@ -327,10 +585,23 @@ function ShopUI.Build(parentGui, remotes, popupManager, onMuteToggle)
 				tagLbl.Font = Enum.Font.GothamBold
 				tagLbl.TextScaled = true
 
+				-- Descrizione dettagliata del potenziamento
+				local descLbl = Instance.new("TextLabel", tile)
+				descLbl.Size = UDim2.new(1, -16, 0, 32)
+				descLbl.Position = UDim2.fromOffset(8, 74)
+				descLbl.BackgroundTransparency = 1
+				descLbl.Text = u.Desc or ""
+				descLbl.TextColor3 = THEME.TextSub
+				descLbl.TextXAlignment = Enum.TextXAlignment.Left
+				descLbl.TextYAlignment = Enum.TextYAlignment.Top
+				descLbl.Font = Enum.Font.GothamMedium
+				descLbl.TextSize = 11
+				descLbl.TextWrapped = true
+
 				-- Pillola Costo in basso (tutta larghezza)
 				local costPill = Instance.new("Frame", tile)
-				costPill.Size = UDim2.new(1, -16, 0, 23)
-				costPill.Position = UDim2.new(0, 8, 1, -29)
+				costPill.Size = UDim2.new(1, -16, 0, 22)
+				costPill.Position = UDim2.new(0, 8, 1, -28)
 				costPill.BackgroundColor3 = Color3.fromRGB(34, 37, 52)
 				costPill.ClipsDescendants = true
 				Instance.new("UICorner", costPill).CornerRadius = UDim.new(0, 8)
@@ -522,6 +793,7 @@ function ShopUI.Build(parentGui, remotes, popupManager, onMuteToggle)
 	end)
 
 	selectTab("Flame")
+	refreshDoubleLightVisuals()
 
 	-- Aggiornamento dinamico dei bottoni progressivi
 	local uiController = {
@@ -529,6 +801,8 @@ function ShopUI.Build(parentGui, remotes, popupManager, onMuteToggle)
 		IsOpen = function()
 			return isOpen
 		end,
+		OpenDoubleLightPopup = openDoubleLightPopup,
+		CloseDoubleLightPopup = closeDoubleLightPopup,
 	}
 
 	function uiController.Update(st)
@@ -537,6 +811,17 @@ function ShopUI.Build(parentGui, remotes, popupManager, onMuteToggle)
 		local discoveredCount = 0
 		local affordableCount = 0
 		local hasWorldButtons = false
+
+		if st.HasDoubleLight == true and not hasDoubleLight then
+			hasDoubleLight = true
+			refreshDoubleLightVisuals()
+		end
+
+		-- Mostra automaticamente il pop-up x2 una sola volta quando il giocatore raggiunge 100 Punti Luce
+		if not hasDoubleLight and not autoPromptShown and (st.TotalPoints or points) >= 100 then
+			autoPromptShown = true
+			openDoubleLightPopup()
+		end
 
 		for id, entry in pairs(tileMap) do
 			local u = entry.Cfg
@@ -589,7 +874,7 @@ function ShopUI.Build(parentGui, remotes, popupManager, onMuteToggle)
 			end
 		end
 
-		discoveryBadge.Text = string.format("Scoperti: %d/%d", discoveredCount, #GameConfig.Upgrades)
+		discoveryBadge.Text = string.format("%d/%d", discoveredCount, #GameConfig.Upgrades)
 
 		-- Aggiorna il badge sul pulsante retratto
 		if affordableCount > 0 then

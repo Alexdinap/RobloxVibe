@@ -1,5 +1,17 @@
 local GameConfig = {}
 
+-- GamePass Robux
+GameConfig.RobuxPasses = {
+	DoubleLight = {
+		GamePassId = 0, -- INSERISCI QUI L'ID DEL TUO GAMEPASS ROBLOX
+		Name = "Luce x2 Permanente",
+		Tag = "x2 PUNTI LUCE",
+		Desc = "Raddoppia per sempre tutti i Punti Luce prodotti da click, altari, spiriti e ricompense!",
+		PriceLabel = "Robux",
+		Multiplier = 2.0,
+	},
+}
+
 -- Catena Progressiva: i bottoni compaiono man mano che compri i precedenti!
 -- ReqId = nil -> disponibile subito all'inizio
 -- ReqId = "id", ReqLvl = N -> compare appena porti "id" al livello N
@@ -8,7 +20,8 @@ GameConfig.Upgrades = {
 	{
 		Id = "u_click_add", Category = "Flame", Order = 1,
 		Icon = "🔥", Name = "Soffio Ardente", Tag = "+0.5 Click",
-		BaseCost = 20, CostMult = 1.55, MaxLevel = 30, LightPct = 0.5,
+		Desc = "Aumenta i punti base ottenuti ogni volta che clicchi la Fiamma.",
+		BaseCost = 20, CostMult = 1.55, MaxLevel = 30, LightPct = 0.25,
 		Effect = "ClickAdd", Value = 0.5,
 		ReqId = nil, ReqLvl = 0,
 	},
@@ -17,14 +30,16 @@ GameConfig.Upgrades = {
 	{
 		Id = "u_click_mult", Category = "Flame", Order = 2,
 		Icon = "⚡", Name = "Fiamma Concentrata", Tag = "x1.25 Click",
-		BaseCost = 60, CostMult = 2.50, MaxLevel = 15, LightPct = 1,
+		Desc = "Moltiplica tutti i Punti Luce guadagnati dai click e dagli altari.",
+		BaseCost = 60, CostMult = 2.50, MaxLevel = 15, LightPct = 0.5,
 		Effect = "ClickMult", Value = 1.25,
 		ReqId = "u_click_add", ReqLvl = 1,
 	},
 	{
 		Id = "u_braziers", Category = "World", Order = 1,
-		Icon = "🔥", Name = "Regno 1", Tag = "Rituale Bracieri • x1.5 Click",
-		BaseCost = 250, CostMult = 1, MaxLevel = 1, LightPct = 12,
+		Icon = "🔥", Name = "Regno 1", Tag = "Rituale • x1.5 Click",
+		Desc = "Sblocca i 5 Bracieri del Santuario per la sfida a tempo e potenzia i click.",
+		BaseCost = 250, CostMult = 1, MaxLevel = 1, LightPct = 6,
 		Zone = "Braziers", Effect = "ClickMult", Value = 1.5,
 		ReqId = "u_click_add", ReqLvl = 1,
 	},
@@ -32,15 +47,17 @@ GameConfig.Upgrades = {
 	-- FASE 3: Si sbloccano comprando Fiamma Concentrata Liv. 1
 	{
 		Id = "u_radius", Category = "Flame", Order = 3,
-		Icon = "☀️", Name = "Espansione Luce", Tag = "+3% Luce • x1.15 Click",
-		BaseCost = 120, CostMult = 2.35, MaxLevel = 8, LightPct = 3,
+		Icon = "☀️", Name = "Espansione Luce", Tag = "+1.5% Luce • x1.15",
+		Desc = "Allarga il raggio luminoso della Fiamma nell'oscurità e potenzia i click.",
+		BaseCost = 120, CostMult = 2.35, MaxLevel = 8, LightPct = 1.5,
 		Effect = "ClickMult", Value = 1.15,
 		ReqId = "u_click_mult", ReqLvl = 1,
 	},
 	{
 		Id = "u_crit", Category = "Flame", Order = 4,
 		Icon = "💥", Name = "Scintilla Critica", Tag = "+4% Critico (x5)",
-		BaseCost = 175, CostMult = 2.25, MaxLevel = 10, LightPct = 0.5,
+		Desc = "Aumenta la probabilità di sferrare click critici che valgono 5 volte tanto.",
+		BaseCost = 175, CostMult = 2.25, MaxLevel = 10, LightPct = 0.25,
 		Effect = "CritChance", Value = 0.04,
 		ReqId = "u_click_mult", ReqLvl = 1,
 	},
@@ -49,14 +66,16 @@ GameConfig.Upgrades = {
 	{
 		Id = "u_autoclick", Category = "Flame", Order = 5,
 		Icon = "⏱️", Name = "Battito Fiamma", Tag = "+0.5 Click Auto/s",
-		BaseCost = 300, CostMult = 2.55, MaxLevel = 10, LightPct = 0.5,
+		Desc = "La Fiamma pulsa autonomamente generando click automatici ogni secondo.",
+		BaseCost = 300, CostMult = 2.55, MaxLevel = 10, LightPct = 0.25,
 		Effect = "AutoClick", Value = 0.5,
 		ReqId = "u_radius", ReqLvl = 1,
 	},
 	{
 		Id = "u_heat", Category = "Flame", Order = 6,
 		Icon = "🌡️", Name = "Braci Persistenti", Tag = "Calore Max +x0.3",
-		BaseCost = 450, CostMult = 2.70, MaxLevel = 6, LightPct = 1,
+		Desc = "Aumenta il bonus massimo ottenuto riempiendo la barra del Calore Fiamma.",
+		BaseCost = 450, CostMult = 2.70, MaxLevel = 6, LightPct = 0.5,
 		Effect = "HeatMax", Value = 0.3,
 		ReqId = "u_radius", ReqLvl = 1,
 	},
@@ -64,15 +83,17 @@ GameConfig.Upgrades = {
 	-- FASE 5: Si sbloccano risvegliando Regno 1
 	{
 		Id = "u_unlock_wisps", Category = "Flame", Order = 7,
-		Icon = "✨", Name = "Altare degli Spiriti", Tag = "Sblocca Scheda Spiriti",
-		BaseCost = 950, CostMult = 1, MaxLevel = 1, LightPct = 2,
+		Icon = "✨", Name = "Altare degli Spiriti", Tag = "Sblocca Spiriti",
+		Desc = "Apre la scheda Spiriti per evocare e fondere compagni di luce.",
+		BaseCost = 950, CostMult = 1, MaxLevel = 1, LightPct = 1,
 		Effect = "UnlockWisps", Value = 1,
 		ReqId = "u_braziers", ReqLvl = 1,
 	},
 	{
 		Id = "u_crystals", Category = "World", Order = 2,
-		Icon = "💎", Name = "Foresta Cristallo", Tag = "Cristalli Est • x1.75 Click",
-		BaseCost = 2000, CostMult = 1, MaxLevel = 1, LightPct = 15,
+		Icon = "💎", Name = "Foresta Cristallo", Tag = "Est • x1.75 Click",
+		Desc = "Risveglia i cristalli a Est del Santuario e moltiplica i Punti Luce.",
+		BaseCost = 2000, CostMult = 1, MaxLevel = 1, LightPct = 7.5,
 		Zone = "Crystals", Effect = "ClickMult", Value = 1.75,
 		ReqId = "u_braziers", ReqLvl = 1,
 	},
@@ -80,15 +101,17 @@ GameConfig.Upgrades = {
 	-- FASE 6: Si sbloccano risvegliando la Foresta di Cristallo
 	{
 		Id = "u_ember_mag", Category = "Flame", Order = 8,
-		Icon = "🧲", Name = "Attrazione Luce", Tag = "Attira Sfere Vaganti",
-		BaseCost = 3200, CostMult = 1, MaxLevel = 1, LightPct = 2,
+		Icon = "🧲", Name = "Attrazione Luce", Tag = "Calamita Sfere",
+		Desc = "Attira automaticamente verso di te le Sfere di Luce vaganti vicine.",
+		BaseCost = 3200, CostMult = 1, MaxLevel = 1, LightPct = 1,
 		Effect = "Magnet", Value = 1,
 		ReqId = "u_crystals", ReqLvl = 1,
 	},
 	{
 		Id = "u_lanterns", Category = "World", Order = 3,
-		Icon = "🏮", Name = "Giardino Lanterne", Tag = "Lanterne Cielo • x2 Click",
-		BaseCost = 18000, CostMult = 1, MaxLevel = 1, LightPct = 15,
+		Icon = "🏮", Name = "Giardino Lanterne", Tag = "Cielo • x2.0 Click",
+		Desc = "Accende le lanterne sospese in cielo e raddoppia i Punti Luce.",
+		BaseCost = 18000, CostMult = 1, MaxLevel = 1, LightPct = 7.5,
 		Zone = "Lanterns", Effect = "ClickMult", Value = 2.0,
 		ReqId = "u_crystals", ReqLvl = 1,
 	},
@@ -97,14 +120,16 @@ GameConfig.Upgrades = {
 	{
 		Id = "u_wisp_slot", Category = "Flame", Order = 9,
 		Icon = "🔗", Name = "Legame Spiritico", Tag = "+1 Spirito Attivo",
-		BaseCost = 25000, CostMult = 4.5, MaxLevel = 2, LightPct = 2,
+		Desc = "Aumenta il numero massimo di Spiriti di Luce attivi attorno a te.",
+		BaseCost = 25000, CostMult = 4.5, MaxLevel = 2, LightPct = 1,
 		Effect = "ExtraWisp", Value = 1,
 		ReqId = "u_lanterns", ReqLvl = 1,
 	},
 	{
 		Id = "u_waterfall", Category = "World", Order = 4,
-		Icon = "🌊", Name = "Cascata Eterea", Tag = "Cascata Ovest • x2.5 Click",
-		BaseCost = 135000, CostMult = 1, MaxLevel = 1, LightPct = 18,
+		Icon = "🌊", Name = "Cascata Eterea", Tag = "Ovest • x2.5 Click",
+		Desc = "Risveglia la cascata luminosa a Ovest e potenzia i guadagni (x2.5).",
+		BaseCost = 135000, CostMult = 1, MaxLevel = 1, LightPct = 9,
 		Zone = "Waterfall", Effect = "ClickMult", Value = 2.5,
 		ReqId = "u_lanterns", ReqLvl = 1,
 	},
@@ -112,15 +137,17 @@ GameConfig.Upgrades = {
 	-- FASE 8: Si sbloccano risvegliando la Cascata Eterea
 	{
 		Id = "u_unlock_alba", Category = "Flame", Order = 10,
-		Icon = "🌅", Name = "Rito dell'Alba", Tag = "Sblocca Grande Alba",
-		BaseCost = 750000, CostMult = 1, MaxLevel = 1, LightPct = 2,
+		Icon = "🌅", Name = "Rito dell'Alba", Tag = "Sblocca Prestige",
+		Desc = "Sblocca la scheda Alba per rinascere in cambio di Stelle Eterne.",
+		BaseCost = 750000, CostMult = 1, MaxLevel = 1, LightPct = 1,
 		Effect = "UnlockAlba", Value = 1,
 		ReqId = "u_waterfall", ReqLvl = 1,
 	},
 	{
 		Id = "u_temple", Category = "World", Order = 5,
-		Icon = "🏛️", Name = "Tempio dell'Alba", Tag = "Sole a Nord • x3 Click",
-		BaseCost = 1250000, CostMult = 1, MaxLevel = 1, LightPct = 22,
+		Icon = "🏛️", Name = "Tempio dell'Alba", Tag = "Nord • x3.0 Click",
+		Desc = "Risveglia l'antico Tempio a Nord e triplica tutti i Punti Luce.",
+		BaseCost = 1250000, CostMult = 1, MaxLevel = 1, LightPct = 11,
 		Zone = "Temple", Effect = "ClickMult", Value = 3.0,
 		ReqId = "u_waterfall", ReqLvl = 1,
 	},
@@ -129,7 +156,8 @@ GameConfig.Upgrades = {
 	{
 		Id = "u_apotheosis", Category = "Flame", Order = 11,
 		Icon = "👑", Name = "Apoteosi Solare", Tag = "x4.0 Punti Click",
-		BaseCost = 1.5e7, CostMult = 5.5, MaxLevel = 5, LightPct = 1,
+		Desc = "Potenziamento supremo: quadruplica i Punti Luce per ogni livello.",
+		BaseCost = 1.5e7, CostMult = 5.5, MaxLevel = 5, LightPct = 0.5,
 		Effect = "ClickMult", Value = 4.0,
 		ReqId = "u_temple", ReqLvl = 1,
 	},

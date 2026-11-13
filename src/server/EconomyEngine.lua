@@ -3,12 +3,16 @@ local GameConfig = require(ReplicatedStorage:WaitForChild("GameConfig"))
 
 local EconomyEngine = {}
 
+-- Velocità globale di produzione della luce dimezzata (0.5x)
+local LIGHT_PRODUCTION_SPEED = 0.5
+
 function EconomyEngine.DefaultData()
 	return {
 		Points = 0,
 		TotalPoints = 0,
 		TotalClicks = 0,
 		EternalStars = 0,
+		HasDoubleLight = false,
 		Altars = {},
 		Upgrades = {},
 		StarPerks = {},
@@ -83,7 +87,7 @@ function EconomyEngine.GetEquippedWisps(data)
 	return eq
 end
 
-function EconomyEngine.CalculateStats(data, heatValue, regno1BuffMult)
+function EconomyEngine.CalculateStats(data, heatValue, regno1BuffMult, hasDoubleLight)
 	local baseClick = 1
 	local clickMult = 1
 	local pointsPerSec = 0
@@ -91,7 +95,7 @@ function EconomyEngine.CalculateStats(data, heatValue, regno1BuffMult)
 	local critMult = 5 * (2 ^ EconomyEngine.GetLevel(data.StarPerks, "sp_crit"))
 	local autoClicksPerSec = 0
 	local maxHeatBonus = 0.5
-	local lightPercent = 4
+	local lightPercent = 2
 
 	for _, alt in ipairs(GameConfig.Altars) do
 		local lvl = EconomyEngine.GetLevel(data.Altars, alt.Id)
@@ -129,6 +133,12 @@ function EconomyEngine.CalculateStats(data, heatValue, regno1BuffMult)
 	local activeBuff = math.max(1.0, regno1BuffMult or 1.0)
 	clickMult *= activeBuff
 
+	-- GamePass Robux: Luce x2 Permanente
+	local doubleLightOwned = (hasDoubleLight == true) or (data.HasDoubleLight == true)
+	if doubleLightOwned then
+		clickMult *= (GameConfig.RobuxPasses and GameConfig.RobuxPasses.DoubleLight.Multiplier or 2.0)
+	end
+
 	local equipped = EconomyEngine.GetEquippedWisps(data)
 	local wispBonus = 1
 	for _, w in ipairs(equipped) do
@@ -147,8 +157,8 @@ function EconomyEngine.CalculateStats(data, heatValue, regno1BuffMult)
 	local heat = math.clamp(heatValue or 0, 0, 1)
 	local heatMult = 1 + (heat * maxHeatBonus)
 
-	local finalClickPower = baseClick * clickMult * heatMult
-	local finalPps = (pointsPerSec * clickMult * 0.25) + (autoClicksPerSec * finalClickPower)
+	local finalClickPower = baseClick * clickMult * heatMult * LIGHT_PRODUCTION_SPEED
+	local finalPps = ((pointsPerSec * clickMult * 0.25) * LIGHT_PRODUCTION_SPEED) + (autoClicksPerSec * finalClickPower)
 
 	return {
 		ClickPower = finalClickPower,
@@ -166,6 +176,7 @@ function EconomyEngine.CalculateStats(data, heatValue, regno1BuffMult)
 		Regno1Unlocked = EconomyEngine.GetLevel(data.Upgrades, GameConfig.Regno1.UnlockUpgradeId) > 0,
 		Regno1Blessed = regno1Blessed,
 		Regno1BuffMult = activeBuff,
+		HasDoubleLight = doubleLightOwned,
 	}
 end
 
