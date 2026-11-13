@@ -206,7 +206,7 @@ for _, alt in ipairs(GameConfig.Altars) do
 		pad.Touched:Connect(function(hit)
 			local plr = Players:GetPlayerFromCharacter(hit.Parent)
 			if plr then TouchingMap[alt.Id][plr.UserId] = plr end
-		end
+		end)
 		pad.TouchEnded:Connect(function(hit)
 			local plr = Players:GetPlayerFromCharacter(hit.Parent)
 			if plr then TouchingMap[alt.Id][plr.UserId] = nil end
