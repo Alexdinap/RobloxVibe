@@ -1,58 +1,172 @@
 local GameConfig = {}
 
-local SUFFIXES = {
-	"", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc", "Ud", "Dd"
+-- Catena Progressiva: i bottoni compaiono man mano che compri i precedenti!
+-- ReqId = nil -> disponibile subito all'inizio
+-- ReqId = "id", ReqLvl = N -> compare appena porti "id" al livello N
+GameConfig.Upgrades = {
+	-- FASE 1: Inizio (Solo questo bottone è visibile all'avvio!)
+	{
+		Id = "u_click_add", Category = "Flame", Order = 1,
+		Icon = "🔥", Name = "Soffio Ardente", Tag = "+1 Click",
+		BaseCost = 10, CostMult = 1.42, MaxLevel = 30, LightPct = 0.5,
+		Effect = "ClickAdd", Value = 1,
+		ReqId = nil, ReqLvl = 0,
+	},
+
+	-- FASE 2: Si sbloccano comprando Soffio Ardente Liv. 1
+	{
+		Id = "u_click_mult", Category = "Flame", Order = 2,
+		Icon = "⚡", Name = "Fiamma Concentrata", Tag = "x1.65 Click",
+		BaseCost = 35, CostMult = 2.30, MaxLevel = 15, LightPct = 1,
+		Effect = "ClickMult", Value = 1.65,
+		ReqId = "u_click_add", ReqLvl = 1,
+	},
+	{
+		Id = "u_braziers", Category = "World", Order = 1,
+		Icon = "🔥", Name = "Regno 1", Tag = "Rituale Bracieri • x2 Click",
+		BaseCost = 150, CostMult = 1, MaxLevel = 1, LightPct = 12,
+		Zone = "Braziers", Effect = "ClickMult", Value = 2.0,
+		ReqId = "u_click_add", ReqLvl = 1,
+	},
+
+	-- FASE 3: Si sbloccano comprando Fiamma Concentrata Liv. 1
+	{
+		Id = "u_radius", Category = "Flame", Order = 3,
+		Icon = "☀️", Name = "Espansione Luce", Tag = "+3% Luce • x1.35 Click",
+		BaseCost = 75, CostMult = 2.15, MaxLevel = 8, LightPct = 3,
+		Effect = "ClickMult", Value = 1.35,
+		ReqId = "u_click_mult", ReqLvl = 1,
+	},
+	{
+		Id = "u_crit", Category = "Flame", Order = 4,
+		Icon = "💥", Name = "Scintilla Critica", Tag = "+7% Critico (x12)",
+		BaseCost = 110, CostMult = 2.05, MaxLevel = 10, LightPct = 0.5,
+		Effect = "CritChance", Value = 0.07,
+		ReqId = "u_click_mult", ReqLvl = 1,
+	},
+
+	-- FASE 4: Si sbloccano comprando Espansione Luce Liv. 1
+	{
+		Id = "u_autoclick", Category = "Flame", Order = 5,
+		Icon = "⏱️", Name = "Battito Fiamma", Tag = "+1 Click Auto/s",
+		BaseCost = 180, CostMult = 2.35, MaxLevel = 10, LightPct = 0.5,
+		Effect = "AutoClick", Value = 1,
+		ReqId = "u_radius", ReqLvl = 1,
+	},
+	{
+		Id = "u_heat", Category = "Flame", Order = 6,
+		Icon = "🌡️", Name = "Braci Persistenti", Tag = "Calore Max +x0.7",
+		BaseCost = 300, CostMult = 2.50, MaxLevel = 6, LightPct = 1,
+		Effect = "HeatMax", Value = 0.7,
+		ReqId = "u_radius", ReqLvl = 1,
+	},
+
+	-- FASE 5: Si sbloccano risvegliando Regno 1
+	{
+		Id = "u_unlock_wisps", Category = "Flame", Order = 7,
+		Icon = "✨", Name = "Altare degli Spiriti", Tag = "Sblocca Scheda Spiriti",
+		BaseCost = 600, CostMult = 1, MaxLevel = 1, LightPct = 2,
+		Effect = "UnlockWisps", Value = 1,
+		ReqId = "u_braziers", ReqLvl = 1,
+	},
+	{
+		Id = "u_crystals", Category = "World", Order = 2,
+		Icon = "💎", Name = "Foresta Cristallo", Tag = "Cristalli Est • x2.5 Click",
+		BaseCost = 1200, CostMult = 1, MaxLevel = 1, LightPct = 15,
+		Zone = "Crystals", Effect = "ClickMult", Value = 2.5,
+		ReqId = "u_braziers", ReqLvl = 1,
+	},
+
+	-- FASE 6: Si sbloccano risvegliando la Foresta di Cristallo
+	{
+		Id = "u_ember_mag", Category = "Flame", Order = 8,
+		Icon = "🧲", Name = "Attrazione Luce", Tag = "Attira Sfere Vaganti",
+		BaseCost = 2000, CostMult = 1, MaxLevel = 1, LightPct = 2,
+		Effect = "Magnet", Value = 1,
+		ReqId = "u_crystals", ReqLvl = 1,
+	},
+	{
+		Id = "u_lanterns", Category = "World", Order = 3,
+		Icon = "🏮", Name = "Giardino Lanterne", Tag = "Lanterne Cielo • x3 Click",
+		BaseCost = 12000, CostMult = 1, MaxLevel = 1, LightPct = 15,
+		Zone = "Lanterns", Effect = "ClickMult", Value = 3.0,
+		ReqId = "u_crystals", ReqLvl = 1,
+	},
+
+	-- FASE 7: Si sbloccano risvegliando il Giardino delle Lanterne
+	{
+		Id = "u_wisp_slot", Category = "Flame", Order = 9,
+		Icon = "🔗", Name = "Legame Spiritico", Tag = "+1 Spirito Attivo",
+		BaseCost = 15000, CostMult = 4.0, MaxLevel = 2, LightPct = 2,
+		Effect = "ExtraWisp", Value = 1,
+		ReqId = "u_lanterns", ReqLvl = 1,
+	},
+	{
+		Id = "u_waterfall", Category = "World", Order = 4,
+		Icon = "🌊", Name = "Cascata Eterea", Tag = "Cascata Ovest • x4 Click",
+		BaseCost = 90000, CostMult = 1, MaxLevel = 1, LightPct = 18,
+		Zone = "Waterfall", Effect = "ClickMult", Value = 4.0,
+		ReqId = "u_lanterns", ReqLvl = 1,
+	},
+
+	-- FASE 8: Si sbloccano risvegliando la Cascata Eterea
+	{
+		Id = "u_unlock_alba", Category = "Flame", Order = 10,
+		Icon = "🌅", Name = "Rito dell'Alba", Tag = "Sblocca Grande Alba",
+		BaseCost = 500000, CostMult = 1, MaxLevel = 1, LightPct = 2,
+		Effect = "UnlockAlba", Value = 1,
+		ReqId = "u_waterfall", ReqLvl = 1,
+	},
+	{
+		Id = "u_temple", Category = "World", Order = 5,
+		Icon = "🏛️", Name = "Tempio dell'Alba", Tag = "Sole a Nord • x6 Click",
+		BaseCost = 850000, CostMult = 1, MaxLevel = 1, LightPct = 22,
+		Zone = "Temple", Effect = "ClickMult", Value = 6.0,
+		ReqId = "u_waterfall", ReqLvl = 1,
+	},
+
+	-- FASE 9: Potenziamento Finale dopo il Tempio
+	{
+		Id = "u_apotheosis", Category = "Flame", Order = 11,
+		Icon = "👑", Name = "Apoteosi Solare", Tag = "x10.0 Punti Click",
+		BaseCost = 1e7, CostMult = 5.0, MaxLevel = 5, LightPct = 1,
+		Effect = "ClickMult", Value = 10.0,
+		ReqId = "u_temple", ReqLvl = 1,
+	},
 }
 
-function GameConfig.Format(n)
-	if n == nil or n ~= n then return "0" end
-	if n == math.huge then return "Infinito" end
-	if n < 0 then return "-" .. GameConfig.Format(-n) end
-	if n < 1000 then
-		if n < 10 and n % 1 ~= 0 then
-			return string.format("%.1f", n)
-		end
-		return tostring(math.floor(n))
-	end
-	local tier = math.floor(math.log10(n) / 3)
-	if tier < #SUFFIXES then
-		return string.format("%.2f%s", n / (10 ^ (tier * 3)), SUFFIXES[tier + 1])
-	else
-		local exp = math.floor(math.log10(n))
-		return string.format("%.2fe%d", n / (10 ^ exp), exp)
-	end
-end
-
--- Potenziamenti Principali (Acquistabili con Punti Luce)
-GameConfig.Upgrades = {
-	-- Potenziamenti Click & Fiamma
-	{ Id = "u_click_add", Category = "Flame", Icon = "🔥", Name = "Soffio Ardente", Desc = "+1 Punto base per click", BaseCost = 10, CostMult = 1.45, MaxLevel = 30, LightPct = 0.5, Effect = "ClickAdd", Value = 1 },
-	{ Id = "u_click_mult", Category = "Flame", Icon = "⚡", Name = "Fiamma Concentrata", Desc = "x1.60 Punti per ogni click", BaseCost = 45, CostMult = 2.35, MaxLevel = 15, LightPct = 1, Effect = "ClickMult", Value = 1.60 },
-	{ Id = "u_radius", Category = "Flame", Icon = "☀️", Name = "Espansione della Luce", Desc = "+3% Luce nel mondo & Click x1.35", BaseCost = 75, CostMult = 2.20, MaxLevel = 8, LightPct = 3, Effect = "ClickMult", Value = 1.35 },
-	{ Id = "u_crit", Category = "Flame", Icon = "💥", Name = "Scintilla Critica", Desc = "+6% chance Critico (x12 Punti)", BaseCost = 120, CostMult = 2.10, MaxLevel = 10, LightPct = 0.5, Effect = "CritChance", Value = 0.06 },
-	{ Id = "u_autoclick", Category = "Flame", Icon = "⏱️", Name = "Battito della Fiamma", Desc = "+1 Click automatico al secondo", BaseCost = 200, CostMult = 2.40, MaxLevel = 10, LightPct = 0.5, Effect = "AutoClick", Value = 1 },
-	{ Id = "u_heat", Category = "Flame", Icon = "🌡️", Name = "Braci Persistenti", Desc = "Bonus Calore massimo +x0.6", BaseCost = 350, CostMult = 2.60, MaxLevel = 6, LightPct = 1, Effect = "HeatMax", Value = 0.6 },
-	{ Id = "u_ember_mag", Category = "Flame", Icon = "🧲", Name = "Attrazione Luminosa", Desc = "Attira le sfere vaganti nel buio", BaseCost = 1500, CostMult = 1, MaxLevel = 1, LightPct = 2, Effect = "Magnet", Value = 1 },
-	{ Id = "u_wisp_slot", Category = "Flame", Icon = "✨", Name = "Legame Spiritico", Desc = "+1 Spirito di Luce attivo", BaseCost = 8000, CostMult = 4.0, MaxLevel = 2, LightPct = 2, Effect = "ExtraWisp", Value = 1 },
-
-	-- Risveglio dei 5 Regni Oscuri
-	{ Id = "u_braziers", Category = "World", Icon = "🔥", Name = "Sentiero dei Bracieri", Desc = "Accende 12 bracieri + Click x2.0", BaseCost = 250, CostMult = 1, MaxLevel = 1, LightPct = 12, Zone = "Braziers", Effect = "ClickMult", Value = 2.0 },
-	{ Id = "u_crystals", Category = "World", Icon = "💎", Name = "Foresta di Cristallo", Desc = "Illumina i cristalli a Est + Click x2.5", BaseCost = 2500, CostMult = 1, MaxLevel = 1, LightPct = 15, Zone = "Crystals", Effect = "ClickMult", Value = 2.5 },
-	{ Id = "u_lanterns", Category = "World", Icon = "🏮", Name = "Giardino delle Lanterne", Desc = "Lanterne volanti a Sud-Ovest + Click x3.0", BaseCost = 25000, CostMult = 1, MaxLevel = 1, LightPct = 15, Zone = "Lanterns", Effect = "ClickMult", Value = 3.0 },
-	{ Id = "u_waterfall", Category = "World", Icon = "🌊", Name = "Cascata Eterea", Desc = "Accende la cascata a Ovest + Click x4.0", BaseCost = 250000, CostMult = 1, MaxLevel = 1, LightPct = 18, Zone = "Waterfall", Effect = "ClickMult", Value = 4.0 },
-	{ Id = "u_temple", Category = "World", Icon = "🏛️", Name = "Tempio dell'Alba", Desc = "Risveglia il Sole a Nord + Click x6.0", BaseCost = 3e6, CostMult = 1, MaxLevel = 1, LightPct = 22, Zone = "Temple", Effect = "ClickMult", Value = 6.0 },
+-- Configurazione Meccanica Principale di Regno 1: Il Rituale della Catena del Fuoco
+GameConfig.Regno1 = {
+	Name = "Regno 1",
+	TrialTitle = "Catena del Fuoco",
+	UnlockUpgradeId = "u_braziers",
+	BaseTime = 18.0,            -- Secondi iniziali all'accensione del Braciere I
+	BonusTimePerBrazier = 2.5,  -- Secondi aggiunti accendendo i Bracieri II, III, IV
+	IgniteRadius = 11.5,        -- Distanza in studs per accendere automaticamente correndo
+	RetryCooldown = 3.5,        -- Secondi di attesa prima di riavviare la sfida
+	PermanentBlessingMult = 1.35, -- +35% produzione permanente dopo il 1° completamento
+	BuffDuration = 30.0,        -- Durata buff temporaneo "Fiamma Ruggente"
+	BuffMinMult = 1.50,         -- Moltiplicatore minimo al completamento
+	BuffMaxMult = 2.50,         -- Moltiplicatore massimo se completi con molto tempo residuo
+	Braziers = {
+		{ Index = 1, Numeral = "I",   Pos = Vector3.new(0, 1.0, 47),     PedestalHeight = 1.4 },
+		{ Index = 2, Numeral = "II",  Pos = Vector3.new(34, 1.0, 34),    PedestalHeight = 2.2 },
+		{ Index = 3, Numeral = "III", Pos = Vector3.new(48, 1.0, 0),     PedestalHeight = 3.0 },
+		{ Index = 4, Numeral = "IV",  Pos = Vector3.new(34, 1.0, -34),   PedestalHeight = 2.4 },
+		{ Index = 5, Numeral = "V",   Pos = Vector3.new(0, 1.0, -49),    PedestalHeight = 3.8 },
+	},
 }
 
 -- 8 Altari a Terra attorno alla Fiamma
 GameConfig.Altars = {
-	{ Id = "alt1", Name = "Pietra Focaia", Desc = "+1/s & +0.5 Click", BaseCost = 25, CostMult = 1.18, Pps = 1, ClickBonus = 0.5, Color = Color3.fromRGB(255, 165, 55), Pos = Vector3.new(-16, 1.4, 14) },
-	{ Id = "alt2", Name = "Lanterna Antica", Desc = "+6/s & +2 Click", BaseCost = 140, CostMult = 1.20, Pps = 6, ClickBonus = 2, Color = Color3.fromRGB(255, 215, 80), Pos = Vector3.new(16, 1.4, 14) },
-	{ Id = "alt3", Name = "Braciere Runico", Desc = "+30/s & +8 Click", BaseCost = 750, CostMult = 1.22, Pps = 30, ClickBonus = 8, Color = Color3.fromRGB(255, 105, 45), Pos = Vector3.new(-21, 1.4, -3) },
-	{ Id = "alt4", Name = "Faro del Crepuscolo", Desc = "+150/s & +35 Click", BaseCost = 4000, CostMult = 1.24, Pps = 150, ClickBonus = 35, Color = Color3.fromRGB(95, 220, 255), Pos = Vector3.new(21, 1.4, -3) },
-	{ Id = "alt5", Name = "Specchio Solare", Desc = "+800/s & +160 Click", BaseCost = 22000, CostMult = 1.26, Pps = 800, ClickBonus = 160, Color = Color3.fromRGB(255, 240, 120), Pos = Vector3.new(0, 1.4, -20) },
-	{ Id = "alt6", Name = "Fucina Stellare", Desc = "+4.5K/s & +850 Click", BaseCost = 130000, CostMult = 1.28, Pps = 4500, ClickBonus = 850, Color = Color3.fromRGB(195, 120, 255), Pos = Vector3.new(-28, 1.4, 22) },
-	{ Id = "alt7", Name = "Obelisco dell'Alba", Desc = "+25K/s & +4.5K Click", BaseCost = 850000, CostMult = 1.30, Pps = 25000, ClickBonus = 4500, Color = Color3.fromRGB(70, 255, 180), Pos = Vector3.new(28, 1.4, 22) },
-	{ Id = "alt8", Name = "Cuore del Sole", Desc = "+150K/s & +25K Click", BaseCost = 6e6, CostMult = 1.32, Pps = 150000, ClickBonus = 25000, Color = Color3.fromRGB(255, 225, 95), Pos = Vector3.new(0, 1.4, -34) },
+	{ Id = "alt1", Name = "Pietra Focaia", BaseCost = 25, CostMult = 1.18, Pps = 1, ClickBonus = 0.5, Color = Color3.fromRGB(255, 165, 55), Pos = Vector3.new(-16, 1.4, 14) },
+	{ Id = "alt2", Name = "Lanterna Antica", BaseCost = 140, CostMult = 1.20, Pps = 6, ClickBonus = 2, Color = Color3.fromRGB(255, 215, 80), Pos = Vector3.new(16, 1.4, 14) },
+	{ Id = "alt3", Name = "Braciere Runico", BaseCost = 750, CostMult = 1.22, Pps = 30, ClickBonus = 8, Color = Color3.fromRGB(255, 105, 45), Pos = Vector3.new(-21, 1.4, -3) },
+	{ Id = "alt4", Name = "Faro Crepuscolo", BaseCost = 4000, CostMult = 1.24, Pps = 150, ClickBonus = 35, Color = Color3.fromRGB(95, 220, 255), Pos = Vector3.new(21, 1.4, -3) },
+	{ Id = "alt5", Name = "Specchio Solare", BaseCost = 22000, CostMult = 1.26, Pps = 800, ClickBonus = 160, Color = Color3.fromRGB(255, 240, 120), Pos = Vector3.new(0, 1.4, -20) },
+	{ Id = "alt6", Name = "Fucina Stellare", BaseCost = 130000, CostMult = 1.28, Pps = 4500, ClickBonus = 850, Color = Color3.fromRGB(195, 120, 255), Pos = Vector3.new(-28, 1.4, 22) },
+	{ Id = "alt7", Name = "Obelisco Alba", BaseCost = 850000, CostMult = 1.30, Pps = 25000, ClickBonus = 4500, Color = Color3.fromRGB(70, 255, 180), Pos = Vector3.new(28, 1.4, 22) },
+	{ Id = "alt8", Name = "Cuore del Sole", BaseCost = 6e6, CostMult = 1.32, Pps = 150000, ClickBonus = 25000, Color = Color3.fromRGB(255, 225, 95), Pos = Vector3.new(0, 1.4, -34) },
 }
 
 -- 5 Spiriti di Luce
@@ -67,7 +181,7 @@ GameConfig.Wisps = {
 }
 
 -- Prestige: Grande Alba
-GameConfig.PrestigeCost = 1e8
+GameConfig.PrestigeCost = 5e7 -- 50M Punti Luce
 GameConfig.StarPerks = {
 	{ Id = "sp_power", Name = "Fiamma Primordiale", Desc = "Tutti i Punti x5 per livello", Cost = 1, CostMult = 2, MaxLevel = 5 },
 	{ Id = "sp_start", Name = "Scintilla Ereditata", Desc = "Parti con 5.000 Punti e Soffio Liv. 5", Cost = 1, CostMult = 2, MaxLevel = 3 },
@@ -77,7 +191,7 @@ GameConfig.StarPerks = {
 
 GameConfig.Ranks = {
 	{ MinLight = 0, Name = "Portatore di Scintilla", Color = Color3.fromRGB(255, 175, 80) },
-	{ MinLight = 20, Name = "Custode dei Bracieri", Color = Color3.fromRGB(255, 215, 70) },
+	{ MinLight = 20, Name = "Custode di Regno 1", Color = Color3.fromRGB(255, 215, 70) },
 	{ MinLight = 45, Name = "Tessitore di Cristallo", Color = Color3.fromRGB(70, 240, 210) },
 	{ MinLight = 70, Name = "Araldo del Crepuscolo", Color = Color3.fromRGB(130, 190, 255) },
 	{ MinLight = 90, Name = "Signore dell'Alba", Color = Color3.fromRGB(255, 235, 120) },
