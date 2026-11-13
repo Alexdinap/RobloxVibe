@@ -88,9 +88,9 @@ function EconomyEngine.CalculateStats(data, heatValue, regno1BuffMult)
 	local clickMult = 1
 	local pointsPerSec = 0
 	local critChance = 0
-	local critMult = 12 * (2 ^ EconomyEngine.GetLevel(data.StarPerks, "sp_crit"))
+	local critMult = 5 * (2 ^ EconomyEngine.GetLevel(data.StarPerks, "sp_crit"))
 	local autoClicksPerSec = 0
-	local maxHeatBonus = 2.0
+	local maxHeatBonus = 0.5
 	local lightPercent = 4
 
 	for _, alt in ipairs(GameConfig.Altars) do
@@ -137,11 +137,11 @@ function EconomyEngine.CalculateStats(data, heatValue, regno1BuffMult)
 	clickMult *= wispBonus
 
 	if data.EternalStars > 0 then
-		clickMult *= (4 ^ data.EternalStars)
+		clickMult *= (2.5 ^ data.EternalStars)
 	end
 	local starPowerLvl = EconomyEngine.GetLevel(data.StarPerks, "sp_power")
 	if starPowerLvl > 0 then
-		clickMult *= (5 ^ starPowerLvl)
+		clickMult *= (3 ^ starPowerLvl)
 	end
 
 	local heat = math.clamp(heatValue or 0, 0, 1)

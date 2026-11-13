@@ -1,4 +1,5 @@
 local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local GameConfig = require(ReplicatedStorage:WaitForChild("GameConfig"))
@@ -22,14 +23,86 @@ local THEME = {
 function ShopUI.Build(parentGui, remotes, popupManager, onMuteToggle)
 	local activeTab = "Flame"
 	local unlockedSet = {} -- traccia quali bottoni sono già comparsi per animarli all'ingresso
+	local isOpen = false   -- parte chiuso/retratto così non occupa il centro dello schermo
 
+	local POS_PANEL_OPEN = UDim2.new(1, -12, 0.54, 0)
+	local POS_PANEL_CLOSED = UDim2.new(1, 20, 0.54, 0)
+	local POS_TOGGLE_SHOWN = UDim2.new(1, -12, 0.54, 0)
+	local POS_TOGGLE_HIDDEN = UDim2.new(1, 200, 0.54, 0)
+
+	-- Linguetta / Pulsante retratto sul bordo destro per aprire il menù
+	local toggleBtn = Instance.new("TextButton", parentGui)
+	toggleBtn.Name = "ShopToggleButton"
+	toggleBtn.AnchorPoint = Vector2.new(1, 0.5)
+	toggleBtn.Position = POS_TOGGLE_SHOWN
+	toggleBtn.Size = UDim2.fromOffset(172, 46)
+	toggleBtn.BackgroundColor3 = THEME.PanelBg
+	toggleBtn.BackgroundTransparency = 0.08
+	toggleBtn.Text = ""
+	toggleBtn.AutoButtonColor = false
+	toggleBtn.ZIndex = 15
+	Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(0, 14)
+
+	local toggleStroke = Instance.new("UIStroke", toggleBtn)
+	toggleStroke.Color = THEME.Gold
+	toggleStroke.Transparency = 0.45
+	toggleStroke.Thickness = 1.6
+
+	local toggleIcon = Instance.new("TextLabel", toggleBtn)
+	toggleIcon.Size = UDim2.fromOffset(30, 30)
+	toggleIcon.Position = UDim2.fromOffset(8, 8)
+	toggleIcon.BackgroundColor3 = Color3.fromRGB(32, 34, 48)
+	toggleIcon.Text = "⚡"
+	toggleIcon.TextScaled = true
+	toggleIcon.ZIndex = 16
+	Instance.new("UICorner", toggleIcon).CornerRadius = UDim.new(0, 9)
+
+	local toggleLabel = Instance.new("TextLabel", toggleBtn)
+	toggleLabel.Size = UDim2.new(1, -46, 0, 20)
+	toggleLabel.Position = UDim2.fromOffset(42, 6)
+	toggleLabel.BackgroundTransparency = 1
+	toggleLabel.Text = "POTENZIAMENTI"
+	toggleLabel.TextColor3 = THEME.TextMain
+	toggleLabel.TextXAlignment = Enum.TextXAlignment.Left
+	toggleLabel.Font = Enum.Font.GothamBlack
+	toggleLabel.TextScaled = true
+	toggleLabel.ZIndex = 16
+
+	local toggleSub = Instance.new("TextLabel", toggleBtn)
+	toggleSub.Size = UDim2.new(1, -46, 0, 14)
+	toggleSub.Position = UDim2.fromOffset(42, 26)
+	toggleSub.BackgroundTransparency = 1
+	toggleSub.Text = "Apri Negozio [B]"
+	toggleSub.TextColor3 = THEME.TextSub
+	toggleSub.TextXAlignment = Enum.TextXAlignment.Left
+	toggleSub.Font = Enum.Font.GothamBold
+	toggleSub.TextScaled = true
+	toggleSub.ZIndex = 16
+
+	local readyBadge = Instance.new("TextLabel", toggleBtn)
+	readyBadge.Name = "ReadyBadge"
+	readyBadge.AnchorPoint = Vector2.new(0.5, 0.5)
+	readyBadge.Position = UDim2.fromOffset(4, 4)
+	readyBadge.Size = UDim2.fromOffset(22, 22)
+	readyBadge.BackgroundColor3 = THEME.Gold
+	readyBadge.Text = "0"
+	readyBadge.TextColor3 = Color3.fromRGB(16, 16, 22)
+	readyBadge.Font = Enum.Font.GothamBlack
+	readyBadge.TextScaled = true
+	readyBadge.Visible = false
+	readyBadge.ZIndex = 17
+	Instance.new("UICorner", readyBadge).CornerRadius = UDim.new(1, 0)
+
+	-- Pannello laterale compatto e retraibile
 	local panel = Instance.new("Frame", parentGui)
 	panel.Name = "ProgressiveShopPanel"
 	panel.AnchorPoint = Vector2.new(1, 0.5)
-	panel.Position = UDim2.new(1, -16, 0.52, 0)
-	panel.Size = UDim2.new(0, 390, 0.80, 0)
+	panel.Position = POS_PANEL_CLOSED
+	panel.Size = UDim2.new(0, 345, 0.72, 0)
 	panel.BackgroundColor3 = THEME.PanelBg
-	panel.BackgroundTransparency = 0.10
+	panel.BackgroundTransparency = 0.08
+	panel.Visible = false
+	panel.ZIndex = 12
 	Instance.new("UICorner", panel).CornerRadius = UDim.new(0, 18)
 
 	local pStroke = Instance.new("UIStroke", panel)
@@ -37,14 +110,58 @@ function ShopUI.Build(parentGui, remotes, popupManager, onMuteToggle)
 	pStroke.Transparency = 0.55
 	pStroke.Thickness = 1.5
 
-	-- Intestazione con contatore bottoni scoperti
+	local animToken = 0
+	local function setShopOpen(openState)
+		if isOpen == openState then
+			return
+		end
+		isOpen = openState
+		animToken += 1
+		local currentToken = animToken
+
+		local tweenInfo = TweenInfo.new(0.24, Enum.EasingStyle.Quart, Enum.EasingDirection.Out)
+		if isOpen then
+			panel.Visible = true
+			TweenService:Create(panel, tweenInfo, { Position = POS_PANEL_OPEN }):Play()
+			TweenService:Create(toggleBtn, tweenInfo, { Position = POS_TOGGLE_HIDDEN }):Play()
+			task.delay(0.25, function()
+				if animToken == currentToken and isOpen then
+					toggleBtn.Visible = false
+				end
+			end)
+		else
+			toggleBtn.Visible = true
+			TweenService:Create(panel, tweenInfo, { Position = POS_PANEL_CLOSED }):Play()
+			TweenService:Create(toggleBtn, tweenInfo, { Position = POS_TOGGLE_SHOWN }):Play()
+			task.delay(0.25, function()
+				if animToken == currentToken and not isOpen then
+					panel.Visible = false
+				end
+			end)
+		end
+	end
+
+	toggleBtn.MouseButton1Click:Connect(function()
+		setShopOpen(true)
+	end)
+
+	UserInputService.InputBegan:Connect(function(input, gameProcessed)
+		if gameProcessed then
+			return
+		end
+		if input.KeyCode == Enum.KeyCode.B then
+			setShopOpen(not isOpen)
+		end
+	end)
+
+	-- Intestazione con contatore bottoni scoperti e pulsante chiudi/retrai
 	local header = Instance.new("Frame", panel)
 	header.Size = UDim2.new(1, -24, 0, 32)
 	header.Position = UDim2.fromOffset(12, 10)
 	header.BackgroundTransparency = 1
 
 	local headerTitle = Instance.new("TextLabel", header)
-	headerTitle.Size = UDim2.new(0.62, 0, 1, 0)
+	headerTitle.Size = UDim2.new(0.49, 0, 1, 0)
 	headerTitle.BackgroundTransparency = 1
 	headerTitle.Text = "⚡ POTENZIAMENTI"
 	headerTitle.TextColor3 = THEME.TextMain
@@ -53,8 +170,8 @@ function ShopUI.Build(parentGui, remotes, popupManager, onMuteToggle)
 	headerTitle.TextScaled = true
 
 	local discoveryBadge = Instance.new("TextLabel", header)
-	discoveryBadge.Size = UDim2.new(0.36, 0, 0.82, 0)
-	discoveryBadge.Position = UDim2.new(0.64, 0, 0.09, 0)
+	discoveryBadge.Size = UDim2.new(0.35, 0, 0.80, 0)
+	discoveryBadge.Position = UDim2.new(0.51, 0, 0.10, 0)
 	discoveryBadge.BackgroundColor3 = Color3.fromRGB(28, 30, 44)
 	discoveryBadge.Text = "Scoperti: 1/" .. #GameConfig.Upgrades
 	discoveryBadge.TextColor3 = THEME.Gold
@@ -62,9 +179,24 @@ function ShopUI.Build(parentGui, remotes, popupManager, onMuteToggle)
 	discoveryBadge.TextScaled = true
 	Instance.new("UICorner", discoveryBadge).CornerRadius = UDim.new(1, 0)
 
+	local closeBtn = Instance.new("TextButton", header)
+	closeBtn.Name = "CollapseShopButton"
+	closeBtn.AnchorPoint = Vector2.new(1, 0.5)
+	closeBtn.Position = UDim2.new(1, 0, 0.5, 0)
+	closeBtn.Size = UDim2.fromOffset(30, 30)
+	closeBtn.BackgroundColor3 = Color3.fromRGB(34, 36, 52)
+	closeBtn.Text = "✕"
+	closeBtn.TextColor3 = THEME.TextMain
+	closeBtn.Font = Enum.Font.GothamBlack
+	closeBtn.TextScaled = true
+	Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 9)
+	closeBtn.MouseButton1Click:Connect(function()
+		setShopOpen(false)
+	end)
+
 	-- Barra delle Schede (anch'esse compaiono man mano che le sblocchi!)
 	local tabStrip = Instance.new("Frame", panel)
-	tabStrip.Size = UDim2.new(1, -24, 0, 36)
+	tabStrip.Size = UDim2.new(1, -24, 0, 34)
 	tabStrip.Position = UDim2.fromOffset(12, 46)
 	tabStrip.BackgroundTransparency = 1
 
@@ -110,8 +242,8 @@ function ShopUI.Build(parentGui, remotes, popupManager, onMuteToggle)
 		tabButtons[td.Id] = tb
 
 		local pg = Instance.new("Frame", panel)
-		pg.Size = UDim2.new(1, -24, 1, -96)
-		pg.Position = UDim2.fromOffset(12, 88)
+		pg.Size = UDim2.new(1, -24, 1, -94)
+		pg.Position = UDim2.fromOffset(12, 86)
 		pg.BackgroundTransparency = 1
 		pg.Visible = false
 		pages[td.Id] = pg
@@ -129,7 +261,7 @@ function ShopUI.Build(parentGui, remotes, popupManager, onMuteToggle)
 		scroll.CanvasSize = UDim2.fromOffset(0, 0)
 
 		local grid = Instance.new("UIGridLayout", scroll)
-		grid.CellSize = UDim2.new(0.482, 0, 0, 114)
+		grid.CellSize = UDim2.new(0.482, 0, 0, 110)
 		grid.CellPadding = UDim2.new(0.036, 0, 0, 10)
 		grid.SortOrder = Enum.SortOrder.LayoutOrder
 
@@ -154,7 +286,7 @@ function ShopUI.Build(parentGui, remotes, popupManager, onMuteToggle)
 
 				-- Badge Icona in alto a sinistra
 				local iconBadge = Instance.new("TextLabel", tile)
-				iconBadge.Size = UDim2.fromOffset(32, 32)
+				iconBadge.Size = UDim2.fromOffset(30, 30)
 				iconBadge.Position = UDim2.fromOffset(8, 8)
 				iconBadge.BackgroundColor3 = Color3.fromRGB(32, 35, 50)
 				iconBadge.Text = u.Icon
@@ -165,7 +297,7 @@ function ShopUI.Build(parentGui, remotes, popupManager, onMuteToggle)
 				local lvlPill = Instance.new("TextLabel", tile)
 				lvlPill.AnchorPoint = Vector2.new(1, 0)
 				lvlPill.Position = UDim2.new(1, -8, 0, 10)
-				lvlPill.Size = UDim2.fromOffset(64, 22)
+				lvlPill.Size = UDim2.fromOffset(60, 22)
 				lvlPill.BackgroundColor3 = Color3.fromRGB(28, 30, 44)
 				lvlPill.Text = "Lv. 0/" .. u.MaxLevel
 				lvlPill.TextColor3 = THEME.TextSub
@@ -175,8 +307,8 @@ function ShopUI.Build(parentGui, remotes, popupManager, onMuteToggle)
 
 				-- Nome Potenziamento
 				local titleLbl = Instance.new("TextLabel", tile)
-				titleLbl.Size = UDim2.new(1, -16, 0, 20)
-				titleLbl.Position = UDim2.fromOffset(8, 44)
+				titleLbl.Size = UDim2.new(1, -16, 0, 19)
+				titleLbl.Position = UDim2.fromOffset(8, 42)
 				titleLbl.BackgroundTransparency = 1
 				titleLbl.Text = u.Name
 				titleLbl.TextColor3 = THEME.TextMain
@@ -186,8 +318,8 @@ function ShopUI.Build(parentGui, remotes, popupManager, onMuteToggle)
 
 				-- Effetto sintetico
 				local tagLbl = Instance.new("TextLabel", tile)
-				tagLbl.Size = UDim2.new(1, -16, 0, 16)
-				tagLbl.Position = UDim2.fromOffset(8, 64)
+				tagLbl.Size = UDim2.new(1, -16, 0, 15)
+				tagLbl.Position = UDim2.fromOffset(8, 61)
 				tagLbl.BackgroundTransparency = 1
 				tagLbl.Text = u.Tag
 				tagLbl.TextColor3 = THEME.Cyan
@@ -197,8 +329,8 @@ function ShopUI.Build(parentGui, remotes, popupManager, onMuteToggle)
 
 				-- Pillola Costo in basso (tutta larghezza)
 				local costPill = Instance.new("Frame", tile)
-				costPill.Size = UDim2.new(1, -16, 0, 24)
-				costPill.Position = UDim2.new(0, 8, 1, -30)
+				costPill.Size = UDim2.new(1, -16, 0, 23)
+				costPill.Position = UDim2.new(0, 8, 1, -29)
 				costPill.BackgroundColor3 = Color3.fromRGB(34, 37, 52)
 				costPill.ClipsDescendants = true
 				Instance.new("UICorner", costPill).CornerRadius = UDim.new(0, 8)
@@ -259,8 +391,8 @@ function ShopUI.Build(parentGui, remotes, popupManager, onMuteToggle)
 	local wispRows = {}
 	for i, w in ipairs(GameConfig.Wisps) do
 		local row = Instance.new("Frame", pWisps)
-		row.Size = UDim2.new(1, 0, 0, 48)
-		row.Position = UDim2.fromOffset(0, 28 + (i - 1) * 54)
+		row.Size = UDim2.new(1, 0, 0, 46)
+		row.Position = UDim2.fromOffset(0, 26 + (i - 1) * 51)
 		row.BackgroundColor3 = THEME.TileLocked
 		Instance.new("UICorner", row).CornerRadius = UDim.new(0, 10)
 
@@ -276,7 +408,7 @@ function ShopUI.Build(parentGui, remotes, popupManager, onMuteToggle)
 
 		local countLbl = Instance.new("TextLabel", row)
 		countLbl.Size = UDim2.new(0.65, 0, 0.42, 0)
-		countLbl.Position = UDim2.fromOffset(10, 25)
+		countLbl.Position = UDim2.fromOffset(10, 24)
 		countLbl.BackgroundTransparency = 1
 		countLbl.Text = "Base: 0 • Radiosi: 0"
 		countLbl.TextColor3 = THEME.TextSub
@@ -287,7 +419,7 @@ function ShopUI.Build(parentGui, remotes, popupManager, onMuteToggle)
 		local fuseBtn = Instance.new("TextButton", row)
 		fuseBtn.AnchorPoint = Vector2.new(1, 0.5)
 		fuseBtn.Position = UDim2.new(1, -8, 0.5, 0)
-		fuseBtn.Size = UDim2.fromOffset(96, 34)
+		fuseBtn.Size = UDim2.fromOffset(88, 32)
 		fuseBtn.BackgroundColor3 = Color3.fromRGB(36, 40, 56)
 		fuseBtn.Text = "FORGIA 3→1"
 		fuseBtn.TextColor3 = THEME.TextMain
@@ -300,10 +432,10 @@ function ShopUI.Build(parentGui, remotes, popupManager, onMuteToggle)
 	end
 
 	local summon1Btn = Instance.new("TextButton", pWisps)
-	summon1Btn.Size = UDim2.new(0.485, 0, 0, 44)
-	summon1Btn.Position = UDim2.new(0, 0, 1, -46)
+	summon1Btn.Size = UDim2.new(0.485, 0, 0, 42)
+	summon1Btn.Position = UDim2.new(0, 0, 1, -44)
 	summon1Btn.BackgroundColor3 = Color3.fromRGB(40, 155, 205)
-	summon1Btn.Text = "✨ Evoca x1 (500)"
+	summon1Btn.Text = "✨ Evoca x1 (" .. NumberFormat.Format(GameConfig.BaseWispCost) .. ")"
 	summon1Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
 	summon1Btn.Font = Enum.Font.GothamBlack
 	summon1Btn.TextScaled = true
@@ -311,10 +443,10 @@ function ShopUI.Build(parentGui, remotes, popupManager, onMuteToggle)
 	summon1Btn.MouseButton1Click:Connect(function() remotes.SummonWisp:FireServer(1) end)
 
 	local summon5Btn = Instance.new("TextButton", pWisps)
-	summon5Btn.Size = UDim2.new(0.485, 0, 0, 44)
-	summon5Btn.Position = UDim2.new(0.515, 0, 1, -46)
+	summon5Btn.Size = UDim2.new(0.485, 0, 0, 42)
+	summon5Btn.Position = UDim2.new(0.515, 0, 1, -44)
 	summon5Btn.BackgroundColor3 = THEME.Purple
-	summon5Btn.Text = "✨ Evoca x5 (2.5K)"
+	summon5Btn.Text = "✨ Evoca x5 (" .. NumberFormat.Format(GameConfig.BaseWispCost * 5) .. ")"
 	summon5Btn.TextColor3 = Color3.fromRGB(255, 255, 255)
 	summon5Btn.Font = Enum.Font.GothamBlack
 	summon5Btn.TextScaled = true
@@ -324,7 +456,7 @@ function ShopUI.Build(parentGui, remotes, popupManager, onMuteToggle)
 	-- Pagina Grande Alba, Codici & Suoni
 	local pAlba = pages["Alba"]
 	local prestigeBtn = Instance.new("TextButton", pAlba)
-	prestigeBtn.Size = UDim2.new(1, 0, 0, 54)
+	prestigeBtn.Size = UDim2.new(1, 0, 0, 52)
 	prestigeBtn.Position = UDim2.fromOffset(0, 0)
 	prestigeBtn.BackgroundColor3 = THEME.Purple
 	prestigeBtn.Text = "🌅 GRANDE ALBA (50M Punti)\nStelle Eterne: 0"
@@ -337,8 +469,8 @@ function ShopUI.Build(parentGui, remotes, popupManager, onMuteToggle)
 	local starButtons = {}
 	for i, sp in ipairs(GameConfig.StarPerks) do
 		local b = Instance.new("TextButton", pAlba)
-		b.Size = UDim2.new(1, 0, 0, 42)
-		b.Position = UDim2.fromOffset(0, 60 + (i - 1) * 47)
+		b.Size = UDim2.new(1, 0, 0, 40)
+		b.Position = UDim2.fromOffset(0, 58 + (i - 1) * 45)
 		b.BackgroundColor3 = THEME.TileLocked
 		b.TextColor3 = THEME.TextMain
 		b.Font = Enum.Font.GothamBold
@@ -349,152 +481,5 @@ function ShopUI.Build(parentGui, remotes, popupManager, onMuteToggle)
 	end
 
 	local codeBox = Instance.new("TextBox", pAlba)
-	codeBox.Size = UDim2.new(0.66, 0, 0, 36)
-	codeBox.Position = UDim2.new(0, 0, 1, -84)
-	codeBox.PlaceholderText = "Codice (LUCE100, FIAMMA)"
-	codeBox.Text = ""
-	codeBox.BackgroundColor3 = THEME.TileLocked
-	codeBox.TextColor3 = THEME.TextMain
-	codeBox.Font = Enum.Font.GothamBold
-	codeBox.TextScaled = true
-	Instance.new("UICorner", codeBox).CornerRadius = UDim.new(0, 8)
-
-	local codeBtn = Instance.new("TextButton", pAlba)
-	codeBtn.Size = UDim2.new(0.32, 0, 0, 36)
-	codeBtn.Position = UDim2.new(0.68, 0, 1, -84)
-	codeBtn.BackgroundColor3 = THEME.Green
-	codeBtn.Text = "RISCATTA"
-	codeBtn.TextColor3 = Color3.fromRGB(16, 22, 18)
-	codeBtn.Font = Enum.Font.GothamBlack
-	codeBtn.TextScaled = true
-	Instance.new("UICorner", codeBtn).CornerRadius = UDim.new(0, 8)
-	codeBtn.MouseButton1Click:Connect(function()
-		local _, msg = remotes.RedeemCode:InvokeServer(codeBox.Text)
-		popupManager:ShowEvent(msg, THEME.Green)
-	end)
-
-	local muted = false
-	local muteBtn = Instance.new("TextButton", pAlba)
-	muteBtn.Size = UDim2.new(1, 0, 0, 36)
-	muteBtn.Position = UDim2.new(0, 0, 1, -40)
-	muteBtn.BackgroundColor3 = Color3.fromRGB(36, 40, 56)
-	muteBtn.Text = "🔊 Suoni: Attivi"
-	muteBtn.TextColor3 = THEME.TextMain
-	muteBtn.Font = Enum.Font.GothamBold
-	muteBtn.TextScaled = true
-	Instance.new("UICorner", muteBtn).CornerRadius = UDim.new(0, 8)
-	muteBtn.MouseButton1Click:Connect(function()
-		muted = not muted
-		muteBtn.Text = muted and "🔇 Suoni: Disattivati" or "🔊 Suoni: Attivi"
-		if onMuteToggle then onMuteToggle(muted) end
-	end)
-
-	selectTab("Flame")
-
-	-- Aggiornamento dinamico dei bottoni progressivi
-	local uiController = {}
-	function uiController.Update(st)
-		local upgrades = st.Upgrades or {}
-		local points = st.Points or 0
-		local discoveredCount = 0
-		local hasWorldButtons = false
-
-		for id, entry in pairs(tileMap) do
-			local u = entry.Cfg
-			local isUnlocked = (u.ReqId == nil) or ((upgrades[u.ReqId] or 0) >= (u.ReqLvl or 1))
-
-			if isUnlocked then
-				discoveredCount += 1
-				if u.Category == "World" then
-					hasWorldButtons = true
-				end
-
-				if not unlockedSet[id] then
-					unlockedSet[id] = true
-					entry.Tile.Visible = true
-					entry.Scale.Scale = 0.25
-					TweenService:Create(entry.Scale, TweenInfo.new(0.32, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
-						Scale = 1.0,
-					}):Play()
-				else
-					entry.Tile.Visible = true
-				end
-
-				local lvl = upgrades[id] or 0
-				local cost = math.floor(u.BaseCost * (u.CostMult ^ lvl))
-				entry.LvlPill.Text = string.format("Lv. %d/%d", lvl, u.MaxLevel)
-				entry.ProgFill.Size = UDim2.fromScale(math.clamp(lvl / u.MaxLevel, 0, 1), 1)
-
-				if lvl >= u.MaxLevel then
-					entry.Tile.BackgroundColor3 = THEME.TileMax
-					entry.Stroke.Color = THEME.Green
-					entry.CostPill.BackgroundColor3 = THEME.Green
-					entry.CostTxt.TextColor3 = Color3.fromRGB(16, 24, 20)
-					entry.CostTxt.Text = "✓ COMPLETATO"
-				elseif points >= cost then
-					entry.Tile.BackgroundColor3 = THEME.TileReady
-					entry.Stroke.Color = THEME.Gold
-					entry.CostPill.BackgroundColor3 = THEME.Gold
-					entry.CostTxt.TextColor3 = Color3.fromRGB(18, 16, 22)
-					entry.CostTxt.Text = "🔥 " .. NumberFormat.Format(cost)
-				else
-					entry.Tile.BackgroundColor3 = THEME.TileLocked
-					entry.Stroke.Color = Color3.fromRGB(52, 56, 76)
-					entry.CostPill.BackgroundColor3 = Color3.fromRGB(34, 37, 52)
-					entry.CostTxt.TextColor3 = THEME.TextSub
-					entry.CostTxt.Text = "🔥 " .. NumberFormat.Format(cost)
-				end
-			else
-				entry.Tile.Visible = false
-			end
-		end
-
-		discoveryBadge.Text = string.format("Scoperti: %d/%d", discoveredCount, #GameConfig.Upgrades)
-
-		-- Sblocca progressivamente anche le schede superiori!
-		tabButtons["World"].Visible = hasWorldButtons
-		tabButtons["Wisps"].Visible = st.WispsUnlocked == true
-		tabButtons["Alba"].Visible = st.AlbaUnlocked == true
-
-		-- Spiriti
-		wispHeader.Text = string.format("Spiriti Attivi: %d/%d (Moltiplicano i Click)", st.EquippedCount or 0, st.MaxWispSlots or 3)
-		for id, entry in pairs(wispRows) do
-			local baseCnt = (st.WispCounts and st.WispCounts[id]) or 0
-			local radCnt = (st.WispCounts and st.WispCounts[id .. "_rad"]) or 0
-			entry.Count.Text = string.format("Base: %d • Radiosi (x2.5): %d", baseCnt, radCnt)
-			local canFuse = baseCnt >= 3
-			entry.Fuse.BackgroundColor3 = canFuse and THEME.Gold or Color3.fromRGB(36, 40, 56)
-			entry.Fuse.TextColor3 = canFuse and Color3.fromRGB(18, 16, 22) or THEME.TextSub
-		end
-
-		-- Prestige
-		if points >= GameConfig.PrestigeCost then
-			local gain = math.max(1, math.floor(math.log10(points / 5e6)))
-			prestigeBtn.BackgroundColor3 = Color3.fromRGB(215, 65, 165)
-			prestigeBtn.Text = "🌅 COMPI GRANDE ALBA (+" .. gain .. " Stelle)\nStelle attuali: " .. (st.EternalStars or 0)
-		else
-			prestigeBtn.BackgroundColor3 = THEME.Purple
-			prestigeBtn.Text = "🌅 GRANDE ALBA (50M Punti)\nStelle Eterne: " .. (st.EternalStars or 0)
-		end
-
-		for id, entry in pairs(starButtons) do
-			local sp = entry.Cfg
-			local lvl = (st.StarPerks and st.StarPerks[id]) or 0
-			local cost = math.floor(sp.Cost * (sp.CostMult ^ lvl))
-			if lvl >= sp.MaxLevel then
-				entry.Btn.BackgroundColor3 = THEME.Green
-				entry.Btn.TextColor3 = Color3.fromRGB(16, 22, 18)
-				entry.Btn.Text = sp.Name .. " [MAX]"
-			else
-				local ok = (st.EternalStars or 0) >= cost
-				entry.Btn.BackgroundColor3 = ok and Color3.fromRGB(150, 65, 210) or THEME.TileLocked
-				entry.Btn.TextColor3 = THEME.TextMain
-				entry.Btn.Text = string.format("%s (%d/%d) — %d⭐", sp.Name, lvl, sp.MaxLevel, cost)
-			end
-		end
-	end
-
-	return uiController
-end
-
-return ShopUI
+	codeBox.Size = UDim2.new(0.66, 0, 0, 34)
+	codeBox.Position = UDim2.new(0,
