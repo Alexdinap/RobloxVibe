@@ -6,13 +6,13 @@ local MarketplaceService = game:GetService("MarketplaceService")
 
 local GameConfig = require(ReplicatedStorage:WaitForChild("GameConfig"))
 local NumberFormat = require(ReplicatedStorage:WaitForChild("NumberFormat"))
+local EconomyEngine = require(ReplicatedStorage:WaitForChild("EconomyEngine"))
 local WorldBuilder = require(script.Parent:WaitForChild("WorldBuilder"))
-local EconomyEngine = require(script.Parent:WaitForChild("EconomyEngine"))
 local Regno1Service = require(script.Parent:WaitForChild("Regno1Service"))
 
 local built = WorldBuilder.Build()
 local world = built.World
-local altarsFolder = built.AltarsFolder
+local plots = built.Plots
 
 -- Remotes
 local remotes = Instance.new("Folder", ReplicatedStorage)
@@ -32,6 +32,7 @@ local SummonWisp = makeRemote("RemoteEvent", "SummonWisp")
 local FuseWisp = makeRemote("RemoteEvent", "FuseWisp")
 local PrestigeEvent = makeRemote("RemoteEvent", "Prestige")
 local SyncGamePass = makeRemote("RemoteEvent", "SyncGamePass")
+local TeleportHome = makeRemote("RemoteEvent", "TeleportHome")
 local RedeemCode = makeRemote("RemoteFunction", "RedeemCode")
 
 local mainStore
@@ -40,6 +41,7 @@ pcall(function()
 end)
 
 local PlayerData = {}
+local PlayerPlotMap = {}
 local ClickHeat = {}
 local ActiveEmbers = {}
 local ActiveShadows = {}
@@ -75,12 +77,142 @@ local function getCurrentHeat(userId)
 	return val
 end
 
+local function applyCharacterSpeed(player, walkSpeed)
+	local char = player.Character
+	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	if hum and math.abs(hum.WalkSpeed - walkSpeed) > 0.1 then
+		hum.WalkSpeed = walkSpeed
+	end
+end
+
+local function teleportPlayerToPlot(player, plot)
+	if not player or not plot then return end
+	local char = player.Character
+	local hrp = char and char:FindFirstChild("HumanoidRootPart")
+	if hrp then
+		local lookTarget = plot.Origin + Vector3.new(0, 4.5, 0)
+		hrp.CFrame = CFrame.lookAt(plot.SpawnPos, lookTarget)
+	end
+end
+
+local function updatePlotSign(plot, ownerName, rankName)
+	if not plot or not plot.SignBoard then return end
+	for _, guiName in ipairs({ "SignGui", "SignGuiFront" }) do
+		local sg = plot.SignBoard:FindFirstChild(guiName)
+		if sg then
+			local t = sg:FindFirstChild("OwnerTitle")
+			local s = sg:FindFirstChild("OwnerSub")
+			if ownerName then
+				if t then t.Text = string.format("🔥 ZONA %d — %s", plot.Index, ownerName) end
+				if s then s.Text = "✨ Rango: " .. (rankName or "Portatore di Scintilla") end
+			else
+				if t then t.Text = string.format("🏝️ ZONA %d — LIBERA", plot.Index) end
+				if s then s.Text = "In attesa di un Custode..." end
+			end
+		end
+	end
+end
+
+local function updatePlotBrazierVisuals(plot, stats)
+	if not plot or not plot.FlameCore then return end
+	local rLvl = (stats and stats.RadiusLevel) or 1
+	local col = (stats and stats.BrazierColor) or Color3.fromRGB(255, 145, 45)
+	local scaleFactor = math.clamp(1.0 + (rLvl - 1) * 0.045, 1.0, 2.3)
+
+	plot.FlameCore.Size = plot.BaseFlameSize * scaleFactor
+	plot.FlameCore.Position = plot.BaseFlamePos + Vector3.new(0, (scaleFactor - 1.0) * plot.BaseFlameSize.Y * 0.42, 0)
+	plot.FlameCore.Color = col
+
+	for _, desc in ipairs(plot.FlameCore:GetDescendants()) do
+		if desc:IsA("PointLight") then
+			desc.Color = col
+			desc.Range = math.min(60, 22 + rLvl * 1.8)
+		elseif desc:IsA("ParticleEmitter") then
+			desc.Color = ColorSequence.new(col)
+		end
+	end
+end
+
+local function updatePlotGroundButtons(plot, data)
+	if not plot or not plot.AltarsFolder then return end
+	local altars = (data and data.Altars) or {}
+	for _, alt in ipairs(GameConfig.Altars) do
+		local pad = plot.AltarsFolder:FindFirstChild(alt.Id)
+		if pad then
+			local lvl = EconomyEngine.GetLevel(altars, alt.Id)
+			local cost = math.floor(alt.BaseCost * (alt.CostMult ^ lvl))
+			local bbg = pad:FindFirstChildOfClass("BillboardGui")
+			if bbg then
+				local labels = {}
+				for _, child in ipairs(bbg:GetChildren()) do
+					if child:IsA("TextLabel") then
+						table.insert(labels, child)
+					end
+				end
+				table.sort(labels, function(a, b) return a.Position.Y.Scale < b.Position.Y.Scale end)
+				if labels[1] then
+					labels[1].Text = string.format("🔥 %s [Lv.%d]", alt.Name, lvl)
+				end
+				if labels[2] then
+					labels[2].Text = "Costo: " .. NumberFormat.Format(cost) .. " Luce"
+				end
+			end
+		end
+	end
+
+	if plot.VictoryStatusLabel then
+		local vCost = GameConfig.VictoryButton.Cost
+		if data and data.HasWon then
+			plot.VictoryStatusLabel.Text = "🏆 VITTORIA CONQUISTATA!"
+		else
+			plot.VictoryStatusLabel.Text = "🔥 Costo: " .. NumberFormat.Format(vCost) .. " Punti Luce"
+		end
+	end
+end
+
+local function assignPlotToPlayer(player)
+	for _, plot in ipairs(plots) do
+		if plot.Owner == nil then
+			plot.Owner = player
+			PlayerPlotMap[player.UserId] = plot
+			player:SetAttribute("PlotIndex", plot.Index)
+			player:SetAttribute("PlotOrigin", plot.Origin)
+			if plot.FlameTitle then
+				plot.FlameTitle.Text = "🔥 FIAMMA DI " .. string.upper(player.Name)
+			end
+			updatePlotSign(plot, player.Name, "Portatore di Scintilla")
+			return plot
+		end
+	end
+	return nil
+end
+
+local function releasePlotFromPlayer(player)
+	local plot = PlayerPlotMap[player.UserId]
+	if not plot then return end
+	plot.Owner = nil
+	PlayerPlotMap[player.UserId] = nil
+	if plot.FlameTitle then
+		plot.FlameTitle.Text = "🔥 FIAMMA ZONA " .. plot.Index
+	end
+	updatePlotSign(plot, nil, nil)
+	updatePlotBrazierVisuals(plot, nil)
+	updatePlotGroundButtons(plot, nil)
+end
+
 local function syncPlayer(player, extra)
 	local data = PlayerData[player.UserId]
 	if not data then return end
 	local buffMult, buffRem = Regno1Service.GetActiveBuff(player.UserId)
 	local stats = EconomyEngine.CalculateStats(data, getCurrentHeat(player.UserId), buffMult, data.HasDoubleLight)
 	local rank = EconomyEngine.GetRank(stats.LightPercent)
+
+	applyCharacterSpeed(player, stats.WalkSpeed)
+
+	local plot = PlayerPlotMap[player.UserId]
+	if plot then
+		updatePlotSign(plot, player.Name, rank.Name)
+	end
 
 	local eqIds = {}
 	for _, w in ipairs(stats.EquippedWisps) do
@@ -101,16 +233,24 @@ local function syncPlayer(player, extra)
 	end
 
 	local payload = {
+		PlotIndex = plot and plot.Index or 1,
+		PlotOrigin = plot and plot.Origin or Vector3.zero,
 		Points = data.Points,
 		TotalPoints = data.TotalPoints,
+		TotalClicks = data.TotalClicks,
 		EternalStars = data.EternalStars,
 		HasDoubleLight = stats.HasDoubleLight,
+		HasWon = data.HasWon == true,
 		ClickPower = stats.ClickPower,
 		PointsPerSec = stats.PointsPerSec,
+		WalkSpeed = stats.WalkSpeed,
 		Heat = stats.Heat,
 		HeatMult = stats.HeatMult,
 		LightPercent = stats.LightPercent,
 		RankName = rank.Name,
+		RadiusLevel = stats.RadiusLevel,
+		BrazierColor = stats.BrazierColor,
+		UnlockedZones = stats.UnlockedZones,
 		Altars = data.Altars,
 		Upgrades = data.Upgrades,
 		StarPerks = data.StarPerks,
@@ -129,10 +269,15 @@ local function syncPlayer(player, extra)
 	StateSync:FireClient(player, payload)
 end
 
--- Inizializza la meccanica principale di Regno 1
-Regno1Service.Init(remotes, built.RitualFolder, PlayerData, syncPlayer)
+Regno1Service.Init(remotes, plots, PlayerData, syncPlayer)
 
--- Gestione GamePass Robux (Luce x2 Permanente)
+TeleportHome.OnServerEvent:Connect(function(player)
+	local plot = PlayerPlotMap[player.UserId]
+	if plot then
+		teleportPlayerToPlot(player, plot)
+	end
+end)
+
 MarketplaceService.PromptGamePassPurchaseFinished:Connect(function(player, gamePassId, wasPurchased)
 	local passId = getDoubleLightPassId()
 	if wasPurchased and passId > 0 and gamePassId == passId then
@@ -156,14 +301,13 @@ SyncGamePass.OnServerEvent:Connect(function(player)
 	end
 end)
 
--- Click sulla Fiamma
 local LastClickTime = {}
 local function handleFlameClick(player)
 	local data = PlayerData[player.UserId]
 	if not data then return end
 
 	local now = os.clock()
-	if LastClickTime[player.UserId] and (now - LastClickTime[player.UserId] < 0.045) then
+	if LastClickTime[player.UserId] and (now - LastClickTime[player.UserId] < 0.06) then
 		return
 	end
 	LastClickTime[player.UserId] = now
@@ -189,27 +333,79 @@ local function handleFlameClick(player)
 	})
 end
 
-for _, part in ipairs({ built.FlameCore, built.BrazierBowl, built.FlameHitbox }) do
-	local cd = Instance.new("ClickDetector")
-	cd.MaxActivationDistance = 75
-	cd.Parent = part
-	cd.MouseClick:Connect(handleFlameClick)
-end
 ClickFlameEvent.OnServerEvent:Connect(handleFlameClick)
 
--- Altari a Terra
-local TouchingMap = {}
-for _, alt in ipairs(GameConfig.Altars) do
-	local pad = altarsFolder:FindFirstChild(alt.Id)
-	if pad then
-		TouchingMap[alt.Id] = {}
-		pad.Touched:Connect(function(hit)
+-- =========================================================================
+-- COLLEGAMENTO EVENTI INDIVIDUALI PER OGNUNA DELLE 10 ZONE
+-- =========================================================================
+local TouchingByPlot = {}
+local VictoryCooldown = {}
+
+for _, plot in ipairs(plots) do
+	if plot.FlameHitbox then
+		local cd = Instance.new("ClickDetector")
+		cd.MaxActivationDistance = 75
+		cd.Parent = plot.FlameHitbox
+	end
+
+	TouchingByPlot[plot.Index] = {}
+	for _, alt in ipairs(GameConfig.Altars) do
+		local pad = plot.AltarsFolder:FindFirstChild(alt.Id)
+		if pad then
+			TouchingByPlot[plot.Index][alt.Id] = false
+			pad.Touched:Connect(function(hit)
+				local plr = Players:GetPlayerFromCharacter(hit.Parent)
+				if plr and plot.Owner == plr then
+					TouchingByPlot[plot.Index][alt.Id] = true
+				end
+			end)
+			pad.TouchEnded:Connect(function(hit)
+				local plr = Players:GetPlayerFromCharacter(hit.Parent)
+				if plr and plot.Owner == plr then
+					TouchingByPlot[plot.Index][alt.Id] = false
+				end
+			end)
+		end
+	end
+
+	if plot.VictoryPad then
+		plot.VictoryPad.Touched:Connect(function(hit)
 			local plr = Players:GetPlayerFromCharacter(hit.Parent)
-			if plr then TouchingMap[alt.Id][plr.UserId] = plr end
-		end)
-		pad.TouchEnded:Connect(function(hit)
-			local plr = Players:GetPlayerFromCharacter(hit.Parent)
-			if plr then TouchingMap[alt.Id][plr.UserId] = nil end
+			if not plr or plot.Owner ~= plr then return end
+
+			local data = PlayerData[plr.UserId]
+			if not data then return end
+
+			local now = os.clock()
+			if VictoryCooldown[plr.UserId] and (now - VictoryCooldown[plr.UserId] < 2.0) then
+				return
+			end
+			VictoryCooldown[plr.UserId] = now
+
+			local vCost = GameConfig.VictoryButton.Cost
+			if data.HasWon then
+				syncPlayer(plr, {
+					VictoryTriggered = true,
+					SoundCue = "Prestige",
+				})
+				return
+			end
+
+			if data.Points >= vCost then
+				data.Points -= vCost
+				data.HasWon = true
+				updatePlotGroundButtons(plot, data)
+				syncPlayer(plr, {
+					VictoryTriggered = true,
+					SoundCue = "Prestige",
+					Shockwave = true,
+					PopupText = "🏆 HAI CONQUISTATO LA VITTORIA SUPREMA!",
+				})
+			else
+				syncPlayer(plr, {
+					PopupText = "👑 Servono " .. NumberFormat.Format(vCost) .. " Punti Luce per la Vittoria!",
+				})
+			end
 		end)
 	end
 end
@@ -217,24 +413,46 @@ end
 task.spawn(function()
 	while true do
 		task.wait(0.14)
-		for _, alt in ipairs(GameConfig.Altars) do
-			for _, plr in pairs(TouchingMap[alt.Id]) do
-				local data = plr and plr.Parent and PlayerData[plr.UserId]
-				if data then
-					local lvl = EconomyEngine.GetLevel(data.Altars, alt.Id)
-					local cost = math.floor(alt.BaseCost * (alt.CostMult ^ lvl))
-					if data.Points >= cost then
-						data.Points -= cost
-						data.Altars[alt.Id] = lvl + 1
-						syncPlayer(plr, { SoundCue = "Buy" })
+		for _, plot in ipairs(plots) do
+			local owner = plot.Owner
+			local data = owner and owner.Parent and PlayerData[owner.UserId]
+			if data then
+				local boughtSomething = false
+				local triggerShockwave = false
+
+				for _, alt in ipairs(GameConfig.Altars) do
+					if TouchingByPlot[plot.Index][alt.Id] then
+						local lvl = EconomyEngine.GetLevel(data.Altars, alt.Id)
+						local cost = math.floor(alt.BaseCost * (alt.CostMult ^ lvl))
+						if data.Points >= cost then
+							data.Points -= cost
+							data.Altars[alt.Id] = lvl + 1
+							boughtSomething = true
+							if alt.BrazierColor ~= nil or alt.RadiusBonus ~= nil then
+								triggerShockwave = true
+							end
+						end
 					end
+				end
+
+				if boughtSomething then
+					local buffMult = Regno1Service.GetActiveBuff(owner.UserId)
+					local stats = EconomyEngine.CalculateStats(data, getCurrentHeat(owner.UserId), buffMult, data.HasDoubleLight)
+					updatePlotBrazierVisuals(plot, stats)
+					updatePlotGroundButtons(plot, data)
+					syncPlayer(owner, {
+						SoundCue = "Buy",
+						Shockwave = triggerShockwave,
+					})
 				end
 			end
 		end
 	end
 end)
 
--- Acquisto Potenziamenti Progressivi
+-- =========================================================================
+-- ACQUISTO POTENZIAMENTI DEL PERSONAGGIO (Nel Menù Centrale)
+-- =========================================================================
 BuyUpgrade.OnServerEvent:Connect(function(player, upgId)
 	local data = PlayerData[player.UserId]
 	if not data then return end
@@ -254,7 +472,6 @@ BuyUpgrade.OnServerEvent:Connect(function(player, upgId)
 		local nextLvl = cur + 1
 		data.Upgrades[target.Id] = nextLvl
 
-		-- Controlla quali nuovi bottoni si sono appena sbloccati
 		local newlyUnlocked = {}
 		if nextLvl == 1 then
 			for _, other in ipairs(GameConfig.Upgrades) do
@@ -266,12 +483,12 @@ BuyUpgrade.OnServerEvent:Connect(function(player, upgId)
 
 		local popup = nil
 		if target.Id == "u_braziers" then
-			popup = "🔥 REGNO 1 RISVEGLIATO! Raggiungi il Braciere I per la Catena del Fuoco!"
+			popup = "🏃 REGNO 1 SBLOCCATO! Corri al Braciere I della tua Zona!"
 			Regno1Service.SyncPlayer(player)
-		elseif target.Zone then
-			popup = "✨ REGNO RISVEGLIATO: " .. target.Name .. "!"
+		elseif target.Effect == "WalkSpeed" then
+			popup = "👟 Velocità Corsa aumentata! (Liv. " .. nextLvl .. ")"
 		elseif #newlyUnlocked > 0 then
-			popup = "🆕 NUOVO BOTTONE: " .. table.concat(newlyUnlocked, " & ") .. "!"
+			popup = "🆕 SBLOCCATO: " .. table.concat(newlyUnlocked, " & ") .. "!"
 		end
 
 		syncPlayer(player, {
@@ -367,6 +584,13 @@ PrestigeEvent.OnServerEvent:Connect(function(player)
 	data.Altars = {}
 	data.Upgrades = startLvl > 0 and { u_click_add = 5 * startLvl } or {}
 
+	local plot = PlayerPlotMap[player.UserId]
+	if plot then
+		local stats = EconomyEngine.CalculateStats(data, 0, 1, data.HasDoubleLight)
+		updatePlotBrazierVisuals(plot, stats)
+		updatePlotGroundButtons(plot, data)
+	end
+
 	Regno1Service.SyncPlayer(player)
 	syncPlayer(player, {
 		SoundCue = "Prestige",
@@ -389,7 +613,7 @@ RedeemCode.OnServerInvoke = function(player, raw)
 	return true, rew.Msg
 end
 
--- Sfere Vaganti & Ombre
+-- Sfere Vaganti & Ombre attorno alle Zone occupate
 local function makeOrb(props)
 	local p = Instance.new("Part")
 	p.Anchored = true
@@ -400,11 +624,13 @@ local function makeOrb(props)
 	return p
 end
 
-local function spawnWanderingEmber()
+local function spawnWanderingEmberForPlot(plot)
+	if not plot or not plot.Owner then return end
+	local offset = Vector3.new(math.random(-36, 36), 2.5, math.random(-36, 36))
 	local ember = makeOrb({
 		Name = "WanderingEmber",
 		Size = Vector3.new(2.4, 2.4, 2.4),
-		Position = Vector3.new(math.random(-60, 60), 2.5, math.random(-60, 60)),
+		Position = plot.Origin + offset,
 		Color = Color3.fromRGB(255, 200, 75),
 		Parent = world,
 	})
@@ -458,16 +684,20 @@ local function banishShadow(shadowObj, player)
 	end
 end
 
-local function spawnShadowWisp()
-	if #ActiveShadows >= 2 then return end
+local function spawnShadowForPlot(plot)
+	if not plot or not plot.Owner then return end
+	if #ActiveShadows >= 12 then return end
 	local ang = math.random() * math.pi * 2
 	local shadow = makeOrb({
 		Name = "VoidShadow",
 		Size = Vector3.new(4.2, 4.2, 4.2),
-		Position = Vector3.new(math.cos(ang) * 90, 3.8, math.sin(ang) * 90),
+		Position = plot.Origin + Vector3.new(math.cos(ang) * 52, 3.8, math.sin(ang) * 52),
 		Color = Color3.fromRGB(25, 10, 45),
 		Parent = world,
 	})
+	shadow:SetAttribute("TargetX", plot.Origin.X)
+	shadow:SetAttribute("TargetZ", plot.Origin.Z)
+
 	local sLight = Instance.new("PointLight", shadow)
 	sLight.Color = Color3.fromRGB(145, 40, 220)
 	sLight.Range = 16
@@ -482,14 +712,22 @@ end
 task.spawn(function()
 	while true do
 		task.wait(11)
-		spawnWanderingEmber()
+		for _, plot in ipairs(plots) do
+			if plot.Owner then
+				spawnWanderingEmberForPlot(plot)
+			end
+		end
 	end
 end)
 
 task.spawn(function()
 	while true do
-		task.wait(30)
-		if #Players:GetPlayers() > 0 then spawnShadowWisp() end
+		task.wait(28)
+		for _, plot in ipairs(plots) do
+			if plot.Owner then
+				spawnShadowForPlot(plot)
+			end
+		end
 	end
 end)
 
@@ -503,7 +741,9 @@ task.spawn(function()
 			if not sh or not sh.Parent then
 				table.remove(ActiveShadows, i)
 			else
-				local toCenter = Vector3.new(0, 3.8, 0) - sh.Position
+				local tx = sh:GetAttribute("TargetX") or 0
+				local tz = sh:GetAttribute("TargetZ") or 0
+				local toCenter = Vector3.new(tx, 3.8, tz) - sh.Position
 				if toCenter.Magnitude <= 6.5 then
 					table.remove(ActiveShadows, i)
 					sh:Destroy()
@@ -523,12 +763,18 @@ task.spawn(function()
 					data.TotalPoints += stats.PointsPerSec * 0.1
 				end
 
-				if EconomyEngine.GetLevel(data.StarPerks, "sp_ward") > 0 and #ActiveShadows > 0 then
-					banishShadow(ActiveShadows[1], plr)
-				end
-
 				local hrp = plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")
 				if hrp then
+					if EconomyEngine.GetLevel(data.StarPerks, "sp_ward") > 0 and #ActiveShadows > 0 then
+						for i = #ActiveShadows, 1, -1 do
+							local sh = ActiveShadows[i]
+							if sh and sh.Parent and (hrp.Position - sh.Position).Magnitude <= 45 then
+								banishShadow(sh, plr)
+								break
+							end
+						end
+					end
+
 					local purgeRadius = 12 + (#stats.EquippedWisps * 2.5) + (stats.RadiusLevel * 1.5)
 					for i = #ActiveShadows, 1, -1 do
 						local sh = ActiveShadows[i]
@@ -559,13 +805,16 @@ local function savePlayer(player, removeCache)
 			pcall(function() mainStore:SetAsync("Plr_" .. player.UserId, data) end)
 		end
 	end
-	if removeCache then PlayerData[player.UserId] = nil end
+	if removeCache then
+		PlayerData[player.UserId] = nil
+		releasePlotFromPlayer(player)
+	end
 end
 
 Players.PlayerAdded:Connect(function(player)
 	local ls = Instance.new("Folder", player); ls.Name = "leaderstats"
 	local p = Instance.new("StringValue", ls); p.Name = "Punti"; p.Value = "0"
-	local l = Instance.new("StringValue", ls); l.Name = "Luce"; l.Value = "2%"
+	local l = Instance.new("StringValue", ls); l.Name = "Luce"; l.Value = "4%"
 
 	local data = EconomyEngine.DefaultData()
 	if mainStore then
@@ -574,16 +823,34 @@ Players.PlayerAdded:Connect(function(player)
 			for k, v in pairs(saved) do data[k] = v end
 		end
 	end
-	-- Migrazione sicura per salvataggi esistenti
 	if type(data.Regno1) ~= "table" then
 		data.Regno1 = { Completed = false, Completions = 0, BestTime = nil }
 	end
 	data.HasDoubleLight = (data.HasDoubleLight == true)
+	data.HasWon = (data.HasWon == true)
 
 	verifyDoubleLightOwnership(player, data)
-
 	PlayerData[player.UserId] = data
+
+	local assignedPlot = assignPlotToPlayer(player)
+
+	player.CharacterAdded:Connect(function()
+		task.wait(0.15)
+		local stats = EconomyEngine.CalculateStats(data, 0, 1, data.HasDoubleLight)
+		applyCharacterSpeed(player, stats.WalkSpeed)
+		if assignedPlot then
+			teleportPlayerToPlot(player, assignedPlot)
+		end
+	end)
+
 	task.wait(0.8)
+	if assignedPlot then
+		local initStats = EconomyEngine.CalculateStats(data, 0, 1, data.HasDoubleLight)
+		updatePlotBrazierVisuals(assignedPlot, initStats)
+		updatePlotGroundButtons(assignedPlot, data)
+		teleportPlayerToPlot(player, assignedPlot)
+	end
+
 	Regno1Service.SyncPlayer(player)
 	syncPlayer(player)
 end)

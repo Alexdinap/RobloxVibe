@@ -1,3 +1,4 @@
+local Workspace = game:GetService("Workspace")
 local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -17,332 +18,346 @@ local function makePart(props)
 	return p
 end
 
-function WorldBuilder.Build()
-	Lighting.Brightness = 0.15
-	Lighting.ClockTime = 0
-	Lighting.Ambient = Color3.fromRGB(8, 10, 18)
-	Lighting.OutdoorAmbient = Color3.fromRGB(10, 12, 22)
+local function makeCylinder(pos, radius, height, color, material, parent, name)
+	return makePart({
+		Name = name or "Cylinder",
+		Shape = Enum.PartType.Cylinder,
+		Size = Vector3.new(height, radius * 2, radius * 2),
+		CFrame = CFrame.new(pos) * CFrame.Angles(0, 0, math.rad(90)),
+		Color = color,
+		Material = material or Enum.Material.SmoothPlastic,
+		Parent = parent,
+	})
+end
 
-	for _, obj in ipairs(workspace:GetChildren()) do
-		if obj.Name == "Baseplate" or obj.Name == "SantuarioDellaFiamma" or obj:IsA("SpawnLocation") then
-			obj:Destroy()
-		end
+local function setupAtmosphere()
+	Lighting.ClockTime = 0.5
+	Lighting.Brightness = 1.4
+	Lighting.Ambient = Color3.fromRGB(22, 24, 38)
+	Lighting.OutdoorAmbient = Color3.fromRGB(30, 34, 52)
+	Lighting.FogColor = Color3.fromRGB(12, 14, 24)
+	Lighting.FogStart = 180
+	Lighting.FogEnd = 1350
+
+	if not Lighting:FindFirstChildOfClass("Atmosphere") then
+		local atm = Instance.new("Atmosphere", Lighting)
+		atm.Density = 0.24
+		atm.Color = Color3.fromRGB(28, 32, 54)
+		atm.Decay = Color3.fromRGB(14, 16, 28)
+	end
+end
+
+local function buildSinglePlot(index, origin, plotsFolder)
+	local plotModel = Instance.new("Model", plotsFolder)
+	plotModel.Name = "Plot_" .. index
+
+	-- 1. Isola Circolare in Pietra Antica (Raggio 62 studs)
+	makeCylinder(origin + Vector3.new(0, -1.5, 0), 62, 3, Color3.fromRGB(28, 30, 42), Enum.Material.Slate, plotModel, "IslandBase")
+	makeCylinder(origin + Vector3.new(0, 0.05, 0), 62.6, 0.5, Color3.fromRGB(255, 175, 65), Enum.Material.Neon, plotModel, "IslandRim")
+	makeCylinder(origin + Vector3.new(0, 0.15, 0), 38, 0.4, Color3.fromRGB(38, 41, 56), Enum.Material.Marble, plotModel, "InnerSanctuary")
+
+	-- Sentiero di Pietra dal Spawn al Braciere
+	makePart({
+		Name = "EntryPath",
+		Size = Vector3.new(9, 0.45, 36),
+		Position = origin + Vector3.new(0, 0.2, 20),
+		Color = Color3.fromRGB(52, 56, 74),
+		Material = Enum.Material.Cobblestone,
+		Parent = plotModel,
+	})
+
+	-- Colonne Decorative attorno all'isola
+	for p = 1, 8 do
+		local ang = (p - 1) * (math.pi * 2 / 8) + math.pi / 8
+		local pPos = origin + Vector3.new(math.cos(ang) * 56, 5.5, math.sin(ang) * 56)
+		makePart({
+			Name = "Pillar_" .. p,
+			Size = Vector3.new(3.2, 11, 3.2),
+			Position = pPos,
+			Color = Color3.fromRGB(40, 44, 60),
+			Material = Enum.Material.Marble,
+			Parent = plotModel,
+		})
+		local cap = makePart({
+			Name = "PillarCrystal_" .. p,
+			Shape = Enum.PartType.Ball,
+			Size = Vector3.new(2.2, 2.2, 2.2),
+			Position = pPos + Vector3.new(0, 6.8, 0),
+			Color = Color3.fromRGB(255, 190, 75),
+			Material = Enum.Material.Neon,
+			CanCollide = false,
+			Parent = plotModel,
+		})
+		local pl = Instance.new("PointLight", cap)
+		pl.Color = Color3.fromRGB(255, 190, 75)
+		pl.Range = 14
+		pl.Brightness = 1.2
 	end
 
-	local world = Instance.new("Folder")
-	world.Name = "SantuarioDellaFiamma"
-	world.Parent = workspace
+	-- 2. Cartello Proprietario della Zona
+	local signBoard = makePart({
+		Name = "PlotSign",
+		Size = Vector3.new(16, 6, 1.2),
+		Position = origin + Vector3.new(0, 5.5, 42),
+		Color = Color3.fromRGB(22, 24, 34),
+		Material = Enum.Material.SmoothPlastic,
+		Parent = plotModel,
+	})
+	local signGui = Instance.new("SurfaceGui", signBoard)
+	signGui.Name = "SignGui"
+	signGui.Face = Enum.NormalId.Back
 
-	makePart({ Name = "SanctuaryGround", Size = Vector3.new(300, 2, 300), Position = Vector3.new(0, 0, 0), Color = Color3.fromRGB(20, 22, 28), Material = Enum.Material.Slate, Parent = world })
-	makePart({ Name = "InnerStoneRing", Size = Vector3.new(54, 0.15, 54), Position = Vector3.new(0, 1.05, 0), Color = Color3.fromRGB(30, 32, 40), Material = Enum.Material.Cobblestone, Parent = world })
-	makePart({ Name = "OuterStoneRing", Size = Vector3.new(86, 0.1, 86), Position = Vector3.new(0, 1.02, 0), Color = Color3.fromRGB(25, 27, 34), Material = Enum.Material.Cobblestone, Parent = world })
+	local signTitle = Instance.new("TextLabel", signGui)
+	signTitle.Name = "OwnerTitle"
+	signTitle.Size = UDim2.new(1, -20, 0.55, 0)
+	signTitle.Position = UDim2.fromOffset(10, 8)
+	signTitle.BackgroundTransparency = 1
+	signTitle.Text = "🏝️ ZONA " .. index .. " — LIBERA"
+	signTitle.TextColor3 = Color3.fromRGB(255, 200, 75)
+	signTitle.Font = Enum.Font.GothamBlack
+	signTitle.TextScaled = true
 
-	local spawn = Instance.new("SpawnLocation")
-	spawn.Name = "SanctuarySpawn"
-	spawn.Anchored = true
-	spawn.Size = Vector3.new(10, 0.5, 10)
-	spawn.CFrame = CFrame.lookAt(Vector3.new(-8, 1.25, 34), Vector3.new(0, 1.25, 0))
-	spawn.Color = Color3.fromRGB(55, 45, 35)
-	spawn.Material = Enum.Material.Cobblestone
-	spawn.Parent = world
+	local signSub = Instance.new("TextLabel", signGui)
+	signSub.Name = "OwnerSub"
+	signSub.Size = UDim2.new(1, -20, 0.35, 0)
+	signSub.Position = UDim2.new(0, 10, 0.6, 0)
+	signSub.BackgroundTransparency = 1
+	signSub.Text = "In attesa di un Custode..."
+	signSub.TextColor3 = Color3.fromRGB(185, 195, 215)
+	signSub.Font = Enum.Font.GothamBold
+	signSub.TextScaled = true
 
-	-- Fiamma Primordiale
-	local flameModel = Instance.new("Model")
-	flameModel.Name = "PrimordialFlame"
-	flameModel.Parent = world
+	local signGuiFront = signGui:Clone()
+	signGuiFront.Name = "SignGuiFront"
+	signGuiFront.Face = Enum.NormalId.Front
+	signGuiFront.Parent = signBoard
 
-	makePart({ Name = "BrazierStone", Size = Vector3.new(11, 1.5, 11), Position = Vector3.new(0, 1.75, 0), Color = Color3.fromRGB(35, 36, 42), Material = Enum.Material.Cobblestone, Parent = flameModel })
-	local brazierBowl = makePart({ Name = "BrazierBowl", Size = Vector3.new(7.5, 1.2, 7.5), Position = Vector3.new(0, 3.0, 0), Color = Color3.fromRGB(52, 38, 26), Material = Enum.Material.Metal, Parent = flameModel })
+	-- 3. Il Braciere Personale del Giocatore
+	local brazierFolder = Instance.new("Folder", plotModel)
+	brazierFolder.Name = "Brazier"
+
+	makeCylinder(origin + Vector3.new(0, 0.7, 0), 9.5, 1.2, Color3.fromRGB(36, 38, 52), Enum.Material.Basalt, brazierFolder, "PedestalStep1")
+	makeCylinder(origin + Vector3.new(0, 1.6, 0), 7.4, 1.0, Color3.fromRGB(48, 50, 68), Enum.Material.Marble, brazierFolder, "PedestalStep2")
+
+	local bowl = makeCylinder(origin + Vector3.new(0, 2.5, 0), 5.6, 1.4, Color3.fromRGB(26, 26, 34), Enum.Material.Slate, brazierFolder, "BrazierBowl")
 
 	local flameCore = makePart({
 		Name = "FlameCore",
 		Shape = Enum.PartType.Ball,
-		Size = Vector3.new(3.8, 4.8, 3.8),
-		Position = Vector3.new(0, 5.6, 0),
-		Color = Color3.fromRGB(255, 165, 45),
+		Size = Vector3.new(6.2, 7.8, 6.2),
+		Position = origin + Vector3.new(0, 6.2, 0),
+		Color = Color3.fromRGB(255, 145, 45),
 		Material = Enum.Material.Neon,
 		CanCollide = false,
-		Parent = flameModel,
+		Parent = brazierFolder,
 	})
+	local fLight = Instance.new("PointLight", flameCore)
+	fLight.Color = Color3.fromRGB(255, 165, 65)
+	fLight.Range = 28
+	fLight.Brightness = 2.4
+
+	local particles = Instance.new("ParticleEmitter", flameCore)
+	particles.Color = ColorSequence.new(Color3.fromRGB(255, 180, 60))
+	particles.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 1.2), NumberSequenceKeypoint.new(1, 0) })
+	particles.Lifetime = NumberRange.new(1.0, 1.8)
+	particles.Rate = 24
+	particles.Speed = NumberRange.new(4, 8)
+	particles.SpreadAngle = Vector2.new(25, 25)
 
 	local flameHitbox = makePart({
 		Name = "FlameHitbox",
-		Shape = Enum.PartType.Ball,
-		Size = Vector3.new(13, 13, 13),
-		Position = Vector3.new(0, 5.5, 0),
+		Size = Vector3.new(13, 14, 13),
+		Position = origin + Vector3.new(0, 6.5, 0),
 		Transparency = 1,
 		CanCollide = false,
-		Parent = flameModel,
+		Parent = brazierFolder,
 	})
 
-	local fireFx = Instance.new("Fire")
-	fireFx.Name = "FlameFire"
-	fireFx.Size = 10
-	fireFx.Heat = 15
-	fireFx.Color = Color3.fromRGB(255, 180, 55)
-	fireFx.SecondaryColor = Color3.fromRGB(255, 75, 20)
-	fireFx.Parent = flameCore
+	local flameBbg = Instance.new("BillboardGui", flameHitbox)
+	flameBbg.Name = "FlameBillboard"
+	flameBbg.Size = UDim2.fromOffset(260, 64)
+	flameBbg.StudsOffset = Vector3.new(0, 8.5, 0)
+	flameBbg.AlwaysOnTop = false
 
-	local flameLight = Instance.new("PointLight")
-	flameLight.Name = "MainFlameLight"
-	flameLight.Color = Color3.fromRGB(255, 185, 85)
-	flameLight.Range = 28
-	flameLight.Brightness = 2.6
-	flameLight.Parent = flameCore
+	local flameTitle = Instance.new("TextLabel", flameBbg)
+	flameTitle.Name = "Title"
+	flameTitle.Size = UDim2.fromScale(1, 1)
+	flameTitle.BackgroundTransparency = 1
+	flameTitle.Text = "🔥 FIAMMA ZONA " .. index
+	flameTitle.TextColor3 = Color3.fromRGB(255, 215, 95)
+	flameTitle.TextStrokeTransparency = 0.25
+	flameTitle.Font = Enum.Font.GothamBlack
+	flameTitle.TextScaled = true
 
-	local flameBb = Instance.new("BillboardGui")
-	flameBb.Size = UDim2.fromOffset(230, 38)
-	flameBb.StudsOffset = Vector3.new(0, 5.0, 0)
-	flameBb.MaxDistance = 55
-	flameBb.Parent = flameCore
+	-- 4. Gli 8 Pulsanti a Terra del Braciere della Zona
+	local altarsFolder = Instance.new("Folder", plotModel)
+	altarsFolder.Name = "Altars"
 
-	local flameLbl = Instance.new("TextLabel")
-	flameLbl.Size = UDim2.fromScale(1, 1)
-	flameLbl.BackgroundTransparency = 1
-	flameLbl.Text = "🔥 CLICCA LA FIAMMA 🔥"
-	flameLbl.TextColor3 = Color3.fromRGB(255, 220, 125)
-	flameLbl.TextStrokeTransparency = 0.25
-	flameLbl.Font = Enum.Font.GothamBlack
-	flameLbl.TextScaled = true
-	flameLbl.Parent = flameBb
+	for _, alt in ipairs(GameConfig.Altars) do
+		local padPos = origin + alt.Pos
+		makeCylinder(padPos - Vector3.new(0, 0.25, 0), 4.6, 0.5, Color3.fromRGB(26, 28, 38), Enum.Material.Marble, altarsFolder, alt.Id .. "_Base")
 
-	-- Gli 8 Altari a Terra
-	local altarsFolder = Instance.new("Folder")
-	altarsFolder.Name = "LightAltars"
-	altarsFolder.Parent = world
+		local pad = makeCylinder(padPos, 3.8, 0.65, alt.Color, Enum.Material.Neon, altarsFolder, alt.Id)
+		pad.CanCollide = false
 
-	for _, cfg in ipairs(GameConfig.Altars) do
-		local pad = makePart({
-			Name = cfg.Id,
-			Size = Vector3.new(7.5, 0.9, 7.5),
-			Position = cfg.Pos,
-			Color = cfg.Color,
-			Material = Enum.Material.Neon,
-			Transparency = 0.2,
-			Parent = altarsFolder,
-		})
-		local pLight = Instance.new("PointLight", pad)
-		pLight.Color = cfg.Color
-		pLight.Range = 12
-		pLight.Brightness = 1.2
+		local bbg = Instance.new("BillboardGui", pad)
+		bbg.Size = UDim2.fromOffset(230, 74)
+		bbg.StudsOffset = Vector3.new(0, 4.6, 0)
+		bbg.AlwaysOnTop = false
 
-		local bb = Instance.new("BillboardGui")
-		bb.Name = "InfoGui"
-		bb.Size = UDim2.fromOffset(175, 56)
-		bb.StudsOffset = Vector3.new(0, 3.2, 0)
-		bb.MaxDistance = 38
-		bb.Parent = pad
-
-		local bg = Instance.new("Frame", bb)
-		bg.Size = UDim2.fromScale(1, 1)
-		bg.BackgroundColor3 = Color3.fromRGB(14, 14, 20)
-		bg.BackgroundTransparency = 0.25
-		Instance.new("UICorner", bg).CornerRadius = UDim.new(0, 8)
-		local st = Instance.new("UIStroke", bg)
-		st.Color = cfg.Color
-		st.Transparency = 0.45
-
-		local t1 = Instance.new("TextLabel", bg)
-		t1.Name = "TitleLabel"
-		t1.Size = UDim2.new(1, -8, 0.5, 0)
-		t1.Position = UDim2.fromOffset(4, 2)
+		local t1 = Instance.new("TextLabel", bbg)
+		t1.Size = UDim2.new(1, 0, 0.52, 0)
+		t1.Position = UDim2.fromScale(0, 0)
 		t1.BackgroundTransparency = 1
-		t1.Text = cfg.Name
-		t1.TextColor3 = cfg.Color
+		t1.Text = "🔥 " .. alt.Name .. " [Lv.0]"
+		t1.TextColor3 = alt.Color
+		t1.TextStrokeTransparency = 0.25
 		t1.Font = Enum.Font.GothamBlack
 		t1.TextScaled = true
 
-		local t2 = Instance.new("TextLabel", bg)
-		t2.Name = "SubLabel"
-		t2.Size = UDim2.new(1, -8, 0.45, 0)
-		t2.Position = UDim2.new(0, 4, 0.52, 0)
+		local t2 = Instance.new("TextLabel", bbg)
+		t2.Size = UDim2.new(1, 0, 0.44, 0)
+		t2.Position = UDim2.fromScale(0, 0.54)
 		t2.BackgroundTransparency = 1
-		t2.Text = "Lv. 0 • " .. NumberFormat.Format(cfg.BaseCost)
-		t2.TextColor3 = Color3.fromRGB(235, 232, 220)
+		t2.Text = "Costo: " .. NumberFormat.Format(alt.BaseCost) .. " Luce"
+		t2.TextColor3 = Color3.fromRGB(255, 255, 255)
+		t2.TextStrokeTransparency = 0.3
 		t2.Font = Enum.Font.GothamBold
 		t2.TextScaled = true
 	end
 
-	-- I 5 Regni
-	local zonesFolder = Instance.new("Folder")
-	zonesFolder.Name = "WorldZones"
-	zonesFolder.Parent = world
+	-- 5. Pulsante della Vittoria della Zona
+	local vCfg = GameConfig.VictoryButton
+	local vPos = origin + vCfg.Pos
+	local vModel = Instance.new("Model", plotModel)
+	vModel.Name = "VictoryButtonPedestal"
 
-	-- REGNO 1: Anello dei Bracieri + I 5 Bracieri Rituali della Catena del Fuoco
-	local braziersFolder = Instance.new("Folder", zonesFolder)
-	braziersFolder.Name = "Braziers"
-	for i = 1, 12 do
-		local ang = (i / 12) * math.pi * 2
-		local pos = Vector3.new(math.cos(ang) * 44, 1, math.sin(ang) * 44)
-		makePart({ Name = "Post_" .. i, Size = Vector3.new(2, 5.5, 2), Position = pos + Vector3.new(0, 2.75, 0), Color = Color3.fromRGB(32, 32, 38), Material = Enum.Material.Cobblestone, Parent = braziersFolder })
-		local top = makePart({ Name = "Torch_" .. i, Shape = Enum.PartType.Ball, Size = Vector3.new(2.2, 2.2, 2.2), Position = pos + Vector3.new(0, 6.2, 0), Color = Color3.fromRGB(25, 25, 30), Material = Enum.Material.SmoothPlastic, Parent = braziersFolder })
-		local l = Instance.new("PointLight", top); l.Color = Color3.fromRGB(255, 165, 50); l.Range = 28; l.Brightness = 0; l.Enabled = false
+	makeCylinder(vPos, 7.2, 0.7, Color3.fromRGB(32, 34, 46), Enum.Material.Marble, vModel, "Base")
+	makeCylinder(vPos + Vector3.new(0, 0.1, 0), 6.3, 0.85, Color3.fromRGB(255, 190, 45), Enum.Material.Neon, vModel, "GoldRim")
+
+	local victoryPad = makeCylinder(vPos + Vector3.new(0, 0.22, 0), 5.3, 1.0, Color3.fromRGB(255, 225, 85), Enum.Material.Neon, vModel, "VictoryPad")
+	victoryPad.CanCollide = false
+
+	local vBbg = Instance.new("BillboardGui", victoryPad)
+	vBbg.Name = "VictoryBillboard"
+	vBbg.Size = UDim2.fromOffset(270, 86)
+	vBbg.StudsOffset = Vector3.new(0, 6.0, 0)
+	vBbg.AlwaysOnTop = false
+
+	local vTitle = Instance.new("TextLabel", vBbg)
+	vTitle.Name = "TitleLabel"
+	vTitle.Size = UDim2.new(1, 0, 0.52, 0)
+	vTitle.BackgroundTransparency = 1
+	vTitle.Text = "👑 " .. vCfg.Name .. " 👑"
+	vTitle.TextColor3 = Color3.fromRGB(255, 225, 80)
+	vTitle.TextStrokeTransparency = 0.2
+	vTitle.Font = Enum.Font.GothamBlack
+	vTitle.TextScaled = true
+
+	local vCostLbl = Instance.new("TextLabel", vBbg)
+	vCostLbl.Name = "StatusLabel"
+	vCostLbl.Size = UDim2.new(1, 0, 0.44, 0)
+	vCostLbl.Position = UDim2.fromScale(0, 0.54)
+	vCostLbl.BackgroundTransparency = 1
+	vCostLbl.Text = "🔥 Costo: " .. NumberFormat.Format(vCfg.Cost) .. " Punti Luce"
+	vCostLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
+	vCostLbl.TextStrokeTransparency = 0.25
+	vCostLbl.Font = Enum.Font.GothamBold
+	vCostLbl.TextScaled = true
+
+	-- 6. Bracieri Rituali di Regno 1 per la Zona
+	local ritualFolder = Instance.new("Folder", plotModel)
+	ritualFolder.Name = "Regno1Ritual"
+	for _, b in ipairs(GameConfig.Regno1.Braziers) do
+		local bPos = origin + b.Pos
+		makeCylinder(bPos, 3.2, b.PedestalHeight, Color3.fromRGB(42, 45, 62), Enum.Material.Marble, ritualFolder, "Brazier_" .. b.Index)
 	end
 
-	-- 5 Bracieri Antichi Interattivi di Regno 1
-	local ritualFolder = Instance.new("Folder", braziersFolder)
-	ritualFolder.Name = "RitualBraziers"
+	return {
+		Index = index,
+		Origin = origin,
+		SpawnPos = origin + Vector3.new(0, 4.5, 16),
+		Model = plotModel,
+		SignBoard = signBoard,
+		FlameCore = flameCore,
+		BaseFlameSize = flameCore.Size,
+		BaseFlamePos = flameCore.Position,
+		BrazierBowl = bowl,
+		FlameHitbox = flameHitbox,
+		FlameTitle = flameTitle,
+		AltarsFolder = altarsFolder,
+		VictoryPad = victoryPad,
+		VictoryStatusLabel = vCostLbl,
+		RitualFolder = ritualFolder,
+		Owner = nil,
+	}
+end
 
-	for _, bCfg in ipairs(GameConfig.Regno1.Braziers) do
-		local bModel = Instance.new("Model", ritualFolder)
-		bModel.Name = "RitualBrazier_" .. bCfg.Index
+function WorldBuilder.Build()
+	setupAtmosphere()
 
-		local h = bCfg.PedestalHeight
-		local basePos = bCfg.Pos
+	local old = Workspace:FindFirstChild("LastFlameWorld")
+	if old then old:Destroy() end
 
-		-- Pedana di pietra con scalino dolce (facile da saltare/raggiungere)
-		makePart({
-			Name = "Pedestal",
-			Size = Vector3.new(7.5, h, 7.5),
-			Position = basePos + Vector3.new(0, h * 0.5, 0),
-			Color = Color3.fromRGB(42, 40, 48),
-			Material = Enum.Material.Cobblestone,
-			Parent = bModel,
-		})
+	local world = Instance.new("Folder", Workspace)
+	world.Name = "LastFlameWorld"
 
-		-- Anello runico luminoso a terra intorno al braciere
-		local runePad = makePart({
-			Name = "RunePad",
-			Size = Vector3.new(9.2, 0.2, 9.2),
-			Position = basePos + Vector3.new(0, 0.12, 0),
-			Color = Color3.fromRGB(45, 42, 52),
+	-- Isola Centrale di Ritrovo
+	local hubModel = Instance.new("Model", world)
+	hubModel.Name = "CentralPlaza"
+	makeCylinder(Vector3.new(0, -2, 0), 34, 4, Color3.fromRGB(24, 26, 38), Enum.Material.Slate, hubModel, "HubBase")
+	makeCylinder(Vector3.new(0, 0.1, 0), 34.5, 0.5, Color3.fromRGB(110, 210, 255), Enum.Material.Neon, hubModel, "HubRim")
+
+	local spawnLoc = Instance.new("SpawnLocation", hubModel)
+	spawnLoc.Name = "LobbySpawn"
+	spawnLoc.Anchored = true
+	spawnLoc.Size = Vector3.new(12, 1, 12)
+	spawnLoc.Position = Vector3.new(0, 0.5, 0)
+	spawnLoc.Transparency = 1
+	spawnLoc.CanCollide = false
+
+	-- Costruzione delle 10 Zone Individuali disposte ad anello
+	local plotsFolder = Instance.new("Folder", world)
+	plotsFolder.Name = "Plots"
+
+	local maxPlots = GameConfig.MaxPlots or 10
+	local ringRadius = GameConfig.PlotRingRadius or 430
+	local plots = {}
+
+	for i = 1, maxPlots do
+		local angle = ((i - 1) / maxPlots) * (math.pi * 2)
+		local origin = Vector3.new(
+			math.floor(math.cos(angle) * ringRadius + 0.5),
+			0,
+			math.floor(math.sin(angle) * ringRadius + 0.5)
+		)
+
+		-- Ponte di Luce che collega l'isola centrale alla Zona
+		local bridgeLen = ringRadius - 92
+		local bridgeMid = origin.Unit * (34 + bridgeLen * 0.5) - Vector3.new(0, 0.4, 0)
+		local bridge = makePart({
+			Name = "LightBridge_" .. i,
+			Size = Vector3.new(7, 0.5, bridgeLen),
+			CFrame = CFrame.lookAt(bridgeMid, origin),
+			Color = Color3.fromRGB(45, 65, 95),
 			Material = Enum.Material.Neon,
-			Transparency = 0.45,
-			CanCollide = false,
-			Parent = bModel,
+			Transparency = 0.35,
+			Parent = hubModel,
 		})
+		bridge:SetAttribute("PlotIndex", i)
 
-		-- Coppa del Braciere
-		local bowl = makePart({
-			Name = "Bowl",
-			Size = Vector3.new(3.8, 1.4, 3.8),
-			Position = basePos + Vector3.new(0, h + 0.7, 0),
-			Color = Color3.fromRGB(58, 42, 28),
-			Material = Enum.Material.Metal,
-			Parent = bModel,
-		})
-
-		-- Sfera Fiamma del Braciere Rituale
-		local core = makePart({
-			Name = "FlameOrb",
-			Shape = Enum.PartType.Ball,
-			Size = Vector3.new(2.6, 3.0, 2.6),
-			Position = basePos + Vector3.new(0, h + 2.6, 0),
-			Color = Color3.fromRGB(32, 32, 38),
-			Material = Enum.Material.SmoothPlastic,
-			CanCollide = false,
-			Parent = bModel,
-		})
-
-		local bLight = Instance.new("PointLight", core)
-		bLight.Name = "BrazierLight"
-		bLight.Color = Color3.fromRGB(255, 175, 55)
-		bLight.Range = 26
-		bLight.Brightness = 0
-		bLight.Enabled = false
-
-		-- Cartello identificativo sopra il braciere
-		local bb = Instance.new("BillboardGui", core)
-		bb.Name = "BrazierGui"
-		bb.Size = UDim2.fromOffset(180, 48)
-		bb.StudsOffset = Vector3.new(0, 3.2, 0)
-		bb.MaxDistance = 75
-
-		local bg = Instance.new("Frame", bb)
-		bg.Size = UDim2.fromScale(1, 1)
-		bg.BackgroundColor3 = Color3.fromRGB(16, 15, 22)
-		bg.BackgroundTransparency = 0.25
-		Instance.new("UICorner", bg).CornerRadius = UDim.new(0, 8)
-		local st = Instance.new("UIStroke", bg)
-		st.Name = "Stroke"
-		st.Color = Color3.fromRGB(255, 175, 60)
-		st.Transparency = 0.4
-
-		local title = Instance.new("TextLabel", bg)
-		title.Name = "Title"
-		title.Size = UDim2.new(1, -8, 0.52, 0)
-		title.Position = UDim2.fromOffset(4, 2)
-		title.BackgroundTransparency = 1
-		title.Text = "🔥 BRACIERE " .. bCfg.Numeral
-		title.TextColor3 = Color3.fromRGB(255, 210, 95)
-		title.Font = Enum.Font.GothamBlack
-		title.TextScaled = true
-
-		local sub = Instance.new("TextLabel", bg)
-		sub.Name = "Sub"
-		sub.Size = UDim2.new(1, -8, 0.44, 0)
-		sub.Position = UDim2.new(0, 4, 0.54, 0)
-		sub.BackgroundTransparency = 1
-		sub.Text = bCfg.Index == 1 and "Inizia Catena del Fuoco" or ("Tappa " .. bCfg.Index .. " / 5")
-		sub.TextColor3 = Color3.fromRGB(215, 215, 225)
-		sub.Font = Enum.Font.GothamBold
-		sub.TextScaled = true
-
-		-- ProximityPrompt (istantaneo sul Braciere I, utile anche per interazione manuale)
-		local prompt = Instance.new("ProximityPrompt", bowl)
-		prompt.Name = "RitualPrompt"
-		prompt.ObjectText = "Regno 1 • Braciere " .. bCfg.Numeral
-		prompt.ActionText = bCfg.Index == 1 and "Avvia Catena del Fuoco" or "Accendi Braciere"
-		prompt.HoldDuration = 0
-		prompt.MaxActivationDistance = 12
-		prompt.RequiresLineOfSight = false
+		plots[i] = buildSinglePlot(i, origin, plotsFolder)
 	end
-
-	local crystalsFolder = Instance.new("Folder", zonesFolder)
-	crystalsFolder.Name = "Crystals"
-	for i = 1, 12 do
-		local ang = (i / 12) * math.pi * 2
-		local rad = 8 + (i % 3) * 7
-		local pos = Vector3.new(78 + math.cos(ang) * rad, 1, math.sin(ang) * rad)
-		local h = 11 + (i % 4) * 5
-		local c = makePart({
-			Name = "Crystal_" .. i,
-			Size = Vector3.new(3.6, h, 3.6),
-			CFrame = CFrame.new(pos + Vector3.new(0, h / 2, 0)) * CFrame.Angles(math.rad((i % 3 - 1) * 12), ang, math.rad((i % 2) * 10)),
-			Color = Color3.fromRGB(20, 24, 32),
-			Material = Enum.Material.SmoothPlastic,
-			Parent = crystalsFolder,
-		})
-		if i % 3 == 0 then
-			local l = Instance.new("PointLight", c); l.Color = Color3.fromRGB(60, 255, 210); l.Range = 38; l.Brightness = 0; l.Enabled = false
-		end
-	end
-
-	local lanternsFolder = Instance.new("Folder", zonesFolder)
-	lanternsFolder.Name = "Lanterns"
-	makePart({ Name = "LanternGazebo", Size = Vector3.new(22, 1.5, 22), Position = Vector3.new(-64, 1.5, 58), Color = Color3.fromRGB(34, 28, 30), Material = Enum.Material.WoodPlanks, Parent = lanternsFolder })
-	for i = 1, 10 do
-		local ang = (i / 10) * math.pi * 2
-		local pos = Vector3.new(-64 + math.cos(ang) * 9, 8 + (i % 4) * 4, 58 + math.sin(ang) * 9)
-		local lan = makePart({ Name = "SkyLantern_" .. i, Size = Vector3.new(2.4, 3.2, 2.4), Position = pos, Color = Color3.fromRGB(30, 25, 25), Material = Enum.Material.SmoothPlastic, CanCollide = false, Parent = lanternsFolder })
-		if i % 2 == 0 then
-			local l = Instance.new("PointLight", lan); l.Color = Color3.fromRGB(255, 140, 60); l.Range = 30; l.Brightness = 0; l.Enabled = false
-		end
-	end
-
-	local waterfallFolder = Instance.new("Folder", zonesFolder)
-	waterfallFolder.Name = "Waterfall"
-	makePart({ Name = "CliffBack", Size = Vector3.new(12, 36, 30), Position = Vector3.new(-88, 18, 0), Color = Color3.fromRGB(28, 30, 36), Material = Enum.Material.Rock, Parent = waterfallFolder })
-	local waterStream = makePart({ Name = "WaterStream", Size = Vector3.new(2, 32, 18), Position = Vector3.new(-81.5, 17, 0), Color = Color3.fromRGB(22, 26, 35), Material = Enum.Material.SmoothPlastic, Parent = waterfallFolder })
-	local waterPool = makePart({ Name = "WaterPool", Size = Vector3.new(18, 0.8, 24), Position = Vector3.new(-73, 1.3, 0), Color = Color3.fromRGB(22, 26, 35), Material = Enum.Material.SmoothPlastic, Parent = waterfallFolder })
-	local wfLight = Instance.new("PointLight", waterStream); wfLight.Color = Color3.fromRGB(110, 220, 255); wfLight.Range = 48; wfLight.Brightness = 0; wfLight.Enabled = false
-
-	local templeFolder = Instance.new("Folder", zonesFolder)
-	templeFolder.Name = "Temple"
-	makePart({ Name = "TempleFloor", Size = Vector3.new(48, 2, 28), Position = Vector3.new(0, 1.5, -86), Color = Color3.fromRGB(34, 34, 40), Material = Enum.Material.Marble, Parent = templeFolder })
-	for _, px in ipairs({ -18, -6, 6, 18 }) do
-		makePart({ Name = "Pillar", Size = Vector3.new(3.8, 28, 3.8), Position = Vector3.new(px, 16, -86), Color = Color3.fromRGB(36, 36, 44), Material = Enum.Material.Marble, Parent = templeFolder })
-	end
-	local sunDisc = makePart({ Name = "SunDisc", Shape = Enum.PartType.Ball, Size = Vector3.new(13, 13, 13), Position = Vector3.new(0, 24, -90), Color = Color3.fromRGB(30, 30, 36), Material = Enum.Material.SmoothPlastic, CanCollide = false, Parent = templeFolder })
-	local sunLight = Instance.new("PointLight", sunDisc); sunLight.Color = Color3.fromRGB(255, 225, 110); sunLight.Range = 65; sunLight.Brightness = 0; sunLight.Enabled = false
 
 	return {
 		World = world,
-		FlameCore = flameCore,
-		BrazierBowl = brazierBowl,
-		FlameHitbox = flameHitbox,
-		AltarsFolder = altarsFolder,
-		RitualFolder = ritualFolder,
+		PlotsFolder = plotsFolder,
+		Plots = plots,
+		AltarsFolder = plots[1].AltarsFolder,
+		FlameCore = plots[1].FlameCore,
+		BrazierBowl = plots[1].BrazierBowl,
+		FlameHitbox = plots[1].FlameHitbox,
+		RitualFolder = plots[1].RitualFolder,
 	}
 end
 

@@ -1,196 +1,294 @@
 local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local TweenService = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
+
+local NumberFormat = require(ReplicatedStorage:WaitForChild("NumberFormat"))
+local ClientWorldVisuals = require(script.Parent:WaitForChild("ClientWorldVisuals"))
+local ShopUI = require(script.Parent:WaitForChild("ShopUI"))
 
 local player = Players.LocalPlayer
 local mouse = player:GetMouse()
-local playerGui = player:WaitForChild("PlayerGui")
 
-local GameConfig = require(ReplicatedStorage:WaitForChild("GameConfig"))
-local NumberFormat = require(ReplicatedStorage:WaitForChild("NumberFormat"))
-
-local RemotesFolder = ReplicatedStorage:WaitForChild("Remotes")
-local Remotes = {
-	StateSync = RemotesFolder:WaitForChild("StateSync"),
-	ClickFlame = RemotesFolder:WaitForChild("ClickFlame"),
-	BuyUpgrade = RemotesFolder:WaitForChild("BuyUpgrade"),
-	BuyStarPerk = RemotesFolder:WaitForChild("BuyStarPerk"),
-	SummonWisp = RemotesFolder:WaitForChild("SummonWisp"),
-	FuseWisp = RemotesFolder:WaitForChild("FuseWisp"),
-	Prestige = RemotesFolder:WaitForChild("Prestige"),
-	RedeemCode = RemotesFolder:WaitForChild("RedeemCode"),
-	Regno1Event = RemotesFolder:WaitForChild("Regno1Event"),
+local remotesFolder = ReplicatedStorage:WaitForChild("Remotes")
+local remotes = {
+	StateSync = remotesFolder:WaitForChild("StateSync"),
+	ClickFlame = remotesFolder:WaitForChild("ClickFlame"),
+	BuyUpgrade = remotesFolder:WaitForChild("BuyUpgrade"),
+	BuyStarPerk = remotesFolder:WaitForChild("BuyStarPerk"),
+	SummonWisp = remotesFolder:WaitForChild("SummonWisp"),
+	FuseWisp = remotesFolder:WaitForChild("FuseWisp"),
+	Prestige = remotesFolder:WaitForChild("Prestige"),
+	SyncGamePass = remotesFolder:WaitForChild("SyncGamePass"),
+	TeleportHome = remotesFolder:WaitForChild("TeleportHome"),
+	RedeemCode = remotesFolder:WaitForChild("RedeemCode"),
+	Regno1Sync = remotesFolder:WaitForChild("Regno1Sync"),
 }
 
-local PopupManager = require(script.Parent:WaitForChild("PopupManager"))
-local WorldVisuals = require(script.Parent:WaitForChild("WorldVisuals"))
-local ShopUI = require(script.Parent:WaitForChild("ShopUI"))
-local Regno1Visuals = require(script.Parent:WaitForChild("Regno1Visuals"))
-local Regno1UI = require(script.Parent:WaitForChild("Regno1UI"))
+-- Avvia renderizzazione Spiriti orbitanti per tutti i giocatori
+ClientWorldVisuals.StartWispRenderer()
 
-local world = workspace:WaitForChild("SantuarioDellaFiamma")
-local flameModel = world:WaitForChild("PrimordialFlame")
-local altarsFolder = world:WaitForChild("LightAltars")
+-- =========================================================================
+-- INTERFACCIA HUD PRINCIPALE
+-- =========================================================================
+local gui = Instance.new("ScreenGui")
+gui.Name = "LastFlameHUD"
+gui.ResetOnSpawn = false
+gui.IgnoreGuiInset = true
+gui.Parent = player:WaitForChild("PlayerGui")
 
-local visuals = WorldVisuals.Init(world)
-
--- ScreenGui Principale
-local hud = Instance.new("ScreenGui", playerGui)
-hud.Name = "RobloxVibeHUD"
-hud.ResetOnSpawn = false
-hud.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-
-local popups = PopupManager.new(hud)
-local regno1Visuals = Regno1Visuals.Init(world, playerGui)
-local regno1UI = Regno1UI.Build(hud)
-
--- Barra Superiore (Punti Accumulati, Click Power, Punti/s e Luce nel Mondo)
-local topHud = Instance.new("Frame", hud)
+local topHud = Instance.new("Frame", gui)
+topHud.Name = "TopStatsBar"
 topHud.AnchorPoint = Vector2.new(0.5, 0)
-topHud.Position = UDim2.new(0.42, 0, 0, 12)
-topHud.Size = UDim2.new(0, 620, 0, 68)
-topHud.BackgroundColor3 = Color3.fromRGB(15, 16, 23)
-topHud.BackgroundTransparency = 0.12
-Instance.new("UICorner", topHud).CornerRadius = UDim.new(0, 14)
+topHud.Position = UDim2.new(0.5, 0, 0, 14)
+topHud.Size = UDim2.fromOffset(680, 74)
+topHud.BackgroundColor3 = Color3.fromRGB(16, 18, 28)
+topHud.BackgroundTransparency = 0.08
+topHud.ZIndex = 10
+Instance.new("UICorner", topHud).CornerRadius = UDim.new(0, 18)
 
 local topStroke = Instance.new("UIStroke", topHud)
-topStroke.Color = Color3.fromRGB(255, 185, 65)
-topStroke.Transparency = 0.45
-topStroke.Thickness = 1.5
+topStroke.Color = Color3.fromRGB(255, 195, 65)
+topStroke.Thickness = 2
 
-local pointsValue = Instance.new("TextLabel", topHud)
-pointsValue.Size = UDim2.new(0.38, 0, 0.56, 0)
-pointsValue.Position = UDim2.fromOffset(14, 4)
-pointsValue.BackgroundTransparency = 1
-pointsValue.Text = "🔥 0 Punti"
-pointsValue.TextColor3 = Color3.fromRGB(255, 200, 70)
-pointsValue.TextXAlignment = Enum.TextXAlignment.Left
-pointsValue.Font = Enum.Font.GothamBlack
-pointsValue.TextScaled = true
+local pointsLbl = Instance.new("TextLabel", topHud)
+pointsLbl.Position = UDim2.fromOffset(18, 8)
+pointsLbl.Size = UDim2.fromOffset(300, 34)
+pointsLbl.BackgroundTransparency = 1
+pointsLbl.Text = "🔥 0 Punti Luce"
+pointsLbl.TextColor3 = Color3.fromRGB(255, 215, 80)
+pointsLbl.TextXAlignment = Enum.TextXAlignment.Left
+pointsLbl.Font = Enum.Font.GothamBlack
+pointsLbl.TextScaled = true
+pointsLbl.ZIndex = 11
 
-local heatLabel = Instance.new("TextLabel", topHud)
-heatLabel.Size = UDim2.new(0.36, 0, 0.30, 0)
-heatLabel.Position = UDim2.new(0, 14, 0.62, 0)
-heatLabel.BackgroundTransparency = 1
-heatLabel.Text = "Calore Fiamma: x1.0"
-heatLabel.TextColor3 = Color3.fromRGB(175, 182, 202)
-heatLabel.TextXAlignment = Enum.TextXAlignment.Left
-heatLabel.Font = Enum.Font.GothamBold
-heatLabel.TextScaled = true
+local rateLbl = Instance.new("TextLabel", topHud)
+rateLbl.Position = UDim2.fromOffset(18, 44)
+rateLbl.Size = UDim2.fromOffset(320, 22)
+rateLbl.BackgroundTransparency = 1
+rateLbl.Text = "+1.0 / click  •  +0 / sec"
+rateLbl.TextColor3 = Color3.fromRGB(175, 190, 215)
+rateLbl.TextXAlignment = Enum.TextXAlignment.Left
+rateLbl.Font = Enum.Font.GothamBold
+rateLbl.TextScaled = true
+rateLbl.ZIndex = 11
 
-local rankText = Instance.new("TextLabel", topHud)
-rankText.Size = UDim2.new(0.32, 0, 0.40, 0)
-rankText.Position = UDim2.new(0.40, 0, 0.08, 0)
-rankText.BackgroundTransparency = 1
-rankText.Text = "☀️ Luce 4%"
-rankText.TextColor3 = Color3.fromRGB(245, 245, 250)
-rankText.Font = Enum.Font.GothamBold
-rankText.TextScaled = true
+local zoneBadge = Instance.new("TextLabel", topHud)
+zoneBadge.AnchorPoint = Vector2.new(1, 0)
+zoneBadge.Position = UDim2.new(1, -18, 0, 8)
+zoneBadge.Size = UDim2.fromOffset(320, 26)
+zoneBadge.BackgroundTransparency = 1
+zoneBadge.Text = "🏝️ ZONA 1 • Portatore di Scintilla (4%)"
+zoneBadge.TextColor3 = Color3.fromRGB(90, 225, 255)
+zoneBadge.TextXAlignment = Enum.TextXAlignment.Right
+zoneBadge.Font = Enum.Font.GothamBlack
+zoneBadge.TextScaled = true
+zoneBadge.ZIndex = 11
 
-local lightBarBg = Instance.new("Frame", topHud)
-lightBarBg.Size = UDim2.new(0.32, 0, 0.24, 0)
-lightBarBg.Position = UDim2.new(0.40, 0, 0.56, 0)
-lightBarBg.BackgroundColor3 = Color3.fromRGB(32, 34, 46)
-Instance.new("UICorner", lightBarBg).CornerRadius = UDim.new(1, 0)
+local heatAndStarsLbl = Instance.new("TextLabel", topHud)
+heatAndStarsLbl.AnchorPoint = Vector2.new(1, 0)
+heatAndStarsLbl.Position = UDim2.new(1, -18, 0, 40)
+heatAndStarsLbl.Size = UDim2.fromOffset(320, 24)
+heatAndStarsLbl.BackgroundTransparency = 1
+heatAndStarsLbl.Text = "🌡️ Calore x1.00  •  ⭐ 0 Stelle"
+heatAndStarsLbl.TextColor3 = Color3.fromRGB(255, 175, 95)
+heatAndStarsLbl.TextXAlignment = Enum.TextXAlignment.Right
+heatAndStarsLbl.Font = Enum.Font.GothamBold
+heatAndStarsLbl.TextScaled = true
+heatAndStarsLbl.ZIndex = 11
 
-local lightBarFill = Instance.new("Frame", lightBarBg)
-lightBarFill.Size = UDim2.fromScale(0.04, 1)
-lightBarFill.BackgroundColor3 = Color3.fromRGB(255, 190, 60)
-Instance.new("UICorner", lightBarFill).CornerRadius = UDim.new(1, 0)
+-- Banner sfide Regno 1
+local trialBanner = Instance.new("TextLabel", gui)
+trialBanner.Name = "Regno1Banner"
+trialBanner.AnchorPoint = Vector2.new(0.5, 0)
+trialBanner.Position = UDim2.new(0.5, 0, 0, 96)
+trialBanner.Size = UDim2.fromOffset(460, 34)
+trialBanner.BackgroundColor3 = Color3.fromRGB(38, 24, 14)
+trialBanner.Text = ""
+trialBanner.TextColor3 = Color3.fromRGB(255, 225, 95)
+trialBanner.Font = Enum.Font.GothamBlack
+trialBanner.TextScaled = true
+trialBanner.Visible = false
+trialBanner.ZIndex = 12
+Instance.new("UICorner", trialBanner).CornerRadius = UDim.new(0, 12)
 
-local clickStat = Instance.new("TextLabel", topHud)
-clickStat.Size = UDim2.new(0.24, 0, 0.44, 0)
-clickStat.Position = UDim2.new(0.74, 0, 0.06, 0)
-clickStat.BackgroundTransparency = 1
-clickStat.Text = "👆 +1 / click"
-clickStat.TextColor3 = Color3.fromRGB(85, 225, 255)
-clickStat.TextXAlignment = Enum.TextXAlignment.Right
-clickStat.Font = Enum.Font.GothamBlack
-clickStat.TextScaled = true
+-- Notifica Toast
+local toastLbl = Instance.new("TextLabel", gui)
+toastLbl.Name = "PopupToast"
+toastLbl.AnchorPoint = Vector2.new(0.5, 0)
+toastLbl.Position = UDim2.new(0.5, 0, 0, 138)
+toastLbl.Size = UDim2.fromOffset(540, 38)
+toastLbl.BackgroundColor3 = Color3.fromRGB(22, 26, 40)
+toastLbl.Text = ""
+toastLbl.TextColor3 = Color3.fromRGB(255, 235, 130)
+toastLbl.Font = Enum.Font.GothamBlack
+toastLbl.TextScaled = true
+toastLbl.Visible = false
+toastLbl.ZIndex = 30
+Instance.new("UICorner", toastLbl).CornerRadius = UDim.new(0, 12)
+Instance.new("UIStroke", toastLbl).Color = Color3.fromRGB(255, 200, 75)
 
-local ppsStat = Instance.new("TextLabel", topHud)
-ppsStat.Size = UDim2.new(0.24, 0, 0.38, 0)
-ppsStat.Position = UDim2.new(0.74, 0, 0.52, 0)
-ppsStat.BackgroundTransparency = 1
-ppsStat.Text = "⚡ +0 / sec"
-ppsStat.TextColor3 = Color3.fromRGB(55, 205, 130)
-ppsStat.TextXAlignment = Enum.TextXAlignment.Right
-ppsStat.Font = Enum.Font.GothamBold
-ppsStat.TextScaled = true
-
--- Audio
-local muted = false
-local sfx = Instance.new("Sound", playerGui)
-sfx.SoundId = "rbxassetid://6895079853"
-sfx.Volume = 0.40
-local lastSfx, pitch = 0, 1.0
-
-local function playSound(cue)
-	if muted then return end
-	local now = os.clock()
-	pitch = (now - lastSfx < 0.5) and math.min(1.75, pitch + 0.05) or 1.0
-	lastSfx = now
-	sfx.PlaybackSpeed = cue == "Crit" and 1.85 or (cue == "Prestige" and 0.72 or pitch)
-	sfx:Play()
+local toastToken = 0
+local function showToast(msg)
+	if not msg or msg == "" then return end
+	toastToken += 1
+	local myToken = toastToken
+	toastLbl.Text = msg
+	toastLbl.Visible = true
+	task.delay(3.2, function()
+		if toastToken == myToken then
+			toastLbl.Visible = false
+		end
+	end)
 end
 
--- Pannello Bottoni a Comparsa Progressiva
-local shop = ShopUI.Build(hud, Remotes, popups, function(isMuted)
-	muted = isMuted
-	regno1Visuals.SetMuted(isMuted)
-end)
+-- Effetti sonori sintetici leggeri
+local soundFolder = Instance.new("Folder", gui)
+soundFolder.Name = "ClientSounds"
 
--- Eventi dedicati di Regno 1 (Catena del Fuoco)
-Remotes.Regno1Event.OnClientEvent:Connect(function(payload)
-	regno1Visuals.OnRegno1Event(payload)
-	regno1UI.OnRegno1Event(payload)
-end)
+local function playCue(cueName)
+	local s = Instance.new("Sound", soundFolder)
+	if cueName == "Crit" then
+		s.SoundId = "rbxassetid://131072992"
+		s.PlaybackSpeed = 1.35
+		s.Volume = 0.45
+	elseif cueName == "Buy" or cueName == "Upgrade" then
+		s.SoundId = "rbxassetid://4612375233"
+		s.PlaybackSpeed = 1.1
+		s.Volume = 0.4
+	elseif cueName == "Prestige" then
+		s.SoundId = "rbxassetid://1843527678"
+		s.PlaybackSpeed = 1.0
+		s.Volume = 0.5
+	else
+		s.SoundId = "rbxassetid://421058925"
+		s.PlaybackSpeed = 0.95 + math.random() * 0.25
+		s.Volume = 0.3
+	end
+	s:Play()
+	s.Ended:Connect(function()
+		s:Destroy()
+	end)
+end
 
--- Click diretto sulla Fiamma
+-- Testo fluttuante sopra il Braciere della propria Zona
+local function spawnFloatingGain(amount, isCrit)
+	local core = ClientWorldVisuals.GetMyFlameCore()
+	if not core then return end
+
+	local p = Instance.new("Part")
+	p.Anchored = true
+	p.CanCollide = false
+	p.Transparency = 1
+	p.Size = Vector3.new(1, 1, 1)
+	p.Position = core.Position + Vector3.new((math.random() - 0.5) * 6, 3.5, (math.random() - 0.5) * 6)
+	p.Parent = Workspace
+
+	local bbg = Instance.new("BillboardGui", p)
+	bbg.Size = UDim2.fromOffset(180, 46)
+	bbg.AlwaysOnTop = true
+
+	local lbl = Instance.new("TextLabel", bbg)
+	lbl.Size = UDim2.fromScale(1, 1)
+	lbl.BackgroundTransparency = 1
+	lbl.Text = (isCrit and "💥 CRIT +" or "+") .. NumberFormat.Format(amount)
+	lbl.TextColor3 = isCrit and Color3.fromRGB(255, 110, 95) or Color3.fromRGB(255, 225, 95)
+	lbl.TextStrokeTransparency = 0.2
+	lbl.Font = Enum.Font.GothamBlack
+	lbl.TextScaled = true
+
+	local tw = TweenService:Create(p, TweenInfo.new(0.75, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Position = p.Position + Vector3.new(0, 5.5, 0),
+	})
+	tw:Play()
+	tw.Completed:Connect(function()
+		p:Destroy()
+	end)
+end
+
+-- Click 3D sul Braciere della propria Zona (o tasto Spazio vicino al Braciere)
+local lastLocalClick = 0
+local function tryClickMyFlame()
+	local now = os.clock()
+	if now - lastLocalClick < 0.065 then return end
+	lastLocalClick = now
+	remotes.ClickFlame:FireServer()
+end
+
 mouse.Button1Down:Connect(function()
 	local target = mouse.Target
-	if target and target:IsDescendantOf(flameModel) then
-		visuals.TriggerClickPulse(false)
-		Remotes.ClickFlame:FireServer()
-	end
-end)
-
--- Sincronizzazione dal Server
-Remotes.StateSync.OnClientEvent:Connect(function(st)
-	pointsValue.Text = "🔥 " .. NumberFormat.Format(st.Points) .. " Punti"
-	clickStat.Text = "👆 +" .. NumberFormat.Format(st.ClickPower) .. " / click"
-	ppsStat.Text = "⚡ +" .. NumberFormat.Format(st.PointsPerSec) .. " / sec"
-	heatLabel.Text = string.format("Calore Fiamma: x%.1f", st.HeatMult or 1.0)
-
-	local pct = st.LightPercent or 4
-	lightBarFill.Size = UDim2.fromScale(math.clamp(pct / 100, 0.02, 1), 1)
-	rankText.Text = string.format("☀️ Luce %d%% • %s", pct, st.RankName or "")
-
-	visuals.ApplyIllumination(pct, st.Heat or 0, st.Upgrades or {})
-	shop.Update(st)
-	regno1UI.SyncFromState(st)
-
-	-- Pop-up dei punti accumulati ogni volta che schiacci la fiamma!
-	if st.FlameClicked then
-		visuals.TriggerClickPulse(st.IsCrit)
-		popups:ShowClickPoints(st.ClickGained or st.ClickPower or 1, st.IsCrit)
-	end
-	if st.Shockwave then
-		visuals.TriggerClickPulse(true)
-	end
-	if st.PopupText then
-		popups:ShowEvent(st.PopupText)
-	end
-	if st.SoundCue then
-		playSound(st.SoundCue)
-	end
-
-	-- Aggiorna Altari
-	for _, alt in ipairs(GameConfig.Altars) do
-		local pad = altarsFolder:FindFirstChild(alt.Id)
-		if pad and pad:FindFirstChild("InfoGui") then
-			local lvl = (st.Altars and st.Altars[alt.Id]) or 0
-			local cost = math.floor(alt.BaseCost * (alt.CostMult ^ lvl))
-			pad.InfoGui.Frame.SubLabel.Text = "Lv. " .. lvl .. " • " .. NumberFormat.Format(cost)
+	if not target then return end
+	local myPlot = ClientWorldVisuals.GetMyPlotModel()
+	if myPlot and target:IsDescendantOf(myPlot) then
+		if target.Name == "FlameHitbox" or target.Name == "FlameCore" or target.Name == "BrazierBowl" then
+			tryClickMyFlame()
 		end
 	end
 end)
+
+UserInputService.InputBegan:Connect(function(inp, gp)
+	if gp then return end
+	if inp.KeyCode == Enum.KeyCode.E or inp.KeyCode == Enum.KeyCode.F then
+		local core = ClientWorldVisuals.GetMyFlameCore()
+		local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
+		if core and hrp and (core.Position - hrp.Position).Magnitude <= 32 then
+			tryClickMyFlame()
+		end
+	end
+end)
+
+-- Costruzione Menù ShopUI
+local shopController = ShopUI.Build(gui, remotes)
+
+-- Sincronizzazione stato da Server
+remotes.StateSync.OnClientEvent:Connect(function(st)
+	if not st then return end
+
+	pointsLbl.Text = "🔥 " .. NumberFormat.Format(st.Points or 0) .. " Punti Luce"
+	rateLbl.Text = string.format("+%s / click  •  +%s / sec", NumberFormat.Format(st.ClickPower or 1), NumberFormat.Format(st.PointsPerSec or 0))
+	zoneBadge.Text = string.format("🏝️ ZONA %d • %s (%d%%)", st.PlotIndex or 1, st.RankName or "Custode", st.LightPercent or 4)
+
+	local buffSuffix = ""
+	if (st.Regno1BuffRemaining or 0) > 0 then
+		buffSuffix = string.format("  •  ⚡ x%.2f (%ds)", st.Regno1BuffMult or 1, math.ceil(st.Regno1BuffRemaining))
+	end
+	heatAndStarsLbl.Text = string.format("🌡️ Calore x%.2f  •  ⭐ %d Stelle%s", st.HeatMult or 1, st.EternalStars or 0, buffSuffix)
+
+	ClientWorldVisuals.Update(st)
+	shopController.Update(st)
+
+	if st.FlameClicked and st.ClickGained then
+		spawnFloatingGain(st.ClickGained, st.IsCrit)
+	end
+	if st.SoundCue then
+		playCue(st.SoundCue)
+	end
+	if st.Shockwave then
+		ClientWorldVisuals.PlayShockwave(st.BrazierColor)
+	end
+	if st.PopupText then
+		showToast(st.PopupText)
+	end
+	if st.VictoryTriggered then
+		shopController.ShowVictory(st)
+	end
+end)
+
+remotes.Regno1Sync.OnClientEvent:Connect(function(r1)
+	if not r1 then return end
+	ClientWorldVisuals.UpdateRegno1(r1)
+
+	if r1.Active then
+		trialBanner.Visible = true
+		trialBanner.Text = string.format("🏃 CATENA DEL FUOCO: Braciere %d/%d  •  ⏱️ %.1fs", r1.CurrentStep or 1, r1.TotalSteps or 5, r1.TimeLeft or 0)
+	elseif (r1.BuffRemaining or 0) > 0 then
+		trialBanner.Visible = true
+		trialBanner.Text = string.format("🔥 BENEDIZIONE REGNO 1 ATTIVA: x%.2f  •  %ds", r1.BuffMult or 1.5, math.ceil(r1.BuffRemaining))
+	else
+		trialBanner.Visible = false
+	end
+end)
+
+-- Verifica iniziale possesso GamePass
+remotes.SyncGamePass:FireServer()

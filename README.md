@@ -1,81 +1,27 @@
-# Quantum Core ⚡
+# 🔥 L'Ultima Fiamma (LastFlame) — Edizione Multiplayer 10 Zone
 
-Gioco incrementale Sci-Fi/Neon per Roblox. **Tutta la mappa 3D, le UI e la logica sono generate via codice** su un Baseplate vuoto: nessun asset esterno, nessun modello salvato nel place.
+Progetto completo strutturato per **Roblox Studio** e **Rojo**, con supporto fino a **10 giocatori contemporanei** su 10 isole santuario indipendenti (`Zona 1` – `Zona 10`).
 
-- 6 pulsanti a terra su 2 file ordinate → sali di livello restandoci sopra
-- Albero di 15 nodi sul muro → Watt → Plasma → prestige
-- 5 stadi evolutivi del nucleo centrale
-- Sfere di Sovraccarico (boost x2), auto-buyer, classifica globale, salvataggio + guadagno offline
+## 📁 Struttura delle Cartelle
 
-## Come aprirlo in Roblox Studio
+- `src/shared/` → **ReplicatedStorage**
+  - `GameConfig.lua` *(ModuleScript)*: Configurazione delle 10 zone, potenziamenti personaggio, 8 pulsanti a terra del braciere, spiriti, prestigio e codici promo.
+  - `EconomyEngine.lua` *(ModuleScript)*: Calcolo bilanciato di click, produzione/sec, moltiplicatori, spiriti equipaggiati e zone sbloccate.
+  - `NumberFormat.lua` *(ModuleScript)*: Formattazione compatta dei grandi numeri (`K`, `M`, `B`, `T`, `Qa`, `Qi`, ...).
+- `src/server/` → **ServerScriptService**
+  - `WorldBuilder.lua` *(ModuleScript)*: Genera proceduralmente l'Isola Centrale e le 10 Zone Individuali disposte ad anello con ponti di luce, cartelli proprietario, bracieri e pulsanti a terra.
+  - `Regno1Service.lua` *(ModuleScript)*: Gestisce la corsa a tempo *Catena del Fuoco* sui 5 Bracieri Rituali individuali di ogni Zona.
+  - `FlameServer.server.lua` *(Script)*: Gestisce DataStore (`LastFlame_V5`), assegnazione automatica delle 10 Zone, click sul Braciere, acquisti sui pad, evocazione/fusione Spiriti e Rinascita.
+- `src/client/` → **StarterPlayer → StarterPlayerScripts**
+  - `ClientWorldVisuals.lua` *(ModuleScript)*: Evidenzia localmente i pulsanti acquistabili della propria Zona, anima i Bracieri di Regno 1 e renderizza gli Spiriti in orbita attorno a tutti i giocatori nella lobby.
+  - `ShopUI.lua` *(ModuleScript)*: Barra inferiore (`🏠 LA MIA ZONA`, `🧙 PERSONAGGIO`, `⚡ LUCE x2`), menù a schede (`Personaggio`, `Spiriti`, `Alba`, `Codici`) e schermata celebrativa della Vittoria.
+  - `FlameClient.client.lua` *(LocalScript)*: HUD superiore, click 3D sulla propria Fiamma, numeri fluttuanti, effetti sonori, onde d'urto e notifiche.
 
-Il progetto usa [Rojo](https://rojo.space).
+## 🚀 Installazione Rapida in Roblox Studio
 
-Live sync (consigliato per modificare):
-
-```bash
-rojo serve
-```
-
-Poi in Studio: plugin **Rojo** → *Connect*.
-
-Oppure genera un place da aprire con doppio click:
-
-```bash
-rojo build -o QuantumCore.rbxlx
-```
-
-Premi **Play**: `WorldBuilder` cancella il Baseplate e costruisce la mappa, `GameEngine` avvia l'economia.
-
-> In Studio senza API DataStore attive il gioco funziona lo stesso: profili in memoria e classifica basata sulla sessione (tutti i `pcall` falliscono in modo pulito).
-
-## Struttura (allineata a `default.project.json`)
-
-| Percorso Rojo | File su disco |
-| --- | --- |
-| `ReplicatedStorage.Shared` | `src/shared/` |
-| `ServerScriptService.Server` | `src/server/` |
-| `StarterPlayer.StarterPlayerScripts.Client` | `src/client/` |
-
-```
-src/shared/BigNum.luau                formattazione 1e3..1e308+ con suffissi K..Dc e notazione scientifica
-src/shared/GameConfig.luau            SOLO dati: valute, 6 pulsanti, 15 nodi, stadi del nucleo, mappa, tema
-src/server/WorldBuilder.server.luau   genera piattaforma, nucleo, muro, pulsanti, classifica, spawn
-src/server/GameEngine.server.luau     remotes, DataStore, economia, prestige, sfere bonus, classifica
-src/client/ClientEffects.client.luau HUD, albero sul muro, billboard, nucleo, juice
-```
-
-## Economia in breve
-
-| Valuta | Come si ottiene | A cosa serve |
-| --- | --- | --- |
-| **Watt** | pulsanti a terra, boost, offline | livelli dei pulsanti e nodi iniziali |
-| **Plasma** | passivo dopo l'**Iniettore al Plasma** | nodi avanzati (auto-buyer, moltiplicatori) |
-| **Materia Oscura** | **Collasso Quantistico** (richiede 1e15 Watt) | moltiplicatore permanente `2^DM` + aura attorno all'avatar |
-
-Il Plasma non richiede reset: si sblocca con un nodo e continua a salire insieme ai Watt.
-
-### Albero (15 nodi, nessun reset forzato)
-
-- **Ramo Watt**: Bobina di Sovraccarico → Circuito Refrigerante → Risonanza Armonica → Componenti Riciclati → Rilevatore di Anomalie → Overclock → Chip di Contrattazione
-- **Nodo centrale**: Iniettore al Plasma (sblocca Plasma/s)
-- **Ramo Plasma**: Condotto di Plasma → Lente al Plasma → Auto-Buyer Base → Auto-Buyer Avanzato → Specchio Quantistico → Singolarita
-- **Finale**: Collasso Quantistico → prestige ripetibile, +Materia Oscura
-
-L'acquisto continuo funziona restando **sopra** un pad: il server compra un livello ogni 0.15s mentre accumuli Watt.
-
-## Dove mettere le mani
-
-- Bilanciamento, costi, posizioni, colori, testi → `src/shared/GameConfig.luau`
-- Nuove regole/effetti → `src/server/GameEngine.server.luau` (funzione `calcolaStatistiche` per i moltiplicatori, `acquistaNodo` per i nodi)
-- Nuova grafica della mappa → `src/server/WorldBuilder.server.luau`
-- Nuova UI → `src/client/ClientEffects.client.luau`
-
-## Nota sull'architettura per-giocatore
-
-L'economia è 100% server-side: il client invia solo richieste e riceve lo stato ogni 0.2s. Due elementi sono disegnati lato client perché devono essere **diversi per ogni giocatore**:
-
-- l'Upgrade Tree interattivo (una `SurfaceGui` agganciata al pannello sul muro, dentro `PlayerGui`): gli sblocchi sono personali, una `SurfaceGui` creata dal server sarebbe condivisa da tutti;
-- le `BillboardGui` dei 6 pulsanti con livello e costo del singolo giocatore.
-
-La classifica globale invece è condivisa: la sua `SurfaceGui` è creata dal server in `WorldBuilder` e aggiornata da `GameEngine`.
+1. **Con Rojo:** esegui `rojo serve default.project.json` nella cartella principale e connetti il plugin Rojo in Roblox Studio.
+2. **Manuale:**
+   - Copia i 3 `ModuleScript` di `src/shared` dentro `ReplicatedStorage`.
+   - Copia `WorldBuilder` e `Regno1Service` come `ModuleScript` e `FlameServer` come `Script` dentro `ServerScriptService`.
+   - Copia `ClientWorldVisuals` e `ShopUI` come `ModuleScript` e `FlameClient` come `LocalScript` dentro `StarterPlayer > StarterPlayerScripts`.
+   - Assicurati che **API Services** (DataStore) sia abilitato nelle impostazioni del gioco su Roblox Studio.
