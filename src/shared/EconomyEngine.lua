@@ -53,14 +53,35 @@ function EconomyEngine.GetRank(lightPercent)
 	return best
 end
 
+-- Verifica se il giocatore ha completato TUTTI i potenziamenti (Personaggio + Pulsanti a Terra)
+function EconomyEngine.GetUpgradeCompletion(data)
+	local upgrades = (data and data.Upgrades) or {}
+	local altars = (data and data.Altars) or {}
+	local completed = 0
+	local total = #GameConfig.Upgrades + #GameConfig.Altars
+
+	for _, u in ipairs(GameConfig.Upgrades) do
+		if EconomyEngine.GetLevel(upgrades, u.Id) >= (u.MaxLevel or 1) then
+			completed += 1
+		end
+	end
+	for _, alt in ipairs(GameConfig.Altars) do
+		if EconomyEngine.GetLevel(altars, alt.Id) >= (alt.MaxLevel or 1) then
+			completed += 1
+		end
+	end
+
+	return (completed >= total), completed, total
+end
+
 function EconomyEngine.CalculateStats(data, heat, regno1BuffMult, hasDoubleLight)
 	local upgrades = data.Upgrades or {}
 	local altars = data.Altars or {}
 	local starPerks = data.StarPerks or {}
 
-	-- 1. Statistiche dal Menù Personaggio
+	-- 1. Statistiche del PERSONAGGIO (solo dal Menù Personaggio)
 	local baseClick = 1.0
-	local charMult = 1.0
+	local charClickMult = 1.0
 	local critChance = 0.05
 	local critMult = 5.0
 	local autoClickRate = 0.0
@@ -74,10 +95,12 @@ function EconomyEngine.CalculateStats(data, heat, regno1BuffMult, hasDoubleLight
 			lightPct += (u.LightPct or 0) * lvl
 			if u.Effect == "ClickAdd" then
 				baseClick += (u.Value or 0) * lvl
-			elseif u.Effect == "ClickMult" then
-				charMult *= ((u.Value or 1) ^ lvl)
+			elseif u.Effect == "ClickPowerMult" or u.Effect == "ClickMult" then
+				charClickMult *= ((u.Value or 1) ^ lvl)
 			elseif u.Effect == "CritChance" then
 				critChance += (u.Value or 0) * lvl
+			elseif u.Effect == "CritMult" then
+				critMult += (u.Value or 0) * lvl
 			elseif u.Effect == "AutoClick" then
 				autoClickRate += (u.Value or 0) * lvl
 			elseif u.Effect == "WalkSpeed" then
@@ -88,13 +111,13 @@ function EconomyEngine.CalculateStats(data, heat, regno1BuffMult, hasDoubleLight
 		end
 	end
 
-	-- 2. Statistiche dai Pulsanti a Terra (Braciere: Potenza, Moltiplicatore, Aspetto)
+	-- 2. Statistiche del BRACIERE (solo dai Pulsanti a Terra)
 	local brazierPps = 0.0
-	local brazierClickBonus = 0.0
 	local brazierMult = 1.0
 	local radiusLevel = 1
 	local heatBonusMax = 0.0
 	local brazierColor = Color3.fromRGB(255, 145, 45)
+	local highestColorTier = 0
 	local totalBrazierLevels = 0
 
 	for _, alt in ipairs(GameConfig.Altars) do
@@ -102,7 +125,6 @@ function EconomyEngine.CalculateStats(data, heat, regno1BuffMult, hasDoubleLight
 		if lvl > 0 then
 			totalBrazierLevels += lvl
 			brazierPps += (alt.Pps or 0) * lvl
-			brazierClickBonus += (alt.ClickBonus or 0) * lvl
 			if alt.BrazierMult then
 				brazierMult *= (alt.BrazierMult ^ lvl)
 			end
@@ -112,29 +134,16 @@ function EconomyEngine.CalculateStats(data, heat, regno1BuffMult, hasDoubleLight
 			if alt.HeatBonus then
 				heatBonusMax += alt.HeatBonus * lvl
 			end
-			if alt.BrazierColor then
+			if alt.BrazierColor and (alt.ColorTier or 1) >= highestColorTier then
+				highestColorTier = alt.ColorTier or 1
 				brazierColor = alt.BrazierColor
 			end
 		end
 	end
 
-	lightPct += math.min(55, totalBrazierLevels * 0.45)
+	lightPct += math.min(50, totalBrazierLevels * 0.45)
 
-	-- 3. Zone sbloccate individualmente per questo giocatore
-	local unlockedZones = {
-		Braziers = EconomyEngine.GetLevel(upgrades, "u_braziers") > 0,
-		Crystals = (EconomyEngine.GetLevel(upgrades, "u_crystals") > 0) or (EconomyEngine.GetLevel(altars, "alt2") > 0),
-		Lanterns = (EconomyEngine.GetLevel(upgrades, "u_lanterns") > 0) or (EconomyEngine.GetLevel(altars, "alt4") > 0),
-		Waterfall = (EconomyEngine.GetLevel(upgrades, "u_waterfall") > 0) or (EconomyEngine.GetLevel(altars, "alt6") > 0),
-		Temple = (EconomyEngine.GetLevel(upgrades, "u_temple") > 0) or (EconomyEngine.GetLevel(altars, "alt8") > 0),
-	}
-	for _, u in ipairs(GameConfig.Upgrades) do
-		if u.Zone and EconomyEngine.GetLevel(upgrades, u.Id) > 0 then
-			unlockedZones[u.Zone] = true
-		end
-	end
-
-	-- 4. Spiriti di Luce Equipaggiati
+	-- 3. Spiriti di Luce Equipaggiati
 	local maxWispSlots = GameConfig.BaseEquippedWisps + extraWispSlots
 	local allWisps = {}
 	for _, rawId in ipairs(data.Wisps or {}) do
@@ -153,7 +162,7 @@ function EconomyEngine.CalculateStats(data, heat, regno1BuffMult, hasDoubleLight
 		wispMult *= allWisps[i].Mult
 	end
 
-	-- 5. Costellazioni (Prestige) & Benedizioni
+	-- 4. Costellazioni (Prestige) & Benedizioni
 	local starPowerLvl = EconomyEngine.GetLevel(starPerks, "sp_power")
 	local starMult = (starPowerLvl > 0) and (3 ^ starPowerLvl) or 1.0
 
@@ -166,14 +175,18 @@ function EconomyEngine.CalculateStats(data, heat, regno1BuffMult, hasDoubleLight
 	local activeBuff = regno1BuffMult or 1.0
 	local passMult = (hasDoubleLight or data.HasDoubleLight) and 2.0 or 1.0
 
-	-- Calore Fiamma
+	-- Calore Fiamma (potenziato dai pulsanti a terra)
 	local clampedHeat = math.clamp(heat or 0, 0, 1)
 	local heatMult = 1.0 + clampedHeat * (0.5 + heatBonusMax)
 
-	-- Calcolo Finale Bilanciato
-	local globalMult = charMult * brazierMult * wispMult * starMult * regno1PermMult * activeBuff * passMult * heatMult
-	local clickPower = (baseClick + brazierClickBonus) * globalMult
-	local pointsPerSec = (brazierPps * globalMult) + (autoClickRate * clickPower)
+	-- Calcoli separati e bilanciati:
+	-- Click manuale = statistiche Personaggio * moltiplicatori condivisi
+	-- Produzione passiva = statistiche Braciere * moltiplicatori condivisi + AutoClick del Personaggio
+	local sharedMult = wispMult * starMult * regno1PermMult * activeBuff * passMult * heatMult
+	local clickPower = baseClick * charClickMult * sharedMult
+	local pointsPerSec = (brazierPps * brazierMult * sharedMult) + (autoClickRate * clickPower)
+
+	local allCompleted, completedCount, totalCount = EconomyEngine.GetUpgradeCompletion(data)
 
 	return {
 		ClickPower = clickPower,
@@ -184,7 +197,6 @@ function EconomyEngine.CalculateStats(data, heat, regno1BuffMult, hasDoubleLight
 		EquippedWisps = equippedWisps,
 		RadiusLevel = radiusLevel,
 		BrazierColor = brazierColor,
-		UnlockedZones = unlockedZones,
 		WalkSpeed = walkSpeed,
 		MaxWispSlots = maxWispSlots,
 		CritChance = math.min(0.75, critChance),
@@ -192,6 +204,9 @@ function EconomyEngine.CalculateStats(data, heat, regno1BuffMult, hasDoubleLight
 		WispsUnlocked = EconomyEngine.GetLevel(upgrades, "u_unlock_wisps") > 0,
 		AlbaUnlocked = EconomyEngine.GetLevel(upgrades, "u_unlock_alba") > 0,
 		HasDoubleLight = (hasDoubleLight == true or data.HasDoubleLight == true),
+		AllUpgradesCompleted = allCompleted,
+		CompletedUpgradesCount = completedCount,
+		TotalUpgradesCount = totalCount,
 	}
 end
 

@@ -11,7 +11,7 @@ local EconomyEngine = require(ReplicatedStorage:WaitForChild("EconomyEngine"))
 
 local ClientWorldVisuals = {}
 
-local ritualOrbCache = {} -- [index] = { Orb = Part, Light = PointLight }
+local ritualOrbCache = {}
 
 function ClientWorldVisuals.GetMyPlotModel()
 	local world = Workspace:FindFirstChild("LastFlameWorld")
@@ -28,7 +28,6 @@ function ClientWorldVisuals.GetMyFlameCore()
 	return brazier and brazier:FindFirstChild("FlameCore")
 end
 
--- Effetto onde d'urto e impulso sul Braciere della propria Zona
 function ClientWorldVisuals.PlayShockwave(color)
 	local core = ClientWorldVisuals.GetMyFlameCore()
 	if not core then return end
@@ -54,7 +53,6 @@ function ClientWorldVisuals.PlayShockwave(color)
 	end)
 end
 
--- Evidenzia i pulsanti a terra nella Zona del giocatore locale quando ha abbastanza punti
 function ClientWorldVisuals.Update(st)
 	if not st then return end
 	local plotModel = ClientWorldVisuals.GetMyPlotModel()
@@ -68,23 +66,36 @@ function ClientWorldVisuals.Update(st)
 		for _, alt in ipairs(GameConfig.Altars) do
 			local pad = altarsFolder:FindFirstChild(alt.Id)
 			if pad and pad:IsA("BasePart") then
+				local maxLvl = alt.MaxLevel or 1
 				local lvl = altars[alt.Id] or 0
+				local maxed = lvl >= maxLvl
 				local cost = math.floor(alt.BaseCost * (alt.CostMult ^ lvl))
-				local canAfford = points >= cost
+				local canAfford = (not maxed) and (points >= cost)
 
-				if canAfford then
+				if maxed then
+					pad.Color = Color3.fromRGB(50, 175, 110)
+					pad.Material = Enum.Material.SmoothPlastic
+				elseif canAfford then
 					pad.Color = alt.Color
 					pad.Material = Enum.Material.Neon
 				else
-					pad.Color = alt.Color:Lerp(Color3.fromRGB(25, 28, 38), 0.58)
+					pad.Color = alt.Color:Lerp(Color3.fromRGB(22, 24, 34), 0.62)
+					pad.Material = Enum.Material.SmoothPlastic
 				end
 
 				local bbg = pad:FindFirstChildOfClass("BillboardGui")
 				if bbg then
-					for _, child in ipairs(bbg:GetChildren()) do
-						if child:IsA("TextLabel") and child.Position.Y.Scale > 0.3 then
-							child.Text = (canAfford and "✅ " or "Costo: ") .. NumberFormat.Format(cost) .. " Luce"
-							child.TextColor3 = canAfford and Color3.fromRGB(90, 255, 150) or Color3.fromRGB(235, 238, 248)
+					local t2 = bbg:FindFirstChild("CostLabel")
+					if t2 then
+						if maxed then
+							t2.Text = alt.IsColorButton and ("✅ ATTIVO (" .. (alt.BenefitTag or "") .. ")") or "✅ MASSIMO"
+							t2.TextColor3 = Color3.fromRGB(95, 245, 155)
+						elseif alt.IsColorButton then
+							t2.Text = NumberFormat.Format(cost) .. " Luce • " .. (alt.BenefitTag or "")
+							t2.TextColor3 = canAfford and Color3.fromRGB(95, 255, 155) or Color3.fromRGB(225, 230, 242)
+						else
+							t2.Text = (canAfford and "✅ " or "") .. NumberFormat.Format(cost) .. " Luce"
+							t2.TextColor3 = canAfford and Color3.fromRGB(95, 255, 155) or Color3.fromRGB(225, 230, 242)
 						end
 					end
 				end
@@ -92,21 +103,37 @@ function ClientWorldVisuals.Update(st)
 		end
 	end
 
+	-- Pulsante della Vittoria: VISIBILE SOLO DOPO AVER COMPLETATO TUTTI I POTENZIAMENTI
 	local vModel = plotModel:FindFirstChild("VictoryButtonPedestal")
-	local vPad = vModel and vModel:FindFirstChild("VictoryPad")
-	if vPad then
-		local vCost = (GameConfig.VictoryButton and GameConfig.VictoryButton.Cost) or 1e9
-		if st.HasWon then
-			vPad.Color = Color3.fromRGB(80, 235, 255)
-		elseif points >= vCost then
-			vPad.Color = Color3.fromRGB(70, 245, 145)
-		else
-			vPad.Color = Color3.fromRGB(255, 215, 75)
+	if vModel then
+		local showVictory = (st.AllUpgradesCompleted == true)
+		local vCost = (GameConfig.VictoryButton and GameConfig.VictoryButton.Cost) or 5e8
+
+		for _, child in ipairs(vModel:GetChildren()) do
+			if child:IsA("BasePart") then
+				child.Transparency = showVictory and 0 or 1
+			end
+		end
+
+		local vPad = vModel:FindFirstChild("VictoryPad")
+		if vPad then
+			local bbg = vPad:FindFirstChild("VictoryBillboard")
+			if bbg then
+				bbg.Enabled = showVictory
+			end
+			if showVictory then
+				if st.HasWon then
+					vPad.Color = Color3.fromRGB(80, 235, 255)
+				elseif points >= vCost then
+					vPad.Color = Color3.fromRGB(70, 245, 145)
+				else
+					vPad.Color = Color3.fromRGB(255, 215, 75)
+				end
+			end
 		end
 	end
 end
 
--- Aggiorna localmente l'aspetto dei 5 Bracieri Rituali di Regno 1 nella propria Zona
 function ClientWorldVisuals.UpdateRegno1(r1State)
 	if not r1State then return end
 	local plotModel = ClientWorldVisuals.GetMyPlotModel()
@@ -124,67 +151,66 @@ function ClientWorldVisuals.UpdateRegno1(r1State)
 				orb.CanCollide = false
 				orb.Shape = Enum.PartType.Ball
 				orb.Material = Enum.Material.Neon
-				orb.Size = Vector3.new(2.6, 3.2, 2.6)
-				orb.Position = ped.Position + Vector3.new(0, b.PedestalHeight * 0.5 + 2.2, 0)
+				orb.Size = Vector3.new(2.4, 3.0, 2.4)
+				orb.Position = ped.Position + Vector3.new(0, b.PedestalHeight * 0.5 + 2.0, 0)
 				orb.Parent = ritualFolder
 
 				local light = Instance.new("PointLight", orb)
-				light.Range = 18
-				light.Brightness = 2
+				light.Range = 12
+				light.Brightness = 1.2
 
 				local bbg = Instance.new("BillboardGui", orb)
-				bbg.Size = UDim2.fromOffset(140, 44)
-				bbg.StudsOffset = Vector3.new(0, 3.2, 0)
+				bbg.Size = UDim2.fromOffset(80, 24)
+				bbg.StudsOffset = Vector3.new(0, 2.6, 0)
 				local lbl = Instance.new("TextLabel", bbg)
 				lbl.Size = UDim2.fromScale(1, 1)
 				lbl.BackgroundTransparency = 1
-				lbl.Text = "🔥 " .. b.Numeral
+				lbl.Text = b.Numeral
 				lbl.TextColor3 = Color3.fromRGB(255, 215, 85)
 				lbl.TextStrokeTransparency = 0.25
 				lbl.Font = Enum.Font.GothamBlack
-				lbl.TextScaled = true
+				lbl.TextSize = 13
 
-				entry = { Orb = orb, Light = light }
+				entry = { Orb = orb, Light = light, Billboard = bbg }
 				ritualOrbCache[b.Index] = entry
 			end
 
 			if not r1State.Unlocked then
 				entry.Orb.Transparency = 1
 				entry.Light.Enabled = false
+				entry.Billboard.Enabled = false
 			elseif r1State.Active then
+				entry.Billboard.Enabled = true
 				if b.Index < r1State.CurrentStep then
-					-- Già acceso in questa corsa
 					entry.Orb.Transparency = 0
 					entry.Orb.Color = Color3.fromRGB(70, 255, 155)
-					entry.Orb.Size = Vector3.new(3.0, 3.6, 3.0)
+					entry.Orb.Size = Vector3.new(2.8, 3.4, 2.8)
 					entry.Light.Color = Color3.fromRGB(70, 255, 155)
 					entry.Light.Enabled = true
 				elseif b.Index == r1State.CurrentStep then
-					-- Prossimo bersaglio!
 					entry.Orb.Transparency = 0
 					entry.Orb.Color = Color3.fromRGB(255, 230, 75)
-					entry.Orb.Size = Vector3.new(3.6, 4.2, 3.6)
+					entry.Orb.Size = Vector3.new(3.4, 4.0, 3.4)
 					entry.Light.Color = Color3.fromRGB(255, 230, 75)
 					entry.Light.Enabled = true
 				else
-					-- In attesa
 					entry.Orb.Transparency = 0.55
 					entry.Orb.Color = Color3.fromRGB(110, 125, 160)
-					entry.Orb.Size = Vector3.new(2.2, 2.6, 2.2)
+					entry.Orb.Size = Vector3.new(2.0, 2.4, 2.0)
 					entry.Light.Enabled = false
 				end
 			else
-				-- Sbloccato ma non in corsa: Braciere I brilla per iniziare
+				entry.Billboard.Enabled = true
 				if b.Index == 1 then
 					entry.Orb.Transparency = 0
 					entry.Orb.Color = Color3.fromRGB(255, 165, 50)
-					entry.Orb.Size = Vector3.new(3.2, 3.8, 3.2)
+					entry.Orb.Size = Vector3.new(3.0, 3.6, 3.0)
 					entry.Light.Color = Color3.fromRGB(255, 165, 50)
 					entry.Light.Enabled = true
 				else
 					entry.Orb.Transparency = 0.65
 					entry.Orb.Color = Color3.fromRGB(95, 110, 145)
-					entry.Orb.Size = Vector3.new(2.0, 2.4, 2.0)
+					entry.Orb.Size = Vector3.new(1.8, 2.2, 1.8)
 					entry.Light.Enabled = false
 				end
 			end
@@ -192,7 +218,6 @@ function ClientWorldVisuals.UpdateRegno1(r1State)
 	end
 end
 
--- Renderizza gli Spiriti in orbita attorno a TUTTI i giocatori nella lobby
 function ClientWorldVisuals.StartWispRenderer()
 	local wispFolder = Instance.new("Folder", Workspace)
 	wispFolder.Name = "ClientWispVisuals"
@@ -238,14 +263,14 @@ function ClientWorldVisuals.StartWispRenderer()
 								orb.CanCollide = false
 								orb.Shape = Enum.PartType.Ball
 								orb.Material = Enum.Material.Neon
-								orb.Size = isRad and Vector3.new(1.35, 1.35, 1.35) or Vector3.new(0.95, 0.95, 0.95)
+								orb.Size = isRad and Vector3.new(1.15, 1.15, 1.15) or Vector3.new(0.85, 0.85, 0.85)
 								orb.Color = cfg.Color
 								orb.Parent = wispFolder
 
 								local light = Instance.new("PointLight", orb)
 								light.Color = cfg.Color
-								light.Range = isRad and 10 or 6
-								light.Brightness = isRad and 2.2 or 1.4
+								light.Range = isRad and 5 or 3.5
+								light.Brightness = isRad and 0.8 or 0.5
 
 								table.insert(list, { Part = orb, IsRadiant = isRad })
 							end
