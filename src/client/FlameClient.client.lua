@@ -35,9 +35,6 @@ ClientWorldVisuals.StartWispRenderer()
 
 local currentLang = "en"
 
--- =========================================================================
--- MAIN HUD INTERFACE
--- =========================================================================
 local gui = Instance.new("ScreenGui")
 gui.Name = "LastFlameHUD"
 gui.ResetOnSpawn = false
@@ -104,7 +101,6 @@ heatAndAlbaLbl.Font = Enum.Font.Gotham
 heatAndAlbaLbl.TextSize = 11
 heatAndAlbaLbl.ZIndex = 11
 
--- Language Toggle Button (EN / IT)
 local langBtn = Instance.new("TextButton", topHud)
 langBtn.Name = "LanguageToggleBtn"
 langBtn.AnchorPoint = Vector2.new(1, 0.5)
@@ -125,7 +121,6 @@ langBtn.MouseButton1Click:Connect(function()
 	remotes.SetLanguage:FireServer(currentLang)
 end)
 
--- Realm 1 Trial Banner
 local trialBanner = Instance.new("TextLabel", gui)
 trialBanner.Name = "Regno1Banner"
 trialBanner.AnchorPoint = Vector2.new(0.5, 0)
@@ -140,7 +135,6 @@ trialBanner.Visible = false
 trialBanner.ZIndex = 12
 Instance.new("UICorner", trialBanner).CornerRadius = UDim.new(0, 10)
 
--- Toast Notification
 local toastLbl = Instance.new("TextLabel", gui)
 toastLbl.Name = "PopupToast"
 toastLbl.AnchorPoint = Vector2.new(0.5, 0)
@@ -170,7 +164,6 @@ local function showToast(msg)
 	end)
 end
 
--- Client Sound Effects
 local soundFolder = Instance.new("Folder", gui)
 soundFolder.Name = "ClientSounds"
 
@@ -199,7 +192,6 @@ local function playCue(cueName)
 	end)
 end
 
--- Giant Dopamine Click Numbers spawning low at the Brazier Bowl
 local function spawnFloatingGain(amount, isCrit)
 	local plotModel = ClientWorldVisuals.GetMyPlotModel()
 	local brazier = plotModel and plotModel:FindFirstChild("Brazier")

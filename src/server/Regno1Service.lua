@@ -12,9 +12,9 @@ local PlotsRef = {}
 local PlayerDataRef = {}
 local SyncPlayerFn = nil
 
-local ActiveTrials = {} -- [userId] = { Step = 2, TimeLeft = 18.0 }
-local ActiveBuffs = {}  -- [userId] = { Mult = 1.8, ExpiresAt = os.clock() + 30 }
-local Cooldowns = {}    -- [userId] = os.clock()
+local ActiveTrials = {}
+local ActiveBuffs = {}
+local Cooldowns = {}
 
 local function getLang(data)
 	return (data and data.Language) or "en"
@@ -97,7 +97,6 @@ function Regno1Service.Init(remotesFolder, plots, playerData, syncPlayerCallback
 					else
 						if b.Index == trial.Step then
 							if b.Index >= #braziers then
-								-- Completed Chain of Fire!
 								ActiveTrials[plr.UserId] = nil
 								Cooldowns[plr.UserId] = now
 								data.Regno1.Completed = true

@@ -4,7 +4,6 @@ Localization.DefaultLang = "en"
 
 local STRINGS = {
 	en = {
-		-- HUD & Top Bar
 		POINTS_SUFFIX = "Light Points",
 		RATE_FMT = "+%s / click  •  +%s / sec",
 		ZONE_BADGE_FMT = "ZONES %d/5 • %s (%d%%)",
@@ -16,14 +15,12 @@ local STRINGS = {
 		ROBUX_X2_ACTIVE = "✅ x2 LIGHT ACTIVE",
 		MODAL_TITLE = "🧙 KEEPER'S SANCTUARY",
 
-		-- Tabs
 		TAB_CHAR = "🔥 Character",
 		TAB_DEFENSE = "🛡️ Defense",
 		TAB_WISPS = "✨ Wisps",
 		TAB_DAWN = "🌅 Dawn",
 		TAB_CODES = "🎁 Codes",
 
-		-- Generic UI Buttons & Status
 		LOCKED_REQ = "🔒 Requires previous upgrade",
 		BTN_LOCKED = "LOCKED",
 		BTN_MAXED = "MAXED",
@@ -35,12 +32,10 @@ local STRINGS = {
 		MAX_GROUND_PAD = "✅ MAXED",
 		ACTIVE_GROUND_PAD = "✅ ACTIVE",
 
-		-- Defense Tab
 		SEC_WEAPONS = "⚔️ SPIRIT WEAPONS (Equipped to Hotbar)",
 		SEC_STRUCTURES = "🏰 BASE DEFENSES (Auto-built around Brazier)",
 		DEF_TIP = "Shadows raid your Brazier and drain Light! Equip weapons or build Light Walls & Solar Turrets to repel them.",
 
-		-- Wisps Tab
 		WISPS_LOCKED = "🔒 Unlock 'Spirit Summoning' in the Character tab first!",
 		WISPS_HEADER_FMT = "✨ Active Wisps: %d / %d  (Strongest wisps auto-equip)",
 		SUMMON_1_FMT = "Summon x1 (%s)",
@@ -49,7 +44,6 @@ local STRINGS = {
 		FORGE_READY = "🌟 FORGE (3→1)",
 		FORGE_NEED_FMT = "Need 3 (%d/3)",
 
-		-- Dawn Tab
 		DAWN_STATUS_READY = "✅ Final Dawn Button is active on your island! Step on it for +%d Dawn Points.",
 		DAWN_STATUS_PROG = "Max all upgrades (%d/%d) and press the Final Dawn Button for +%d Dawn Points.",
 		DAWN_HEADER_FMT = "🌅 AVAILABLE DAWN POINTS: %d   •   Rebirths: %d
@@ -57,7 +51,6 @@ local STRINGS = {
 		SEC_DAWN_PERKS = "✨ DAWN UPGRADES (PERMANENT)",
 		SEC_DAWN_ZONES = "🗺️ UNLOCK NEW ZONES WITH DAWN POINTS",
 
-		-- Codes Tab
 		CODE_PLACEHOLDER = "Enter code (e.g. LIGHT100)",
 		CODE_HINT = "Active codes: LIGHT100, FLAME, DAWN2026",
 		CODE_REDEEM = "REDEEM",
@@ -65,7 +58,6 @@ local STRINGS = {
 		CODE_INVALID = "Invalid promo code!",
 		CODE_ERR = "Error redeeming code",
 
-		-- Victory / Dawn Modal
 		VICTORY_TITLE = "🌅 SUPREME DAWN ACHIEVED!",
 		VICTORY_BODY_FMT = "You activated the Final Dawn Button and earned +%d Dawn Points!
 Total Dawn Points: %d
@@ -73,7 +65,6 @@ Total Dawn Points: %d
 Spend them in the Dawn tab to boost Rebirths or unlock New Zones.",
 		VICTORY_OPEN_DAWN = "OPEN DAWN TAB",
 
-		-- World Signs & Billboards
 		PLOT_FREE_FMT = "ZONE %d — OPEN",
 		PLOT_WAIT = "Awaiting a Flame Keeper",
 		PLOT_OWNER_FMT = "ZONE %d — %s",
@@ -82,7 +73,6 @@ Spend them in the Dawn tab to boost Rebirths or unlock New Zones.",
 		BRAZIER_OWNER_FMT = "%s's Brazier",
 		FINAL_BTN_COST_FMT = "Cost: %s Light (+%d Dawn Pt)",
 
-		-- Reino 1 Trial
 		R1_BANNER_ACTIVE = "CHAIN OF FIRE: Brazier %d/%d  •  %.1fs",
 		R1_BANNER_BUFF = "REALM 1 BLESSING: x%.2f  •  %ds",
 		R1_START = "🔥 CHAIN OF FIRE STARTED! Touch Brazier II!",
@@ -90,7 +80,6 @@ Spend them in the Dawn tab to boost Rebirths or unlock New Zones.",
 		R1_WIN_FMT = "🏆 REALM 1 COMPLETED! Permanent x1.35 + x%.2f Blessing (30s)!",
 		R1_FAIL = "⏳ Time expired! Step on Brazier I to retry.",
 
-		-- Popups & Shadow Combat
 		POP_PASS_ACTIVE = "⚡ PERMANENT x2 LIGHT ACTIVATED!",
 		POP_COLOR_ALREADY = "🎨 %s is already unlocked! (%s)",
 		POP_COLOR_UNLOCKED = "🎨 COLOR UNLOCKED: %s (%s)!",

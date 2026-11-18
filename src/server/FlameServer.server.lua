@@ -402,9 +402,6 @@ end
 
 ClickFlameEvent.OnServerEvent:Connect(handleFlameClick)
 
--- =========================================================================
--- GROUND BUTTONS & FINAL DAWN BUTTON FOR ALL 10 PLOTS
--- =========================================================================
 local TouchingByPlot = {}
 local ColorNotifyCooldown = {}
 local VictoryCooldown = {}
@@ -576,9 +573,6 @@ task.spawn(function()
 	end
 end)
 
--- =========================================================================
--- CHARACTER UPGRADES, WEAPONS, DEFENSES, DAWN & WISPS
--- =========================================================================
 BuyUpgrade.OnServerEvent:Connect(function(player, upgId)
 	local data = PlayerData[player.UserId]
 	if not data or type(upgId) ~= "string" then return end
@@ -825,7 +819,6 @@ RedeemCode.OnServerInvoke = function(player, raw)
 	return true, msg
 end
 
--- Wandering Light Orbs around occupied plots
 local function spawnWanderingEmberForPlot(plot)
 	if not plot or not plot.Owner then return end
 	local offset = Vector3.new(math.random(-36, 36), 2.5, math.random(-36, 36))
@@ -937,7 +930,6 @@ local function savePlayer(player, removeCache)
 	end
 end
 
--- Auto-save every 60 seconds
 task.spawn(function()
 	while true do
 		task.wait(60)

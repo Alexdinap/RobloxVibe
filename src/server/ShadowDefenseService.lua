@@ -16,9 +16,9 @@ local SyncPlayerFn = nil
 local CalculateStatsFn = nil
 local DefenseFxEvent = nil
 
-local ActiveShadows = {} -- list of shadow state tables
-local BuiltWallNodes = {} -- [plotIndex] = { { WallPart, Pos, Normal } }
-local BuiltTurrets = {}   -- [plotIndex] = { { CrystalPart, Pos, Cooldown } }
+local ActiveShadows = {}
+local BuiltWallNodes = {}
+local BuiltTurrets = {}
 local RaidAnnounceCooldown = {}
 
 local SHADOW_TYPES = {
@@ -92,9 +92,6 @@ local function makePart(props)
 	return p
 end
 
--- =========================================================================
--- REBUILD LIGHTWEIGHT DEFENSE STRUCTURES ON PLOT (Light Walls & Solar Turrets)
--- =========================================================================
 function ShadowDefenseService.RebuildPlotDefenses(plot, data)
 	if not plot or not plot.DefensesFolder then return end
 	plot.DefensesFolder:ClearAllChildren()
@@ -106,13 +103,11 @@ function ShadowDefenseService.RebuildPlotDefenses(plot, data)
 	local wallLvl = EconomyEngine.GetLevel(data.Defenses, "def_walls")
 	local turretLvl = EconomyEngine.GetLevel(data.Defenses, "def_turrets")
 
-	-- 1. Light Walls (Glowing Solar Barriers at radius 26)
 	for i = 1, math.min(wallLvl, #WALL_SLOTS) do
 		local slot = WALL_SLOTS[i]
 		local center = plot.Origin + slot.Dir * 26 + Vector3.new(0, 2.2, 0)
 		local cf = CFrame.new(center) * CFrame.Angles(0, math.rad(slot.RotY), 0)
 
-		-- Left & Right stone-gold pillars
 		local leftPillar = makePart({
 			Name = "WallPillarL_" .. i,
 			Size = Vector3.new(1.4, 4.6, 1.4),
@@ -132,7 +127,6 @@ function ShadowDefenseService.RebuildPlotDefenses(plot, data)
 		leftPillar.CanCollide = false
 		rightPillar.CanCollide = false
 
-		-- Translucent Solar Barrier Field (Players walk right through; Shadows get slowed & burned)
 		local barrier = makePart({
 			Name = "LightBarrier_" .. i,
 			Size = Vector3.new(11.6, 3.8, 0.5),
@@ -151,7 +145,6 @@ function ShadowDefenseService.RebuildPlotDefenses(plot, data)
 		})
 	end
 
-	-- 2. Solar Turrets (Crystal Sentinel Beacons at radius ~21)
 	for i = 1, math.min(turretLvl, #TURRET_SLOTS) do
 		local basePos = plot.Origin + TURRET_SLOTS[i]
 		local ped = makePart({
@@ -184,9 +177,6 @@ function ShadowDefenseService.RebuildPlotDefenses(plot, data)
 	end
 end
 
--- =========================================================================
--- SHADOW DAMAGE & BANISHMENT
--- =========================================================================
 local function updateShadowHealthBar(sh)
 	if not sh or not sh.HpFill or not sh.HpBg then return end
 	local pct = math.clamp(sh.HP / math.max(1, sh.MaxHP), 0, 1)
@@ -232,9 +222,6 @@ function ShadowDefenseService.DamageShadow(sh, dmg, attackerPlayer)
 	end
 end
 
--- =========================================================================
--- PLAYER WEAPON TOOLS (Equipped to Backpack)
--- =========================================================================
 local function createWeaponTool(wepCfg, lang)
 	local tool = Instance.new("Tool")
 	tool.Name = Localization.Pick(lang, wepCfg.Name, wepCfg.Name_it)
@@ -268,7 +255,6 @@ local function createWeaponTool(wepCfg, lang)
 		handle.Color = wepCfg.Color
 		handle.Material = Enum.Material.Neon
 	else
-		-- Dawnblade
 		handle.Size = Vector3.new(0.45, 4.6, 0.9)
 		handle.Color = wepCfg.Color
 		handle.Material = Enum.Material.Neon
@@ -290,7 +276,6 @@ local function createWeaponTool(wepCfg, lang)
 		local plot = PlayerPlotMapRef[plr.UserId]
 		if not plot then return end
 
-		-- Find Shadows on this player's plot within range
 		local hitAny = false
 		local nearestShadow = nil
 		local nearestDist = wepCfg.Range
@@ -306,7 +291,6 @@ local function createWeaponTool(wepCfg, lang)
 							nearestShadow = sh
 						end
 					else
-						-- AoE burst / slash (Torch & Dawnblade)
 						hitAny = true
 						ShadowDefenseService.DamageShadow(sh, wepCfg.Damage, plr)
 					end
@@ -336,7 +320,6 @@ local function createWeaponTool(wepCfg, lang)
 		end
 
 		if not hitAny and DefenseFxEvent then
-			-- Visual feedback even on empty swing
 			DefenseFxEvent:FireClient(plr, {
 				Kind = "Pulse",
 				Pos = hrp.Position,
@@ -357,7 +340,6 @@ function ShadowDefenseService.SyncPlayerTools(player, data)
 	local backpack = player:FindFirstChildOfClass("Backpack")
 	local char = player.Character
 
-	-- Remove old tools first so language/upgrades refresh cleanly
 	if backpack then
 		for _, item in ipairs(backpack:GetChildren()) do
 			if item:IsA("Tool") and item:GetAttribute("WeaponId") then
@@ -382,9 +364,6 @@ function ShadowDefenseService.SyncPlayerTools(player, data)
 	end
 end
 
--- =========================================================================
--- SPAWN RAIDING SHADOWS
--- =========================================================================
 local function pickShadowType(data)
 	local alba = (data and data.AlbaCount) or 0
 	local roll = math.random(1, 100)
@@ -455,7 +434,6 @@ function ShadowDefenseService.SpawnShadowForPlot(plot, data)
 		HpFill = hpFill,
 	}
 
-	-- Direct clicking still deals 1 base damage so new players can defend themselves
 	local cd = Instance.new("ClickDetector", part)
 	cd.MaxActivationDistance = 55
 	cd.MouseClick:Connect(function(plr)
@@ -478,9 +456,6 @@ function ShadowDefenseService.SpawnShadowForPlot(plot, data)
 	end
 end
 
--- =========================================================================
--- INIT & TICK LOOP
--- =========================================================================
 function ShadowDefenseService.Init(world, remotesFolder, plots, playerData, playerPlotMap, syncPlayerFn, calcStatsFn)
 	WorldRef = world
 	PlotsRef = plots
@@ -492,7 +467,6 @@ function ShadowDefenseService.Init(world, remotesFolder, plots, playerData, play
 	DefenseFxEvent = Instance.new("RemoteEvent", remotesFolder)
 	DefenseFxEvent.Name = "DefenseFx"
 
-	-- Periodic Shadow wave spawner
 	task.spawn(function()
 		while true do
 			task.wait(19)
@@ -509,7 +483,6 @@ function ShadowDefenseService.Init(world, remotesFolder, plots, playerData, play
 end
 
 function ShadowDefenseService.Tick(dt, clickHeatTable)
-	-- 1. Move Shadows & Check Light Wall collisions + Brazier Impacts
 	for i = #ActiveShadows, 1, -1 do
 		local sh = ActiveShadows[i]
 		local plot = sh and PlotsRef[sh.PlotIndex]
@@ -520,7 +493,6 @@ function ShadowDefenseService.Tick(dt, clickHeatTable)
 			local toCenter = targetPos - sh.Part.Position
 			local dist = toCenter.Magnitude
 
-			-- Check if touching any built Light Wall
 			local speedMult = 1.0
 			local wallBurnDmg = 0
 			for _, wall in ipairs(BuiltWallNodes[plot.Index] or {}) do
@@ -537,7 +509,6 @@ function ShadowDefenseService.Tick(dt, clickHeatTable)
 			end
 
 			if dist <= 7.2 then
-				-- Shadow reached the Brazier and attacks!
 				local owner = plot.Owner
 				local data = owner and PlayerDataRef[owner.UserId]
 				destroyShadowEntry(sh)
@@ -565,7 +536,6 @@ function ShadowDefenseService.Tick(dt, clickHeatTable)
 		end
 	end
 
-	-- 2. Solar Turrets auto-fire at Shadows
 	for plotIndex, turrets in pairs(BuiltTurrets) do
 		local plot = PlotsRef[plotIndex]
 		local owner = plot and plot.Owner

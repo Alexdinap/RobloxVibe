@@ -162,7 +162,6 @@ function ClientWorldVisuals.Update(st)
 		end
 	end
 
-	-- Final Dawn Button: Visible ONLY when all upgrades are maxed
 	local vModel = plotModel:FindFirstChild("VictoryButtonPedestal")
 	if vModel then
 		local showVictory = (st.AllUpgradesCompleted == true)

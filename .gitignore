@@ -1,12 +1,6 @@
-# Project place file
-/RobloxVibe.rbxlx
-
-# Roblox Studio lock files
-/*.rbxlx.lock
-/*.rbxl.lock
-
-sourcemap.json
-# Build output generato da `rojo build -o QuantumCore.rbxlx`
-QuantumCore.rbxlx
-CoinRush.rbxlx
+*.rbxl
+*.rbxlx
+*.rbxm
+*.rbxmx
+/Packages
 sourcemap.json

@@ -69,9 +69,6 @@ function ShopUI.Build(parentGui, remotes)
 		return (latestState and latestState.Language) or "en"
 	end
 
-	-- =========================================================================
-	-- COMPACT BOTTOM LAUNCH BAR
-	-- =========================================================================
 	local bottomBar = Instance.new("Frame", parentGui)
 	bottomBar.Name = "BigMenuLaunchBar"
 	bottomBar.AnchorPoint = Vector2.new(0.5, 1)
@@ -186,9 +183,6 @@ function ShopUI.Build(parentGui, remotes)
 		end
 	end)
 
-	-- =========================================================================
-	-- CENTRAL SANCTUARY MODAL (5 TABS)
-	-- =========================================================================
 	local modal = Instance.new("Frame", parentGui)
 	modal.Name = "CharacterMenuModal"
 	modal.AnchorPoint = Vector2.new(0.5, 0.5)
@@ -934,9 +928,6 @@ function ShopUI.Build(parentGui, remotes)
 		end
 	end)
 
-	-- =========================================================================
-	-- DAWN CELEBRATION MODAL
-	-- =========================================================================
 	local victoryModal = Instance.new("Frame", parentGui)
 	victoryModal.Name = "VictoryCelebrationModal"
 	victoryModal.AnchorPoint = Vector2.new(0.5, 0.5)
