@@ -10,18 +10,22 @@ end
 
 function EconomyEngine.DefaultData()
 	return {
+		Language = "en",
 		Points = 0,
 		TotalPoints = 0,
 		TotalClicks = 0,
-		EternalStars = 0,
+		AlbaPoints = 0,
+		AlbaCount = 0,
 		Altars = {},
 		Upgrades = {},
-		StarPerks = {},
+		AlbaPerks = {},
+		UnlockedAlbaZones = {},
+		OwnedWeapons = {},
+		Defenses = {},
 		Wisps = {},
 		UsedCodes = {},
 		Regno1 = { Completed = false, Completions = 0, BestTime = nil },
 		HasDoubleLight = false,
-		HasWon = false,
 		LastLogout = os.time(),
 	}
 end
@@ -53,7 +57,13 @@ function EconomyEngine.GetRank(lightPercent)
 	return best
 end
 
--- Verifica se il giocatore ha completato TUTTI i potenziamenti (Personaggio + Pulsanti a Terra)
+function EconomyEngine.GetAlbaRewardPerRebirth(data)
+	local albaPerks = (data and data.AlbaPerks) or {}
+	local bonusLvl = EconomyEngine.GetLevel(albaPerks, "ap_alba_gain")
+	local base = (GameConfig.VictoryButton and GameConfig.VictoryButton.BaseAlbaReward) or 1
+	return base + bonusLvl
+end
+
 function EconomyEngine.GetUpgradeCompletion(data)
 	local upgrades = (data and data.Upgrades) or {}
 	local altars = (data and data.Altars) or {}
@@ -77,9 +87,10 @@ end
 function EconomyEngine.CalculateStats(data, heat, regno1BuffMult, hasDoubleLight)
 	local upgrades = data.Upgrades or {}
 	local altars = data.Altars or {}
-	local starPerks = data.StarPerks or {}
+	local albaPerks = data.AlbaPerks or {}
+	local unlockedZones = data.UnlockedAlbaZones or {}
 
-	-- 1. Statistiche del PERSONAGGIO (solo dal Menù Personaggio)
+	-- 1. Character Stats
 	local baseClick = 1.0
 	local charClickMult = 1.0
 	local critChance = 0.05
@@ -111,7 +122,7 @@ function EconomyEngine.CalculateStats(data, heat, regno1BuffMult, hasDoubleLight
 		end
 	end
 
-	-- 2. Statistiche del BRACIERE (solo dai Pulsanti a Terra)
+	-- 2. Brazier Stats
 	local brazierPps = 0.0
 	local brazierMult = 1.0
 	local radiusLevel = 1
@@ -143,7 +154,7 @@ function EconomyEngine.CalculateStats(data, heat, regno1BuffMult, hasDoubleLight
 
 	lightPct += math.min(50, totalBrazierLevels * 0.45)
 
-	-- 3. Spiriti di Luce Equipaggiati
+	-- 3. Equipped Light Wisps
 	local maxWispSlots = GameConfig.BaseEquippedWisps + extraWispSlots
 	local allWisps = {}
 	for _, rawId in ipairs(data.Wisps or {}) do
@@ -162,27 +173,32 @@ function EconomyEngine.CalculateStats(data, heat, regno1BuffMult, hasDoubleLight
 		wispMult *= allWisps[i].Mult
 	end
 
-	-- 4. Costellazioni (Prestige) & Benedizioni
-	local starPowerLvl = EconomyEngine.GetLevel(starPerks, "sp_power")
-	local starMult = (starPowerLvl > 0) and (3 ^ starPowerLvl) or 1.0
+	-- 4. Dawn Perks & Unlocked Zones
+	local albaPowerLvl = EconomyEngine.GetLevel(albaPerks, "ap_power")
+	local albaMult = (albaPowerLvl > 0) and (2.5 ^ albaPowerLvl) or 1.0
 
-	local starCritLvl = EconomyEngine.GetLevel(starPerks, "sp_crit")
-	if starCritLvl > 0 then
-		critMult *= (2 ^ starCritLvl)
+	local albaCritLvl = EconomyEngine.GetLevel(albaPerks, "ap_crit")
+	if albaCritLvl > 0 then
+		critMult *= (2 ^ albaCritLvl)
+	end
+
+	local zonesMult = 1.0
+	local unlockedZonesCount = 1
+	for _, z in ipairs(GameConfig.AlbaZones) do
+		if unlockedZones[z.Id] == true then
+			zonesMult *= (z.LightMult or 1.0)
+			unlockedZonesCount += 1
+		end
 	end
 
 	local regno1PermMult = (data.Regno1 and data.Regno1.Completed) and (GameConfig.Regno1.PermanentBlessingMult or 1.35) or 1.0
 	local activeBuff = regno1BuffMult or 1.0
 	local passMult = (hasDoubleLight or data.HasDoubleLight) and 2.0 or 1.0
 
-	-- Calore Fiamma (potenziato dai pulsanti a terra)
 	local clampedHeat = math.clamp(heat or 0, 0, 1)
 	local heatMult = 1.0 + clampedHeat * (0.5 + heatBonusMax)
 
-	-- Calcoli separati e bilanciati:
-	-- Click manuale = statistiche Personaggio * moltiplicatori condivisi
-	-- Produzione passiva = statistiche Braciere * moltiplicatori condivisi + AutoClick del Personaggio
-	local sharedMult = wispMult * starMult * regno1PermMult * activeBuff * passMult * heatMult
+	local sharedMult = wispMult * albaMult * zonesMult * regno1PermMult * activeBuff * passMult * heatMult
 	local clickPower = baseClick * charClickMult * sharedMult
 	local pointsPerSec = (brazierPps * brazierMult * sharedMult) + (autoClickRate * clickPower)
 
@@ -202,11 +218,13 @@ function EconomyEngine.CalculateStats(data, heat, regno1BuffMult, hasDoubleLight
 		CritChance = math.min(0.75, critChance),
 		CritMult = critMult,
 		WispsUnlocked = EconomyEngine.GetLevel(upgrades, "u_unlock_wisps") > 0,
-		AlbaUnlocked = EconomyEngine.GetLevel(upgrades, "u_unlock_alba") > 0,
+		AlbaUnlocked = (EconomyEngine.GetLevel(upgrades, "u_unlock_alba") > 0) or ((data.AlbaCount or 0) > 0) or ((data.AlbaPoints or 0) > 0),
 		HasDoubleLight = (hasDoubleLight == true or data.HasDoubleLight == true),
 		AllUpgradesCompleted = allCompleted,
 		CompletedUpgradesCount = completedCount,
 		TotalUpgradesCount = totalCount,
+		AlbaRewardPerRebirth = EconomyEngine.GetAlbaRewardPerRebirth(data),
+		UnlockedZonesCount = unlockedZonesCount,
 	}
 end
 

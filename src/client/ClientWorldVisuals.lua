@@ -8,6 +8,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local GameConfig = require(ReplicatedStorage:WaitForChild("GameConfig"))
 local NumberFormat = require(ReplicatedStorage:WaitForChild("NumberFormat"))
 local EconomyEngine = require(ReplicatedStorage:WaitForChild("EconomyEngine"))
+local Localization = require(ReplicatedStorage:WaitForChild("Localization"))
 
 local ClientWorldVisuals = {}
 
@@ -53,11 +54,59 @@ function ClientWorldVisuals.PlayShockwave(color)
 	end)
 end
 
+function ClientWorldVisuals.PlayDefenseFx(fx)
+	if not fx then return end
+	if fx.Kind == "Beam" and fx.From and fx.To then
+		local dist = (fx.To - fx.From).Magnitude
+		if dist < 0.5 then return end
+		local beam = Instance.new("Part")
+		beam.Anchored = true
+		beam.CanCollide = false
+		beam.Material = Enum.Material.Neon
+		beam.Color = fx.Color or Color3.fromRGB(255, 220, 80)
+		beam.Size = Vector3.new(0.32, 0.32, dist)
+		beam.CFrame = CFrame.lookAt((fx.From + fx.To) * 0.5, fx.To)
+		beam.Parent = Workspace
+
+		local tw = TweenService:Create(beam, TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Transparency = 1,
+			Size = Vector3.new(0.05, 0.05, dist),
+		})
+		tw:Play()
+		tw.Completed:Connect(function()
+			beam:Destroy()
+		end)
+	elseif fx.Kind == "Pulse" and fx.Pos then
+		local r = (fx.Radius or 18) * 2
+		local ring = Instance.new("Part")
+		ring.Anchored = true
+		ring.CanCollide = false
+		ring.Shape = Enum.PartType.Cylinder
+		ring.Material = Enum.Material.Neon
+		ring.Color = fx.Color or Color3.fromRGB(255, 195, 70)
+		ring.Transparency = 0.3
+		ring.Size = Vector3.new(0.3, 4, 4)
+		ring.CFrame = CFrame.new(fx.Pos.X, 1.2, fx.Pos.Z) * CFrame.Angles(0, 0, math.rad(90))
+		ring.Parent = Workspace
+
+		local tw = TweenService:Create(ring, TweenInfo.new(0.35, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+			Size = Vector3.new(0.15, r, r),
+			Transparency = 1,
+		})
+		tw:Play()
+		tw.Completed:Connect(function()
+			ring:Destroy()
+		end)
+	end
+end
+
 function ClientWorldVisuals.Update(st)
 	if not st then return end
 	local plotModel = ClientWorldVisuals.GetMyPlotModel()
 	if not plotModel then return end
 
+	local lang = st.Language or "en"
+	local lightUnit = Localization.T(lang, "LIGHT_UNIT")
 	local points = st.Points or 0
 	local altars = st.Altars or {}
 	local altarsFolder = plotModel:FindFirstChild("Altars")
@@ -71,6 +120,8 @@ function ClientWorldVisuals.Update(st)
 				local maxed = lvl >= maxLvl
 				local cost = math.floor(alt.BaseCost * (alt.CostMult ^ lvl))
 				local canAfford = (not maxed) and (points >= cost)
+				local altName = Localization.Pick(lang, alt.Name, alt.Name_it)
+				local benefit = Localization.Pick(lang, alt.BenefitTag, alt.BenefitTag_it)
 
 				if maxed then
 					pad.Color = Color3.fromRGB(50, 175, 110)
@@ -85,16 +136,24 @@ function ClientWorldVisuals.Update(st)
 
 				local bbg = pad:FindFirstChildOfClass("BillboardGui")
 				if bbg then
+					local t1 = bbg:FindFirstChild("TitleLabel")
 					local t2 = bbg:FindFirstChild("CostLabel")
+					if t1 then
+						if alt.IsColorButton then
+							t1.Text = maxed and ("✅ " .. altName) or ("🎨 " .. altName)
+						else
+							t1.Text = string.format("%s [%d/%d]", altName, lvl, maxLvl)
+						end
+					end
 					if t2 then
 						if maxed then
-							t2.Text = alt.IsColorButton and ("✅ ATTIVO (" .. (alt.BenefitTag or "") .. ")") or "✅ MASSIMO"
+							t2.Text = alt.IsColorButton and (Localization.T(lang, "ACTIVE_GROUND_PAD") .. " (" .. (benefit or "") .. ")") or Localization.T(lang, "MAX_GROUND_PAD")
 							t2.TextColor3 = Color3.fromRGB(95, 245, 155)
 						elseif alt.IsColorButton then
-							t2.Text = NumberFormat.Format(cost) .. " Luce • " .. (alt.BenefitTag or "")
+							t2.Text = NumberFormat.Format(cost) .. " " .. lightUnit .. " • " .. (benefit or "")
 							t2.TextColor3 = canAfford and Color3.fromRGB(95, 255, 155) or Color3.fromRGB(225, 230, 242)
 						else
-							t2.Text = (canAfford and "✅ " or "") .. NumberFormat.Format(cost) .. " Luce"
+							t2.Text = (canAfford and "✅ " or "") .. NumberFormat.Format(cost) .. " " .. lightUnit
 							t2.TextColor3 = canAfford and Color3.fromRGB(95, 255, 155) or Color3.fromRGB(225, 230, 242)
 						end
 					end
@@ -103,7 +162,7 @@ function ClientWorldVisuals.Update(st)
 		end
 	end
 
-	-- Pulsante della Vittoria: VISIBILE SOLO DOPO AVER COMPLETATO TUTTI I POTENZIAMENTI
+	-- Final Dawn Button: Visible ONLY when all upgrades are maxed
 	local vModel = plotModel:FindFirstChild("VictoryButtonPedestal")
 	if vModel then
 		local showVictory = (st.AllUpgradesCompleted == true)
@@ -122,9 +181,7 @@ function ClientWorldVisuals.Update(st)
 				bbg.Enabled = showVictory
 			end
 			if showVictory then
-				if st.HasWon then
-					vPad.Color = Color3.fromRGB(80, 235, 255)
-				elseif points >= vCost then
+				if points >= vCost then
 					vPad.Color = Color3.fromRGB(70, 245, 145)
 				else
 					vPad.Color = Color3.fromRGB(255, 215, 75)

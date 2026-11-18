@@ -51,7 +51,7 @@ local function buildSinglePlot(index, origin, plotsFolder)
 	local plotModel = Instance.new("Model", plotsFolder)
 	plotModel.Name = "Plot_" .. index
 
-	-- 1. Isola Circolare in Pietra Antica (Sobria per far risaltare il Braciere)
+	-- 1. Ancient Stone Island
 	makeCylinder(origin + Vector3.new(0, -1.5, 0), 62, 3, Color3.fromRGB(24, 26, 36), Enum.Material.Slate, plotModel, "IslandBase")
 	makeCylinder(origin + Vector3.new(0, 0.05, 0), 62.5, 0.4, Color3.fromRGB(68, 56, 42), Enum.Material.Marble, plotModel, "IslandRim")
 	makeCylinder(origin + Vector3.new(0, 0.15, 0), 38, 0.35, Color3.fromRGB(32, 35, 48), Enum.Material.Marble, plotModel, "InnerSanctuary")
@@ -65,7 +65,7 @@ local function buildSinglePlot(index, origin, plotsFolder)
 		Parent = plotModel,
 	})
 
-	-- Colonne Decorative sobrie (SENZA luci extra per dare priorità al Braciere)
+	-- Clean perimeter pillars (no extra lights so Brazier stands out)
 	for p = 1, 8 do
 		local ang = (p - 1) * (math.pi * 2 / 8) + math.pi / 8
 		local pPos = origin + Vector3.new(math.cos(ang) * 56, 5.0, math.sin(ang) * 56)
@@ -87,7 +87,7 @@ local function buildSinglePlot(index, origin, plotsFolder)
 		})
 	end
 
-	-- 2. Cartello Proprietario della Zona (Scritte compatte)
+	-- 2. Zone Owner Signboard
 	local signBoard = makePart({
 		Name = "PlotSign",
 		Size = Vector3.new(13, 4.4, 1.0),
@@ -107,7 +107,7 @@ local function buildSinglePlot(index, origin, plotsFolder)
 	signTitle.Size = UDim2.new(1, -16, 0.5, 0)
 	signTitle.Position = UDim2.fromOffset(8, 6)
 	signTitle.BackgroundTransparency = 1
-	signTitle.Text = "ZONA " .. index .. " — LIBERA"
+	signTitle.Text = "ZONE " .. index .. " — OPEN"
 	signTitle.TextColor3 = Color3.fromRGB(255, 200, 75)
 	signTitle.Font = Enum.Font.GothamBlack
 	signTitle.TextSize = 24
@@ -117,7 +117,7 @@ local function buildSinglePlot(index, origin, plotsFolder)
 	signSub.Size = UDim2.new(1, -16, 0.4, 0)
 	signSub.Position = UDim2.new(0, 8, 0.54, 0)
 	signSub.BackgroundTransparency = 1
-	signSub.Text = "In attesa di un Custode"
+	signSub.Text = "Awaiting a Flame Keeper"
 	signSub.TextColor3 = Color3.fromRGB(175, 185, 205)
 	signSub.Font = Enum.Font.GothamBold
 	signSub.TextSize = 17
@@ -127,15 +127,14 @@ local function buildSinglePlot(index, origin, plotsFolder)
 	signGuiFront.Face = Enum.NormalId.Front
 	signGuiFront.Parent = signBoard
 
-	-- 3. Il Braciere Centrale dell'Isola (Punto focale luminoso principale)
+	-- 3. Central Brazier (Primary visual focal point)
 	local brazierFolder = Instance.new("Folder", plotModel)
 	brazierFolder.Name = "Brazier"
 
 	makeCylinder(origin + Vector3.new(0, 0.7, 0), 10.2, 1.2, Color3.fromRGB(34, 36, 48), Enum.Material.Basalt, brazierFolder, "PedestalStep1")
 	makeCylinder(origin + Vector3.new(0, 1.6, 0), 8.0, 1.0, Color3.fromRGB(46, 48, 66), Enum.Material.Marble, brazierFolder, "PedestalStep2")
-	makeCylinder(origin + Vector3.new(0, 2.5, 0), 6.0, 1.4, Color3.fromRGB(24, 24, 32), Enum.Material.Slate, brazierFolder, "BrazierBowl")
+	local bowl = makeCylinder(origin + Vector3.new(0, 2.5, 0), 6.0, 1.4, Color3.fromRGB(24, 24, 32), Enum.Material.Slate, brazierFolder, "BrazierBowl")
 
-	-- Anello di braci incandescenti dentro la coppa del Braciere
 	local emberRing = makeCylinder(origin + Vector3.new(0, 3.25, 0), 4.8, 0.35, Color3.fromRGB(255, 145, 45), Enum.Material.Neon, brazierFolder, "EmberRing")
 	emberRing.CanCollide = false
 
@@ -172,23 +171,35 @@ local function buildSinglePlot(index, origin, plotsFolder)
 		Parent = brazierFolder,
 	})
 
-	local flameBbg = Instance.new("BillboardGui", flameHitbox)
+	-- Giant High Title above the Brazier
+	local titleAnchor = makePart({
+		Name = "BrazierTitleAnchor",
+		Size = Vector3.new(1, 1, 1),
+		Position = origin + Vector3.new(0, 23, 0),
+		Transparency = 1,
+		CanCollide = false,
+		Parent = brazierFolder,
+	})
+
+	local flameBbg = Instance.new("BillboardGui", titleAnchor)
 	flameBbg.Name = "FlameBillboard"
-	flameBbg.Size = UDim2.fromOffset(180, 34)
-	flameBbg.StudsOffset = Vector3.new(0, 8.2, 0)
+	flameBbg.Size = UDim2.fromOffset(540, 84)
+	flameBbg.StudsOffset = Vector3.new(0, 2, 0)
+	flameBbg.MaxDistance = 300
 	flameBbg.AlwaysOnTop = false
 
 	local flameTitle = Instance.new("TextLabel", flameBbg)
 	flameTitle.Name = "Title"
 	flameTitle.Size = UDim2.fromScale(1, 1)
 	flameTitle.BackgroundTransparency = 1
-	flameTitle.Text = "FIAMMA ZONA " .. index
-	flameTitle.TextColor3 = Color3.fromRGB(255, 215, 95)
-	flameTitle.TextStrokeTransparency = 0.25
+	flameTitle.Text = "Zone " .. index .. " Brazier"
+	flameTitle.TextColor3 = Color3.fromRGB(255, 215, 85)
+	flameTitle.TextStrokeColor3 = Color3.fromRGB(16, 12, 8)
+	flameTitle.TextStrokeTransparency = 0.1
 	flameTitle.Font = Enum.Font.GothamBlack
-	flameTitle.TextSize = 15
+	flameTitle.TextSize = 36
 
-	-- 4. Gli 8 Pulsanti a Terra del Braciere (Scritte compatte)
+	-- 4. Ground Upgrade Pads for the Brazier
 	local altarsFolder = Instance.new("Folder", plotModel)
 	altarsFolder.Name = "Altars"
 
@@ -220,14 +231,14 @@ local function buildSinglePlot(index, origin, plotsFolder)
 		t2.Size = UDim2.new(1, 0, 0.48, 0)
 		t2.Position = UDim2.fromScale(0, 0.52)
 		t2.BackgroundTransparency = 1
-		t2.Text = NumberFormat.Format(alt.BaseCost) .. " Luce"
+		t2.Text = NumberFormat.Format(alt.BaseCost) .. " Light"
 		t2.TextColor3 = Color3.fromRGB(235, 240, 250)
 		t2.TextStrokeTransparency = 0.3
 		t2.Font = Enum.Font.Gotham
 		t2.TextSize = 12
 	end
 
-	-- 5. Pulsante della Vittoria (Parte NASCOSTO finché non finisci tutti i potenziamenti)
+	-- 5. Final Dawn Button (Hidden until 100% upgrades completed)
 	local vCfg = GameConfig.VictoryButton
 	local vPos = origin + vCfg.Pos
 	local vModel = Instance.new("Model", plotModel)
@@ -247,7 +258,7 @@ local function buildSinglePlot(index, origin, plotsFolder)
 
 	local vBbg = Instance.new("BillboardGui", victoryPad)
 	vBbg.Name = "VictoryBillboard"
-	vBbg.Size = UDim2.fromOffset(200, 48)
+	vBbg.Size = UDim2.fromOffset(220, 50)
 	vBbg.StudsOffset = Vector3.new(0, 4.8, 0)
 	vBbg.AlwaysOnTop = false
 	vBbg.Enabled = false
@@ -256,7 +267,7 @@ local function buildSinglePlot(index, origin, plotsFolder)
 	vTitle.Name = "TitleLabel"
 	vTitle.Size = UDim2.new(1, 0, 0.5, 0)
 	vTitle.BackgroundTransparency = 1
-	vTitle.Text = "👑 " .. vCfg.Name
+	vTitle.Text = "🌅 " .. vCfg.Name
 	vTitle.TextColor3 = Color3.fromRGB(255, 225, 80)
 	vTitle.TextStrokeTransparency = 0.2
 	vTitle.Font = Enum.Font.GothamBlack
@@ -267,19 +278,23 @@ local function buildSinglePlot(index, origin, plotsFolder)
 	vCostLbl.Size = UDim2.new(1, 0, 0.48, 0)
 	vCostLbl.Position = UDim2.fromScale(0, 0.52)
 	vCostLbl.BackgroundTransparency = 1
-	vCostLbl.Text = "Costo: " .. NumberFormat.Format(vCfg.Cost) .. " Luce"
+	vCostLbl.Text = "Cost: " .. NumberFormat.Format(vCfg.Cost) .. " Light (+1 Dawn Pt)"
 	vCostLbl.TextColor3 = Color3.fromRGB(255, 255, 255)
 	vCostLbl.TextStrokeTransparency = 0.25
 	vCostLbl.Font = Enum.Font.GothamBold
 	vCostLbl.TextSize = 12
 
-	-- 6. Bracieri Rituali di Regno 1 per la Zona
+	-- 6. Realm 1 Ritual Pedestals
 	local ritualFolder = Instance.new("Folder", plotModel)
 	ritualFolder.Name = "Regno1Ritual"
 	for _, b in ipairs(GameConfig.Regno1.Braziers) do
 		local bPos = origin + b.Pos
 		makeCylinder(bPos, 3.0, b.PedestalHeight, Color3.fromRGB(38, 41, 56), Enum.Material.Marble, ritualFolder, "Brazier_" .. b.Index)
 	end
+
+	-- 7. Defense Structures Folder (Light Walls & Solar Turrets)
+	local defensesFolder = Instance.new("Folder", plotModel)
+	defensesFolder.Name = "Defenses"
 
 	return {
 		Index = index,
@@ -298,8 +313,10 @@ local function buildSinglePlot(index, origin, plotsFolder)
 		VictoryModel = vModel,
 		VictoryPad = victoryPad,
 		VictoryBillboard = vBbg,
+		VictoryTitleLabel = vTitle,
 		VictoryStatusLabel = vCostLbl,
 		RitualFolder = ritualFolder,
+		DefensesFolder = defensesFolder,
 		Owner = nil,
 	}
 end
@@ -313,7 +330,6 @@ function WorldBuilder.Build()
 	local world = Instance.new("Folder", Workspace)
 	world.Name = "LastFlameWorld"
 
-	-- Isola Centrale di Ritrovo (Sobria, senza neon eccessivi)
 	local hubModel = Instance.new("Model", world)
 	hubModel.Name = "CentralPlaza"
 	makeCylinder(Vector3.new(0, -2, 0), 34, 4, Color3.fromRGB(22, 24, 34), Enum.Material.Slate, hubModel, "HubBase")
@@ -327,7 +343,6 @@ function WorldBuilder.Build()
 	spawnLoc.Transparency = 1
 	spawnLoc.CanCollide = false
 
-	-- Costruzione delle 10 Zone Individuali disposte ad anello
 	local plotsFolder = Instance.new("Folder", world)
 	plotsFolder.Name = "Plots"
 

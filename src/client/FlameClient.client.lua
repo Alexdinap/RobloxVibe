@@ -5,6 +5,7 @@ local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
 local NumberFormat = require(ReplicatedStorage:WaitForChild("NumberFormat"))
+local Localization = require(ReplicatedStorage:WaitForChild("Localization"))
 local ClientWorldVisuals = require(script.Parent:WaitForChild("ClientWorldVisuals"))
 local ShopUI = require(script.Parent:WaitForChild("ShopUI"))
 
@@ -16,20 +17,26 @@ local remotes = {
 	StateSync = remotesFolder:WaitForChild("StateSync"),
 	ClickFlame = remotesFolder:WaitForChild("ClickFlame"),
 	BuyUpgrade = remotesFolder:WaitForChild("BuyUpgrade"),
-	BuyStarPerk = remotesFolder:WaitForChild("BuyStarPerk"),
+	BuyWeapon = remotesFolder:WaitForChild("BuyWeapon"),
+	BuyDefense = remotesFolder:WaitForChild("BuyDefense"),
+	BuyAlbaPerk = remotesFolder:WaitForChild("BuyAlbaPerk"),
+	UnlockAlbaZone = remotesFolder:WaitForChild("UnlockAlbaZone"),
 	SummonWisp = remotesFolder:WaitForChild("SummonWisp"),
 	FuseWisp = remotesFolder:WaitForChild("FuseWisp"),
-	Prestige = remotesFolder:WaitForChild("Prestige"),
 	SyncGamePass = remotesFolder:WaitForChild("SyncGamePass"),
 	TeleportHome = remotesFolder:WaitForChild("TeleportHome"),
+	SetLanguage = remotesFolder:WaitForChild("SetLanguage"),
 	RedeemCode = remotesFolder:WaitForChild("RedeemCode"),
 	Regno1Sync = remotesFolder:WaitForChild("Regno1Sync"),
+	DefenseFx = remotesFolder:WaitForChild("DefenseFx"),
 }
 
 ClientWorldVisuals.StartWispRenderer()
 
+local currentLang = "en"
+
 -- =========================================================================
--- INTERFACCIA HUD PRINCIPALE (Scritte compatte)
+-- MAIN HUD INTERFACE
 -- =========================================================================
 local gui = Instance.new("ScreenGui")
 gui.Name = "LastFlameHUD"
@@ -41,7 +48,7 @@ local topHud = Instance.new("Frame", gui)
 topHud.Name = "TopStatsBar"
 topHud.AnchorPoint = Vector2.new(0.5, 0)
 topHud.Position = UDim2.new(0.5, 0, 0, 12)
-topHud.Size = UDim2.fromOffset(580, 56)
+topHud.Size = UDim2.fromOffset(640, 56)
 topHud.BackgroundColor3 = Color3.fromRGB(16, 18, 28)
 topHud.BackgroundTransparency = 0.08
 topHud.ZIndex = 10
@@ -55,7 +62,7 @@ local pointsLbl = Instance.new("TextLabel", topHud)
 pointsLbl.Position = UDim2.fromOffset(14, 6)
 pointsLbl.Size = UDim2.fromOffset(260, 24)
 pointsLbl.BackgroundTransparency = 1
-pointsLbl.Text = "🔥 0 Punti Luce"
+pointsLbl.Text = "🔥 0 Light Points"
 pointsLbl.TextColor3 = Color3.fromRGB(255, 215, 80)
 pointsLbl.TextXAlignment = Enum.TextXAlignment.Left
 pointsLbl.Font = Enum.Font.GothamBlack
@@ -64,9 +71,9 @@ pointsLbl.ZIndex = 11
 
 local rateLbl = Instance.new("TextLabel", topHud)
 rateLbl.Position = UDim2.fromOffset(14, 32)
-rateLbl.Size = UDim2.fromOffset(280, 18)
+rateLbl.Size = UDim2.fromOffset(270, 18)
 rateLbl.BackgroundTransparency = 1
-rateLbl.Text = "+1.0 / click  •  +0 / sec"
+rateLbl.Text = "+1 / click  •  +0 / sec"
 rateLbl.TextColor3 = Color3.fromRGB(175, 190, 215)
 rateLbl.TextXAlignment = Enum.TextXAlignment.Left
 rateLbl.Font = Enum.Font.GothamBold
@@ -75,34 +82,55 @@ rateLbl.ZIndex = 11
 
 local zoneBadge = Instance.new("TextLabel", topHud)
 zoneBadge.AnchorPoint = Vector2.new(1, 0)
-zoneBadge.Position = UDim2.new(1, -14, 0, 7)
-zoneBadge.Size = UDim2.fromOffset(280, 20)
+zoneBadge.Position = UDim2.new(1, -64, 0, 7)
+zoneBadge.Size = UDim2.fromOffset(290, 20)
 zoneBadge.BackgroundTransparency = 1
-zoneBadge.Text = "ZONA 1 • Portatore di Scintilla (4%)"
+zoneBadge.Text = "ZONES 1/5 • Spark Bearer (4%)"
 zoneBadge.TextColor3 = Color3.fromRGB(90, 225, 255)
 zoneBadge.TextXAlignment = Enum.TextXAlignment.Right
 zoneBadge.Font = Enum.Font.GothamBold
 zoneBadge.TextSize = 12
 zoneBadge.ZIndex = 11
 
-local heatAndStarsLbl = Instance.new("TextLabel", topHud)
-heatAndStarsLbl.AnchorPoint = Vector2.new(1, 0)
-heatAndStarsLbl.Position = UDim2.new(1, -14, 0, 31)
-heatAndStarsLbl.Size = UDim2.fromOffset(290, 18)
-heatAndStarsLbl.BackgroundTransparency = 1
-heatAndStarsLbl.Text = "Calore x1.00  •  ⭐ 0  •  Potenz. 0/20"
-heatAndStarsLbl.TextColor3 = Color3.fromRGB(255, 175, 95)
-heatAndStarsLbl.TextXAlignment = Enum.TextXAlignment.Right
-heatAndStarsLbl.Font = Enum.Font.Gotham
-heatAndStarsLbl.TextSize = 11
-heatAndStarsLbl.ZIndex = 11
+local heatAndAlbaLbl = Instance.new("TextLabel", topHud)
+heatAndAlbaLbl.AnchorPoint = Vector2.new(1, 0)
+heatAndAlbaLbl.Position = UDim2.new(1, -64, 0, 31)
+heatAndAlbaLbl.Size = UDim2.fromOffset(300, 18)
+heatAndAlbaLbl.BackgroundTransparency = 1
+heatAndAlbaLbl.Text = "Heat x1.00 • 🌅Dawn: 0 • Upg. 0/20"
+heatAndAlbaLbl.TextColor3 = Color3.fromRGB(255, 175, 95)
+heatAndAlbaLbl.TextXAlignment = Enum.TextXAlignment.Right
+heatAndAlbaLbl.Font = Enum.Font.Gotham
+heatAndAlbaLbl.TextSize = 11
+heatAndAlbaLbl.ZIndex = 11
 
--- Banner sfide Regno 1
+-- Language Toggle Button (EN / IT)
+local langBtn = Instance.new("TextButton", topHud)
+langBtn.Name = "LanguageToggleBtn"
+langBtn.AnchorPoint = Vector2.new(1, 0.5)
+langBtn.Position = UDim2.new(1, -10, 0.5, 0)
+langBtn.Size = UDim2.fromOffset(44, 34)
+langBtn.BackgroundColor3 = Color3.fromRGB(28, 34, 50)
+langBtn.Text = "🌐 EN"
+langBtn.TextColor3 = Color3.fromRGB(255, 215, 85)
+langBtn.Font = Enum.Font.GothamBlack
+langBtn.TextSize = 11
+langBtn.ZIndex = 12
+Instance.new("UICorner", langBtn).CornerRadius = UDim.new(0, 8)
+Instance.new("UIStroke", langBtn).Color = Color3.fromRGB(90, 225, 255)
+
+langBtn.MouseButton1Click:Connect(function()
+	currentLang = (currentLang == "en") and "it" or "en"
+	langBtn.Text = (currentLang == "en") and "🌐 EN" or "🌐 IT"
+	remotes.SetLanguage:FireServer(currentLang)
+end)
+
+-- Realm 1 Trial Banner
 local trialBanner = Instance.new("TextLabel", gui)
 trialBanner.Name = "Regno1Banner"
 trialBanner.AnchorPoint = Vector2.new(0.5, 0)
 trialBanner.Position = UDim2.new(0.5, 0, 0, 76)
-trialBanner.Size = UDim2.fromOffset(380, 26)
+trialBanner.Size = UDim2.fromOffset(390, 26)
 trialBanner.BackgroundColor3 = Color3.fromRGB(38, 24, 14)
 trialBanner.Text = ""
 trialBanner.TextColor3 = Color3.fromRGB(255, 225, 95)
@@ -112,12 +140,12 @@ trialBanner.Visible = false
 trialBanner.ZIndex = 12
 Instance.new("UICorner", trialBanner).CornerRadius = UDim.new(0, 10)
 
--- Notifica Toast
+-- Toast Notification
 local toastLbl = Instance.new("TextLabel", gui)
 toastLbl.Name = "PopupToast"
 toastLbl.AnchorPoint = Vector2.new(0.5, 0)
 toastLbl.Position = UDim2.new(0.5, 0, 0, 108)
-toastLbl.Size = UDim2.fromOffset(440, 28)
+toastLbl.Size = UDim2.fromOffset(450, 28)
 toastLbl.BackgroundColor3 = Color3.fromRGB(22, 26, 40)
 toastLbl.Text = ""
 toastLbl.TextColor3 = Color3.fromRGB(255, 235, 130)
@@ -142,7 +170,7 @@ local function showToast(msg)
 	end)
 end
 
--- Effetti sonori
+-- Client Sound Effects
 local soundFolder = Instance.new("Folder", gui)
 soundFolder.Name = "ClientSounds"
 
@@ -171,34 +199,45 @@ local function playCue(cueName)
 	end)
 end
 
--- Testo fluttuante compatto sopra il Braciere
+-- Giant Dopamine Click Numbers spawning low at the Brazier Bowl
 local function spawnFloatingGain(amount, isCrit)
-	local core = ClientWorldVisuals.GetMyFlameCore()
-	if not core then return end
+	local plotModel = ClientWorldVisuals.GetMyPlotModel()
+	local brazier = plotModel and plotModel:FindFirstChild("Brazier")
+	local bowl = brazier and brazier:FindFirstChild("BrazierBowl")
+	local core = brazier and brazier:FindFirstChild("FlameCore")
+	if not bowl and not core then return end
+
+	local anchorPos = bowl and bowl.Position or Vector3.new(core.Position.X, 2.5, core.Position.Z)
 
 	local p = Instance.new("Part")
 	p.Anchored = true
 	p.CanCollide = false
 	p.Transparency = 1
 	p.Size = Vector3.new(1, 1, 1)
-	p.Position = core.Position + Vector3.new((math.random() - 0.5) * 6, 3.5, (math.random() - 0.5) * 6)
+	p.Position = anchorPos + Vector3.new((math.random() - 0.5) * 8.0, 1.8, (math.random() - 0.5) * 8.0)
 	p.Parent = Workspace
 
 	local bbg = Instance.new("BillboardGui", p)
-	bbg.Size = UDim2.fromOffset(130, 26)
+	bbg.Size = UDim2.fromOffset(260, 56)
 	bbg.AlwaysOnTop = true
 
 	local lbl = Instance.new("TextLabel", bbg)
 	lbl.Size = UDim2.fromScale(1, 1)
 	lbl.BackgroundTransparency = 1
-	lbl.Text = (isCrit and "CRIT +" or "+") .. NumberFormat.Format(amount)
-	lbl.TextColor3 = isCrit and Color3.fromRGB(255, 110, 95) or Color3.fromRGB(255, 225, 95)
-	lbl.TextStrokeTransparency = 0.2
+	lbl.Text = (isCrit and "💥 CRIT +" or "+") .. NumberFormat.Format(math.floor(amount))
+	lbl.TextColor3 = isCrit and Color3.fromRGB(255, 95, 80) or Color3.fromRGB(255, 225, 75)
+	lbl.TextStrokeColor3 = Color3.fromRGB(16, 12, 8)
+	lbl.TextStrokeTransparency = 0.08
 	lbl.Font = Enum.Font.GothamBlack
-	lbl.TextSize = isCrit and 16 or 13
+	lbl.TextSize = isCrit and 36 or 27
 
-	local tw = TweenService:Create(p, TweenInfo.new(0.75, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
-		Position = p.Position + Vector3.new(0, 5.0, 0),
+	local targetSize = isCrit and 32 or 24
+	TweenService:Create(lbl, TweenInfo.new(0.18, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {
+		TextSize = targetSize,
+	}):Play()
+
+	local tw = TweenService:Create(p, TweenInfo.new(0.8, Enum.EasingStyle.Quad, Enum.EasingDirection.Out), {
+		Position = p.Position + Vector3.new(0, 4.4, 0),
 	})
 	tw:Play()
 	tw.Completed:Connect(function()
@@ -240,19 +279,24 @@ local shopController = ShopUI.Build(gui, remotes)
 
 remotes.StateSync.OnClientEvent:Connect(function(st)
 	if not st then return end
+	if st.Language == "en" or st.Language == "it" then
+		currentLang = st.Language
+		langBtn.Text = (currentLang == "en") and "🌐 EN" or "🌐 IT"
+	end
 
-	pointsLbl.Text = "🔥 " .. NumberFormat.Format(st.Points or 0) .. " Punti Luce"
-	rateLbl.Text = string.format("+%s / click  •  +%s / sec", NumberFormat.Format(st.ClickPower or 1), NumberFormat.Format(st.PointsPerSec or 0))
-	zoneBadge.Text = string.format("ZONA %d • %s (%d%%)", st.PlotIndex or 1, st.RankName or "Custode", st.LightPercent or 4)
+	pointsLbl.Text = "🔥 " .. NumberFormat.Format(math.floor(st.Points or 0)) .. " " .. Localization.T(currentLang, "POINTS_SUFFIX")
+	rateLbl.Text = Localization.T(currentLang, "RATE_FMT", NumberFormat.Format(st.ClickPower or 1), NumberFormat.Format(st.PointsPerSec or 0))
+	zoneBadge.Text = Localization.T(currentLang, "ZONE_BADGE_FMT", st.UnlockedZonesCount or 1, st.RankName or "Keeper", st.LightPercent or 4)
 
 	local buffSuffix = ""
 	if (st.Regno1BuffRemaining or 0) > 0 then
 		buffSuffix = string.format(" • ⚡x%.2f(%ds)", st.Regno1BuffMult or 1, math.ceil(st.Regno1BuffRemaining))
 	end
-	heatAndStarsLbl.Text = string.format(
-		"Calore x%.2f • ⭐%d • Potenz. %d/%d%s",
+	heatAndAlbaLbl.Text = Localization.T(
+		currentLang,
+		"HEAT_ALBA_FMT",
 		st.HeatMult or 1,
-		st.EternalStars or 0,
+		st.AlbaPoints or 0,
 		st.CompletedUpgradesCount or 0,
 		st.TotalUpgradesCount or 20,
 		buffSuffix
@@ -284,13 +328,17 @@ remotes.Regno1Sync.OnClientEvent:Connect(function(r1)
 
 	if r1.Active then
 		trialBanner.Visible = true
-		trialBanner.Text = string.format("CATENA DEL FUOCO: Braciere %d/%d  •  %.1fs", r1.CurrentStep or 1, r1.TotalSteps or 5, r1.TimeLeft or 0)
+		trialBanner.Text = Localization.T(currentLang, "R1_BANNER_ACTIVE", r1.CurrentStep or 1, r1.TotalSteps or 5, r1.TimeLeft or 0)
 	elseif (r1.BuffRemaining or 0) > 0 then
 		trialBanner.Visible = true
-		trialBanner.Text = string.format("BENEDIZIONE REGNO 1: x%.2f  •  %ds", r1.BuffMult or 1.5, math.ceil(r1.BuffRemaining))
+		trialBanner.Text = Localization.T(currentLang, "R1_BANNER_BUFF", r1.BuffMult or 1.5, math.ceil(r1.BuffRemaining))
 	else
 		trialBanner.Visible = false
 	end
+end)
+
+remotes.DefenseFx.OnClientEvent:Connect(function(fx)
+	ClientWorldVisuals.PlayDefenseFx(fx)
 end)
 
 remotes.SyncGamePass:FireServer()

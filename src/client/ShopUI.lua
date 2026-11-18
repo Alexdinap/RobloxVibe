@@ -6,6 +6,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local GameConfig = require(ReplicatedStorage:WaitForChild("GameConfig"))
 local NumberFormat = require(ReplicatedStorage:WaitForChild("NumberFormat"))
 local EconomyEngine = require(ReplicatedStorage:WaitForChild("EconomyEngine"))
+local Localization = require(ReplicatedStorage:WaitForChild("Localization"))
 
 local ShopUI = {}
 
@@ -21,22 +22,55 @@ local THEME = {
 	TextSub = Color3.fromRGB(165, 175, 200),
 }
 
+local function createCloseImageButton(parent, zIndex)
+	local btn = Instance.new("TextButton", parent)
+	btn.AnchorPoint = Vector2.new(1, 0.5)
+	btn.Position = UDim2.new(1, -12, 0.5, 0)
+	btn.Size = UDim2.fromOffset(30, 30)
+	btn.BackgroundColor3 = Color3.fromRGB(48, 24, 32)
+	btn.Text = ""
+	btn.AutoButtonColor = true
+	btn.ZIndex = zIndex
+	Instance.new("UICorner", btn).CornerRadius = UDim.new(0, 8)
+
+	local stroke = Instance.new("UIStroke", btn)
+	stroke.Color = Color3.fromRGB(255, 105, 120)
+	stroke.Thickness = 1.2
+
+	local icon = Instance.new("ImageLabel", btn)
+	icon.AnchorPoint = Vector2.new(0.5, 0.5)
+	icon.Position = UDim2.fromScale(0.5, 0.5)
+	icon.Size = UDim2.fromOffset(16, 16)
+	icon.BackgroundTransparency = 1
+	icon.Image = "rbxasset://textures/ui/InspectMenu/x.png"
+	icon.ImageColor3 = Color3.fromRGB(255, 120, 130)
+	icon.ScaleType = Enum.ScaleType.Fit
+	icon.ZIndex = zIndex + 1
+
+	return btn
+end
+
 function ShopUI.Build(parentGui, remotes)
 	local latestState = nil
 	local activeTab = "Character"
 	local renderedTab = nil
+	local renderedLang = nil
 	local isOpen = false
 	local lastActionClock = 0
 
-	-- Riferimenti persistenti alle card della scheda attiva (per evitare Destroy() durante i click)
 	local charCardRefs = {}
+	local defenseRefs = nil
 	local wispRowRefs = {}
 	local wispHeaderRefs = nil
 	local wispLockRef = nil
 	local albaRefs = nil
 
+	local function getLang()
+		return (latestState and latestState.Language) or "en"
+	end
+
 	-- =========================================================================
-	-- BARRA INFERIORE COMPATTA
+	-- COMPACT BOTTOM LAUNCH BAR
 	-- =========================================================================
 	local bottomBar = Instance.new("Frame", parentGui)
 	bottomBar.Name = "BigMenuLaunchBar"
@@ -51,7 +85,7 @@ function ShopUI.Build(parentGui, remotes)
 	homeBtn.Position = UDim2.fromOffset(0, 0)
 	homeBtn.Size = UDim2.fromOffset(130, 52)
 	homeBtn.BackgroundColor3 = Color3.fromRGB(24, 34, 48)
-	homeBtn.Text = "🏠 LA MIA ZONA"
+	homeBtn.Text = Localization.T("en", "MY_ZONE_BTN")
 	homeBtn.TextColor3 = THEME.Cyan
 	homeBtn.Font = Enum.Font.GothamBold
 	homeBtn.TextSize = 12
@@ -95,7 +129,7 @@ function ShopUI.Build(parentGui, remotes)
 	toggleLabel.Size = UDim2.new(1, -54, 0, 20)
 	toggleLabel.Position = UDim2.fromOffset(50, 7)
 	toggleLabel.BackgroundTransparency = 1
-	toggleLabel.Text = "PERSONAGGIO"
+	toggleLabel.Text = Localization.T("en", "CHAR_BTN_TITLE")
 	toggleLabel.TextColor3 = THEME.TextMain
 	toggleLabel.TextXAlignment = Enum.TextXAlignment.Left
 	toggleLabel.Font = Enum.Font.GothamBlack
@@ -106,7 +140,7 @@ function ShopUI.Build(parentGui, remotes)
 	toggleSub.Size = UDim2.new(1, -54, 0, 16)
 	toggleSub.Position = UDim2.fromOffset(50, 28)
 	toggleSub.BackgroundTransparency = 1
-	toggleSub.Text = "Potenziamenti [B]"
+	toggleSub.Text = Localization.T("en", "CHAR_BTN_SUB")
 	toggleSub.TextColor3 = THEME.TextSub
 	toggleSub.TextXAlignment = Enum.TextXAlignment.Left
 	toggleSub.Font = Enum.Font.Gotham
@@ -132,7 +166,7 @@ function ShopUI.Build(parentGui, remotes)
 	dockBoostBtn.Position = UDim2.fromOffset(380, 0)
 	dockBoostBtn.Size = UDim2.fromOffset(140, 52)
 	dockBoostBtn.BackgroundColor3 = Color3.fromRGB(42, 32, 16)
-	dockBoostBtn.Text = "⚡ LUCE x2 (ROBUX)"
+	dockBoostBtn.Text = Localization.T("en", "ROBUX_X2_BTN")
 	dockBoostBtn.TextColor3 = THEME.Gold
 	dockBoostBtn.Font = Enum.Font.GothamBold
 	dockBoostBtn.TextSize = 12
@@ -153,13 +187,13 @@ function ShopUI.Build(parentGui, remotes)
 	end)
 
 	-- =========================================================================
-	-- FINESTRA CENTRALE DEL MENÙ PERSONAGGIO
+	-- CENTRAL SANCTUARY MODAL (5 TABS)
 	-- =========================================================================
 	local modal = Instance.new("Frame", parentGui)
 	modal.Name = "CharacterMenuModal"
 	modal.AnchorPoint = Vector2.new(0.5, 0.5)
 	modal.Position = UDim2.fromScale(0.5, 0.48)
-	modal.Size = UDim2.fromOffset(580, 400)
+	modal.Size = UDim2.fromOffset(620, 420)
 	modal.BackgroundColor3 = THEME.Bg
 	modal.Visible = false
 	modal.ZIndex = 20
@@ -178,24 +212,14 @@ function ShopUI.Build(parentGui, remotes)
 	headerTitle.Position = UDim2.fromOffset(16, 8)
 	headerTitle.Size = UDim2.new(1, -70, 0, 26)
 	headerTitle.BackgroundTransparency = 1
-	headerTitle.Text = "🧙 SANTUARIO DEL CUSTODE"
+	headerTitle.Text = Localization.T("en", "MODAL_TITLE")
 	headerTitle.TextColor3 = THEME.Gold
 	headerTitle.TextXAlignment = Enum.TextXAlignment.Left
 	headerTitle.Font = Enum.Font.GothamBlack
 	headerTitle.TextSize = 16
 	headerTitle.ZIndex = 21
 
-	local closeBtn = Instance.new("TextButton", header)
-	closeBtn.AnchorPoint = Vector2.new(1, 0.5)
-	closeBtn.Position = UDim2.new(1, -12, 0.5, 0)
-	closeBtn.Size = UDim2.fromOffset(28, 28)
-	closeBtn.BackgroundColor3 = Color3.fromRGB(45, 25, 32)
-	closeBtn.Text = "✕"
-	closeBtn.TextColor3 = Color3.fromRGB(255, 110, 120)
-	closeBtn.Font = Enum.Font.GothamBold
-	closeBtn.TextSize = 14
-	closeBtn.ZIndex = 22
-	Instance.new("UICorner", closeBtn).CornerRadius = UDim.new(0, 8)
+	local closeBtn = createCloseImageButton(header, 22)
 
 	local tabsBar = Instance.new("Frame", modal)
 	tabsBar.Position = UDim2.fromOffset(14, 44)
@@ -204,22 +228,23 @@ function ShopUI.Build(parentGui, remotes)
 	tabsBar.ZIndex = 21
 
 	local tabDefs = {
-		{ Id = "Character", Label = "🔥 Personaggio" },
-		{ Id = "Wisps",     Label = "✨ Spiriti" },
-		{ Id = "Alba",      Label = "🌅 Alba" },
-		{ Id = "Codes",     Label = "🎁 Codici" },
+		{ Id = "Character", Key = "TAB_CHAR" },
+		{ Id = "Defense",   Key = "TAB_DEFENSE" },
+		{ Id = "Wisps",     Key = "TAB_WISPS" },
+		{ Id = "Alba",      Key = "TAB_DAWN" },
+		{ Id = "Codes",     Key = "TAB_CODES" },
 	}
 	local tabButtons = {}
 
 	for idx, td in ipairs(tabDefs) do
 		local b = Instance.new("TextButton", tabsBar)
-		b.Position = UDim2.new((idx - 1) * 0.25, 3, 0, 0)
-		b.Size = UDim2.new(0.25, -6, 1, 0)
+		b.Position = UDim2.new((idx - 1) * 0.2, 2, 0, 0)
+		b.Size = UDim2.new(0.2, -4, 1, 0)
 		b.BackgroundColor3 = THEME.Card
-		b.Text = td.Label
+		b.Text = Localization.T("en", td.Key)
 		b.TextColor3 = THEME.TextMain
 		b.Font = Enum.Font.GothamBold
-		b.TextSize = 12
+		b.TextSize = 11
 		b.ZIndex = 22
 		Instance.new("UICorner", b).CornerRadius = UDim.new(0, 8)
 		tabButtons[td.Id] = b
@@ -241,6 +266,7 @@ function ShopUI.Build(parentGui, remotes)
 
 	local function clearScroll()
 		charCardRefs = {}
+		defenseRefs = nil
 		wispRowRefs = {}
 		wispHeaderRefs = nil
 		wispLockRef = nil
@@ -252,10 +278,11 @@ function ShopUI.Build(parentGui, remotes)
 		end
 	end
 
-	-- Aggiorna i valori sulle card ESISTENTI senza mai distruggerle
 	local function refreshExistingWidgets()
 		if not latestState then return end
 		local st = latestState
+		local lang = getLang()
+		local lightUnit = Localization.T(lang, "LIGHT_UNIT")
 		local points = st.Points or 0
 
 		if renderedTab == "Character" then
@@ -267,26 +294,68 @@ function ShopUI.Build(parentGui, remotes)
 				local cost = math.floor(u.BaseCost * (u.CostMult ^ lvl))
 				local canBuy = unlocked and (not maxed) and points >= cost
 
+				local uName = Localization.Pick(lang, u.Name, u.Name_it)
+				local uTag = Localization.Pick(lang, u.Tag, u.Tag_it)
+				local uDesc = Localization.Pick(lang, u.Desc, u.Desc_it)
+
 				ref.Card.BackgroundColor3 = unlocked and THEME.Card or THEME.CardLocked
-				ref.Title.Text = string.format("%s %s  [Lv.%d/%d]", u.Icon, u.Name, lvl, u.MaxLevel)
+				ref.Title.Text = string.format("%s %s  [Lv.%d/%d]", u.Icon, uName, lvl, u.MaxLevel)
 				ref.Title.TextColor3 = unlocked and THEME.TextMain or THEME.TextSub
-				ref.Desc.Text = unlocked and (u.Tag .. " — " .. u.Desc) or "🔒 Richiede potenziamento precedente"
+				ref.Desc.Text = unlocked and (uTag .. " — " .. uDesc) or Localization.T(lang, "LOCKED_REQ")
 
 				ref.BuyBtn.BackgroundColor3 = maxed and Color3.fromRGB(35, 55, 45) or (canBuy and THEME.Gold or Color3.fromRGB(36, 40, 56))
-				ref.BuyBtn.Text = maxed and "MASSIMO" or (unlocked and (NumberFormat.Format(cost) .. " Luce") or "BLOCCATO")
+				ref.BuyBtn.Text = maxed and Localization.T(lang, "BTN_MAXED") or (unlocked and (NumberFormat.Format(cost) .. " " .. lightUnit) or Localization.T(lang, "BTN_LOCKED"))
 				ref.BuyBtn.TextColor3 = canBuy and Color3.fromRGB(16, 18, 24) or THEME.TextMain
+			end
+
+		elseif renderedTab == "Defense" and defenseRefs then
+			local ownedWeapons = st.OwnedWeapons or {}
+			for _, wRef in ipairs(defenseRefs.Weapons) do
+				local w = wRef.Config
+				local owned = ownedWeapons[w.Id] == true
+				local canBuy = (not owned) and points >= w.Cost
+				local wName = Localization.Pick(lang, w.Name, w.Name_it)
+				local wTag = Localization.Pick(lang, w.Tag, w.Tag_it)
+				local wDesc = Localization.Pick(lang, w.Desc, w.Desc_it)
+
+				wRef.Card.BackgroundColor3 = owned and Color3.fromRGB(24, 42, 36) or THEME.Card
+				wRef.Title.Text = string.format("%s %s (%s)", w.Icon, wName, wTag)
+				wRef.Desc.Text = wDesc
+				wRef.Btn.BackgroundColor3 = owned and Color3.fromRGB(35, 65, 52) or (canBuy and THEME.Gold or Color3.fromRGB(36, 40, 56))
+				wRef.Btn.Text = owned and Localization.T(lang, "BTN_EQUIPPED") or (NumberFormat.Format(w.Cost) .. " " .. lightUnit)
+				wRef.Btn.TextColor3 = canBuy and Color3.fromRGB(16, 18, 24) or THEME.TextMain
+			end
+
+			for _, dRef in ipairs(defenseRefs.Structures) do
+				local d = dRef.Config
+				local lvl = EconomyEngine.GetLevel(st.Defenses, d.Id)
+				local maxed = lvl >= d.MaxLevel
+				local cost = math.floor(d.BaseCost * (d.CostMult ^ lvl))
+				local canBuy = (not maxed) and points >= cost
+				local dName = Localization.Pick(lang, d.Name, d.Name_it)
+				local dTag = Localization.Pick(lang, d.Tag, d.Tag_it)
+				local dDesc = Localization.Pick(lang, d.Desc, d.Desc_it)
+
+				dRef.Title.Text = string.format("%s %s  [Lv.%d/%d]", d.Icon, dName, lvl, d.MaxLevel)
+				dRef.Desc.Text = dTag .. " — " .. dDesc
+				dRef.Btn.BackgroundColor3 = maxed and Color3.fromRGB(35, 55, 45) or (canBuy and THEME.Cyan or Color3.fromRGB(36, 40, 56))
+				dRef.Btn.Text = maxed and Localization.T(lang, "BTN_MAXED") or (NumberFormat.Format(cost) .. " " .. lightUnit)
+				dRef.Btn.TextColor3 = canBuy and Color3.fromRGB(16, 18, 24) or THEME.TextMain
 			end
 
 		elseif renderedTab == "Wisps" then
 			if wispLockRef then
 				wispLockRef.Visible = not st.WispsUnlocked
+				wispLockRef.Text = Localization.T(lang, "WISPS_LOCKED")
 			end
 			if wispHeaderRefs then
 				wispHeaderRefs.Card.Visible = st.WispsUnlocked == true
-				wispHeaderRefs.Info.Text = string.format("✨ Spiriti Attivi: %d / %d  (I migliori si equipaggiano in automatico)", st.EquippedCount or 0, st.MaxWispSlots or 3)
+				wispHeaderRefs.Info.Text = Localization.T(lang, "WISPS_HEADER_FMT", st.EquippedCount or 0, st.MaxWispSlots or 3)
+				wispHeaderRefs.Btn1.Text = Localization.T(lang, "SUMMON_1_FMT", NumberFormat.Format(GameConfig.BaseWispCost))
 				wispHeaderRefs.Btn1.BackgroundColor3 = (points >= GameConfig.BaseWispCost) and THEME.Cyan or Color3.fromRGB(36, 40, 56)
 				wispHeaderRefs.Btn1.TextColor3 = (points >= GameConfig.BaseWispCost) and Color3.fromRGB(16, 18, 24) or THEME.TextMain
 				local cost5 = GameConfig.BaseWispCost * 5
+				wispHeaderRefs.Btn5.Text = Localization.T(lang, "SUMMON_5_FMT", NumberFormat.Format(cost5))
 				wispHeaderRefs.Btn5.BackgroundColor3 = (points >= cost5) and THEME.Gold or Color3.fromRGB(36, 40, 56)
 				wispHeaderRefs.Btn5.TextColor3 = (points >= cost5) and Color3.fromRGB(16, 18, 24) or THEME.TextMain
 			end
@@ -294,44 +363,67 @@ function ShopUI.Build(parentGui, remotes)
 			for _, ref in ipairs(wispRowRefs) do
 				ref.Row.Visible = st.WispsUnlocked == true
 				local w = ref.Config
+				local wName = Localization.Pick(lang, w.Name, w.Name_it)
 				local normCnt = counts[w.Id] or 0
 				local radCnt = counts[w.Id .. "_rad"] or 0
-				ref.Label.Text = string.format("● %s (x%.1f | %s) — Norm: %d | Rad: %d", w.Name, w.ClickMult, w.Chance, normCnt, radCnt)
+				ref.Label.Text = Localization.T(lang, "WISP_ROW_FMT", wName, w.ClickMult, w.Chance, normCnt, radCnt)
 				ref.FuseBtn.BackgroundColor3 = (normCnt >= 3) and THEME.Purple or Color3.fromRGB(36, 40, 56)
-				ref.FuseBtn.Text = (normCnt >= 3) and "🌟 FORGIA (3→1)" or ("Servono 3 (" .. normCnt .. "/3)")
+				ref.FuseBtn.Text = (normCnt >= 3) and Localization.T(lang, "FORGE_READY") or Localization.T(lang, "FORGE_NEED_FMT", normCnt)
 			end
 
 		elseif renderedTab == "Alba" and albaRefs then
-			local canPrestige = points >= GameConfig.PrestigeCost
-			local gained = canPrestige and math.max(1, math.floor(math.log10(points / 5e6))) or 0
-			albaRefs.Info.Text = string.format("🌅 GRANDE ALBA (Stelle: %d)\nRichiede %s Luce • Ottieni +%d Stelle Eterne", st.EternalStars or 0, NumberFormat.Format(GameConfig.PrestigeCost), gained)
-			albaRefs.PrestigeBtn.BackgroundColor3 = canPrestige and THEME.Gold or Color3.fromRGB(36, 40, 56)
-			albaRefs.PrestigeBtn.Text = canPrestige and ("RINASCI (+" .. gained .. " ⭐)") or "INSUFFICIENTE"
-			albaRefs.PrestigeBtn.TextColor3 = canPrestige and Color3.fromRGB(16, 18, 24) or THEME.TextMain
+			local albaPts = st.AlbaPoints or 0
+			local rewardPerRebirth = st.AlbaRewardPerRebirth or 1
+			local dawnUnit = Localization.T(lang, "DAWN_PT_UNIT")
+			local statusTxt = st.AllUpgradesCompleted
+				and Localization.T(lang, "DAWN_STATUS_READY", rewardPerRebirth)
+				or Localization.T(lang, "DAWN_STATUS_PROG", st.CompletedUpgradesCount or 0, st.TotalUpgradesCount or 20, rewardPerRebirth)
 
-			for _, spRef in ipairs(albaRefs.Perks) do
-				local sp = spRef.Config
-				local lvl = EconomyEngine.GetLevel(st.StarPerks, sp.Id)
-				local maxed = lvl >= sp.MaxLevel
-				local cost = math.floor(sp.Cost * (sp.CostMult ^ lvl))
-				local canBuy = (not maxed) and (st.EternalStars or 0) >= cost
+			albaRefs.HeaderInfo.Text = Localization.T(lang, "DAWN_HEADER_FMT", albaPts, st.AlbaCount or 0, statusTxt)
 
-				spRef.Label.Text = string.format("⭐ %s [%d/%d] — %s", sp.Name, lvl, sp.MaxLevel, sp.Desc)
-				spRef.Btn.BackgroundColor3 = maxed and Color3.fromRGB(35, 55, 45) or (canBuy and THEME.Gold or Color3.fromRGB(36, 40, 56))
-				spRef.Btn.Text = maxed and "MASSIMO" or (cost .. " ⭐")
-				spRef.Btn.TextColor3 = canBuy and Color3.fromRGB(16, 18, 24) or THEME.TextMain
+			for _, apRef in ipairs(albaRefs.Perks) do
+				local ap = apRef.Config
+				local lvl = EconomyEngine.GetLevel(st.AlbaPerks, ap.Id)
+				local maxed = lvl >= ap.MaxLevel
+				local cost = math.floor(ap.Cost * (ap.CostMult ^ lvl))
+				local canBuy = (not maxed) and albaPts >= cost
+
+				apRef.Title.Text = string.format("🌅 %s  [Lv.%d/%d]", Localization.Pick(lang, ap.Name, ap.Name_it), lvl, ap.MaxLevel)
+				apRef.Desc.Text = Localization.Pick(lang, ap.Desc, ap.Desc_it)
+				apRef.Btn.BackgroundColor3 = maxed and Color3.fromRGB(35, 55, 45) or (canBuy and THEME.Gold or Color3.fromRGB(36, 40, 56))
+				apRef.Btn.Text = maxed and Localization.T(lang, "BTN_MAXED") or (cost .. " " .. dawnUnit)
+				apRef.Btn.TextColor3 = canBuy and Color3.fromRGB(16, 18, 24) or THEME.TextMain
+			end
+
+			local unlockedZones = st.UnlockedAlbaZones or {}
+			for _, zRef in ipairs(albaRefs.Zones) do
+				local z = zRef.Config
+				local isUnlocked = unlockedZones[z.Id] == true
+				local canUnlock = (not isUnlocked) and albaPts >= z.Cost
+
+				zRef.Card.BackgroundColor3 = isUnlocked and Color3.fromRGB(24, 42, 36) or THEME.Card
+				zRef.Title.Text = string.format("%s %s", z.Icon, Localization.Pick(lang, z.Name, z.Name_it))
+				zRef.Desc.Text = Localization.Pick(lang, z.Desc, z.Desc_it)
+				zRef.Btn.BackgroundColor3 = isUnlocked and Color3.fromRGB(35, 65, 52) or (canUnlock and THEME.Cyan or Color3.fromRGB(36, 40, 56))
+				zRef.Btn.Text = isUnlocked and Localization.T(lang, "BTN_UNLOCKED") or (z.Cost .. " " .. dawnUnit)
+				zRef.Btn.TextColor3 = canUnlock and Color3.fromRGB(16, 18, 24) or THEME.TextMain
 			end
 		end
 	end
 
-	-- Costruisce la struttura della scheda UNA SOLA VOLTA quando si apre o cambia tab
 	local function buildTabStructure()
 		clearScroll()
+		local lang = getLang()
 		renderedTab = activeTab
+		renderedLang = lang
 
-		for id, btn in pairs(tabButtons) do
-			btn.BackgroundColor3 = (id == activeTab) and Color3.fromRGB(58, 46, 22) or THEME.Card
-			btn.TextColor3 = (id == activeTab) and THEME.Gold or THEME.TextSub
+		for _, td in ipairs(tabDefs) do
+			local btn = tabButtons[td.Id]
+			if btn then
+				btn.Text = Localization.T(lang, td.Key)
+				btn.BackgroundColor3 = (td.Id == activeTab) and Color3.fromRGB(58, 46, 22) or THEME.Card
+				btn.TextColor3 = (td.Id == activeTab) and THEME.Gold or THEME.TextSub
+			end
 		end
 
 		if activeTab == "Character" then
@@ -380,7 +472,6 @@ function ShopUI.Build(parentGui, remotes)
 				buyBtn.ZIndex = 23
 				Instance.new("UICorner", buyBtn).CornerRadius = UDim.new(0, 8)
 
-				-- Collegato UNA SOLA VOLTA: mai interrotto dai refresh di rete
 				buyBtn.MouseButton1Click:Connect(function()
 					local now = os.clock()
 					if now - lastActionClock < 0.08 then return end
@@ -397,12 +488,147 @@ function ShopUI.Build(parentGui, remotes)
 				})
 			end
 
+		elseif activeTab == "Defense" then
+			local tipCard = Instance.new("Frame", scroll)
+			tipCard.LayoutOrder = 1
+			tipCard.Size = UDim2.new(1, -6, 0, 44)
+			tipCard.BackgroundColor3 = Color3.fromRGB(30, 22, 42)
+			tipCard.ZIndex = 22
+			Instance.new("UICorner", tipCard).CornerRadius = UDim.new(0, 10)
+			Instance.new("UIStroke", tipCard).Color = THEME.Purple
+
+			local tipLbl = Instance.new("TextLabel", tipCard)
+			tipLbl.Position = UDim2.fromOffset(12, 4)
+			tipLbl.Size = UDim2.new(1, -24, 1, -8)
+			tipLbl.BackgroundTransparency = 1
+			tipLbl.Text = Localization.T(lang, "DEF_TIP")
+			tipLbl.TextColor3 = THEME.TextMain
+			tipLbl.TextXAlignment = Enum.TextXAlignment.Left
+			tipLbl.TextWrapped = true
+			tipLbl.Font = Enum.Font.GothamBold
+			tipLbl.TextSize = 11
+			tipLbl.ZIndex = 23
+
+			local sec1 = Instance.new("TextLabel", scroll)
+			sec1.LayoutOrder = 2
+			sec1.Size = UDim2.new(1, -6, 0, 22)
+			sec1.BackgroundTransparency = 1
+			sec1.Text = Localization.T(lang, "SEC_WEAPONS")
+			sec1.TextColor3 = THEME.Gold
+			sec1.TextXAlignment = Enum.TextXAlignment.Left
+			sec1.Font = Enum.Font.GothamBlack
+			sec1.TextSize = 12
+			sec1.ZIndex = 22
+
+			local wepList = {}
+			for idx, w in ipairs(GameConfig.Weapons) do
+				local row = Instance.new("Frame", scroll)
+				row.LayoutOrder = 10 + idx
+				row.Size = UDim2.new(1, -6, 0, 56)
+				row.BackgroundColor3 = THEME.Card
+				row.ZIndex = 22
+				Instance.new("UICorner", row).CornerRadius = UDim.new(0, 10)
+
+				local tLbl = Instance.new("TextLabel", row)
+				tLbl.Position = UDim2.fromOffset(12, 6)
+				tLbl.Size = UDim2.new(1, -150, 0, 18)
+				tLbl.BackgroundTransparency = 1
+				tLbl.TextColor3 = w.Color
+				tLbl.TextXAlignment = Enum.TextXAlignment.Left
+				tLbl.Font = Enum.Font.GothamBold
+				tLbl.TextSize = 13
+				tLbl.ZIndex = 23
+
+				local dLbl = Instance.new("TextLabel", row)
+				dLbl.Position = UDim2.fromOffset(12, 24)
+				dLbl.Size = UDim2.new(1, -150, 0, 26)
+				dLbl.BackgroundTransparency = 1
+				dLbl.TextColor3 = THEME.TextSub
+				dLbl.TextXAlignment = Enum.TextXAlignment.Left
+				dLbl.TextWrapped = true
+				dLbl.Font = Enum.Font.Gotham
+				dLbl.TextSize = 11
+				dLbl.ZIndex = 23
+
+				local b = Instance.new("TextButton", row)
+				b.AnchorPoint = Vector2.new(1, 0.5)
+				b.Position = UDim2.new(1, -10, 0.5, 0)
+				b.Size = UDim2.fromOffset(126, 36)
+				b.Font = Enum.Font.GothamBlack
+				b.TextSize = 12
+				b.ZIndex = 23
+				Instance.new("UICorner", b).CornerRadius = UDim.new(0, 8)
+				b.MouseButton1Click:Connect(function()
+					remotes.BuyWeapon:FireServer(w.Id)
+				end)
+
+				table.insert(wepList, { Config = w, Card = row, Title = tLbl, Desc = dLbl, Btn = b })
+			end
+
+			local sec2 = Instance.new("TextLabel", scroll)
+			sec2.LayoutOrder = 30
+			sec2.Size = UDim2.new(1, -6, 0, 22)
+			sec2.BackgroundTransparency = 1
+			sec2.Text = Localization.T(lang, "SEC_STRUCTURES")
+			sec2.TextColor3 = THEME.Cyan
+			sec2.TextXAlignment = Enum.TextXAlignment.Left
+			sec2.Font = Enum.Font.GothamBlack
+			sec2.TextSize = 12
+			sec2.ZIndex = 22
+
+			local defList = {}
+			for idx, d in ipairs(GameConfig.Defenses) do
+				local row = Instance.new("Frame", scroll)
+				row.LayoutOrder = 40 + idx
+				row.Size = UDim2.new(1, -6, 0, 56)
+				row.BackgroundColor3 = THEME.Card
+				row.ZIndex = 22
+				Instance.new("UICorner", row).CornerRadius = UDim.new(0, 10)
+
+				local tLbl = Instance.new("TextLabel", row)
+				tLbl.Position = UDim2.fromOffset(12, 6)
+				tLbl.Size = UDim2.new(1, -150, 0, 18)
+				tLbl.BackgroundTransparency = 1
+				tLbl.TextColor3 = THEME.Cyan
+				tLbl.TextXAlignment = Enum.TextXAlignment.Left
+				tLbl.Font = Enum.Font.GothamBold
+				tLbl.TextSize = 13
+				tLbl.ZIndex = 23
+
+				local dLbl = Instance.new("TextLabel", row)
+				dLbl.Position = UDim2.fromOffset(12, 24)
+				dLbl.Size = UDim2.new(1, -150, 0, 26)
+				dLbl.BackgroundTransparency = 1
+				dLbl.TextColor3 = THEME.TextSub
+				dLbl.TextXAlignment = Enum.TextXAlignment.Left
+				dLbl.TextWrapped = true
+				dLbl.Font = Enum.Font.Gotham
+				dLbl.TextSize = 11
+				dLbl.ZIndex = 23
+
+				local b = Instance.new("TextButton", row)
+				b.AnchorPoint = Vector2.new(1, 0.5)
+				b.Position = UDim2.new(1, -10, 0.5, 0)
+				b.Size = UDim2.fromOffset(126, 36)
+				b.Font = Enum.Font.GothamBlack
+				b.TextSize = 12
+				b.ZIndex = 23
+				Instance.new("UICorner", b).CornerRadius = UDim.new(0, 8)
+				b.MouseButton1Click:Connect(function()
+					remotes.BuyDefense:FireServer(d.Id)
+				end)
+
+				table.insert(defList, { Config = d, Card = row, Title = tLbl, Desc = dLbl, Btn = b })
+			end
+
+			defenseRefs = { Weapons = wepList, Structures = defList }
+
 		elseif activeTab == "Wisps" then
 			local lockLbl = Instance.new("TextLabel", scroll)
 			lockLbl.LayoutOrder = 0
 			lockLbl.Size = UDim2.new(1, -6, 0, 72)
 			lockLbl.BackgroundColor3 = THEME.Card
-			lockLbl.Text = "🔒 Sblocca 'Evocazione Spiriti' nella scheda Personaggio!"
+			lockLbl.Text = Localization.T(lang, "WISPS_LOCKED")
 			lockLbl.TextColor3 = THEME.Gold
 			lockLbl.Font = Enum.Font.GothamBold
 			lockLbl.TextWrapped = true
@@ -433,7 +659,6 @@ function ShopUI.Build(parentGui, remotes)
 			local btn1 = Instance.new("TextButton", sumCard)
 			btn1.Position = UDim2.new(0.52, 0, 0.5, -19)
 			btn1.Size = UDim2.new(0.22, 0, 0, 38)
-			btn1.Text = "Evoca x1 (" .. NumberFormat.Format(GameConfig.BaseWispCost) .. ")"
 			btn1.Font = Enum.Font.GothamBold
 			btn1.TextSize = 11
 			btn1.ZIndex = 23
@@ -442,11 +667,9 @@ function ShopUI.Build(parentGui, remotes)
 				remotes.SummonWisp:FireServer(1)
 			end)
 
-			local cost5 = GameConfig.BaseWispCost * 5
 			local btn5 = Instance.new("TextButton", sumCard)
 			btn5.Position = UDim2.new(0.76, 0, 0.5, -19)
 			btn5.Size = UDim2.new(0.22, 0, 0, 38)
-			btn5.Text = "Evoca x5 (" .. NumberFormat.Format(cost5) .. ")"
 			btn5.Font = Enum.Font.GothamBold
 			btn5.TextSize = 11
 			btn5.ZIndex = 23
@@ -493,55 +716,65 @@ function ShopUI.Build(parentGui, remotes)
 			end
 
 		elseif activeTab == "Alba" then
-			local pCard = Instance.new("Frame", scroll)
-			pCard.LayoutOrder = 1
-			pCard.Size = UDim2.new(1, -6, 0, 68)
-			pCard.BackgroundColor3 = THEME.Card
-			pCard.ZIndex = 22
-			Instance.new("UICorner", pCard).CornerRadius = UDim.new(0, 10)
+			local hCard = Instance.new("Frame", scroll)
+			hCard.LayoutOrder = 1
+			hCard.Size = UDim2.new(1, -6, 0, 64)
+			hCard.BackgroundColor3 = Color3.fromRGB(34, 28, 22)
+			hCard.ZIndex = 22
+			Instance.new("UICorner", hCard).CornerRadius = UDim.new(0, 10)
+			Instance.new("UIStroke", hCard).Color = THEME.Gold
 
-			local pInfo = Instance.new("TextLabel", pCard)
-			pInfo.Position = UDim2.fromOffset(12, 8)
-			pInfo.Size = UDim2.new(1, -165, 0, 52)
-			pInfo.BackgroundTransparency = 1
-			pInfo.TextColor3 = THEME.Gold
-			pInfo.TextXAlignment = Enum.TextXAlignment.Left
-			pInfo.TextWrapped = true
-			pInfo.Font = Enum.Font.GothamBold
-			pInfo.TextSize = 12
-			pInfo.ZIndex = 23
+			local hInfo = Instance.new("TextLabel", hCard)
+			hInfo.Position = UDim2.fromOffset(12, 6)
+			hInfo.Size = UDim2.new(1, -24, 0, 52)
+			hInfo.BackgroundTransparency = 1
+			hInfo.TextColor3 = THEME.Gold
+			hInfo.TextXAlignment = Enum.TextXAlignment.Left
+			hInfo.TextWrapped = true
+			hInfo.Font = Enum.Font.GothamBold
+			hInfo.TextSize = 12
+			hInfo.ZIndex = 23
 
-			local pBtn = Instance.new("TextButton", pCard)
-			pBtn.AnchorPoint = Vector2.new(1, 0.5)
-			pBtn.Position = UDim2.new(1, -10, 0.5, 0)
-			pBtn.Size = UDim2.fromOffset(140, 42)
-			pBtn.Font = Enum.Font.GothamBlack
-			pBtn.TextSize = 12
-			pBtn.ZIndex = 23
-			Instance.new("UICorner", pBtn).CornerRadius = UDim.new(0, 8)
-			pBtn.MouseButton1Click:Connect(function()
-				remotes.Prestige:FireServer()
-			end)
+			local sec1 = Instance.new("TextLabel", scroll)
+			sec1.LayoutOrder = 2
+			sec1.Size = UDim2.new(1, -6, 0, 22)
+			sec1.BackgroundTransparency = 1
+			sec1.Text = Localization.T(lang, "SEC_DAWN_PERKS")
+			sec1.TextColor3 = THEME.Gold
+			sec1.TextXAlignment = Enum.TextXAlignment.Left
+			sec1.Font = Enum.Font.GothamBlack
+			sec1.TextSize = 12
+			sec1.ZIndex = 22
 
 			local perksList = {}
-			for idx, sp in ipairs(GameConfig.StarPerks) do
+			for idx, ap in ipairs(GameConfig.AlbaPerks) do
 				local row = Instance.new("Frame", scroll)
-				row.LayoutOrder = idx + 1
-				row.Size = UDim2.new(1, -6, 0, 54)
+				row.LayoutOrder = 10 + idx
+				row.Size = UDim2.new(1, -6, 0, 56)
 				row.BackgroundColor3 = THEME.Card
 				row.ZIndex = 22
 				Instance.new("UICorner", row).CornerRadius = UDim.new(0, 10)
 
-				local lbl = Instance.new("TextLabel", row)
-				lbl.Position = UDim2.fromOffset(12, 6)
-				lbl.Size = UDim2.new(1, -150, 0, 42)
-				lbl.BackgroundTransparency = 1
-				lbl.TextColor3 = THEME.TextMain
-				lbl.TextXAlignment = Enum.TextXAlignment.Left
-				lbl.TextWrapped = true
-				lbl.Font = Enum.Font.GothamBold
-				lbl.TextSize = 11
-				lbl.ZIndex = 23
+				local tLbl = Instance.new("TextLabel", row)
+				tLbl.Position = UDim2.fromOffset(12, 6)
+				tLbl.Size = UDim2.new(1, -150, 0, 18)
+				tLbl.BackgroundTransparency = 1
+				tLbl.TextColor3 = THEME.TextMain
+				tLbl.TextXAlignment = Enum.TextXAlignment.Left
+				tLbl.Font = Enum.Font.GothamBold
+				tLbl.TextSize = 13
+				tLbl.ZIndex = 23
+
+				local dLbl = Instance.new("TextLabel", row)
+				dLbl.Position = UDim2.fromOffset(12, 24)
+				dLbl.Size = UDim2.new(1, -150, 0, 26)
+				dLbl.BackgroundTransparency = 1
+				dLbl.TextColor3 = THEME.TextSub
+				dLbl.TextXAlignment = Enum.TextXAlignment.Left
+				dLbl.TextWrapped = true
+				dLbl.Font = Enum.Font.Gotham
+				dLbl.TextSize = 11
+				dLbl.ZIndex = 23
 
 				local b = Instance.new("TextButton", row)
 				b.AnchorPoint = Vector2.new(1, 0.5)
@@ -552,13 +785,69 @@ function ShopUI.Build(parentGui, remotes)
 				b.ZIndex = 23
 				Instance.new("UICorner", b).CornerRadius = UDim.new(0, 8)
 				b.MouseButton1Click:Connect(function()
-					remotes.BuyStarPerk:FireServer(sp.Id)
+					remotes.BuyAlbaPerk:FireServer(ap.Id)
 				end)
 
-				table.insert(perksList, { Config = sp, Label = lbl, Btn = b })
+				table.insert(perksList, { Config = ap, Title = tLbl, Desc = dLbl, Btn = b })
 			end
 
-			albaRefs = { Info = pInfo, PrestigeBtn = pBtn, Perks = perksList }
+			local sec2 = Instance.new("TextLabel", scroll)
+			sec2.LayoutOrder = 30
+			sec2.Size = UDim2.new(1, -6, 0, 22)
+			sec2.BackgroundTransparency = 1
+			sec2.Text = Localization.T(lang, "SEC_DAWN_ZONES")
+			sec2.TextColor3 = THEME.Cyan
+			sec2.TextXAlignment = Enum.TextXAlignment.Left
+			sec2.Font = Enum.Font.GothamBlack
+			sec2.TextSize = 12
+			sec2.ZIndex = 22
+
+			local zonesList = {}
+			for idx, z in ipairs(GameConfig.AlbaZones) do
+				local row = Instance.new("Frame", scroll)
+				row.LayoutOrder = 40 + idx
+				row.Size = UDim2.new(1, -6, 0, 56)
+				row.BackgroundColor3 = THEME.Card
+				row.ZIndex = 22
+				Instance.new("UICorner", row).CornerRadius = UDim.new(0, 10)
+
+				local tLbl = Instance.new("TextLabel", row)
+				tLbl.Position = UDim2.fromOffset(12, 6)
+				tLbl.Size = UDim2.new(1, -150, 0, 18)
+				tLbl.BackgroundTransparency = 1
+				tLbl.TextColor3 = THEME.Cyan
+				tLbl.TextXAlignment = Enum.TextXAlignment.Left
+				tLbl.Font = Enum.Font.GothamBold
+				tLbl.TextSize = 13
+				tLbl.ZIndex = 23
+
+				local dLbl = Instance.new("TextLabel", row)
+				dLbl.Position = UDim2.fromOffset(12, 24)
+				dLbl.Size = UDim2.new(1, -150, 0, 26)
+				dLbl.BackgroundTransparency = 1
+				dLbl.TextColor3 = THEME.TextSub
+				dLbl.TextXAlignment = Enum.TextXAlignment.Left
+				dLbl.TextWrapped = true
+				dLbl.Font = Enum.Font.Gotham
+				dLbl.TextSize = 11
+				dLbl.ZIndex = 23
+
+				local b = Instance.new("TextButton", row)
+				b.AnchorPoint = Vector2.new(1, 0.5)
+				b.Position = UDim2.new(1, -10, 0.5, 0)
+				b.Size = UDim2.fromOffset(126, 36)
+				b.Font = Enum.Font.GothamBlack
+				b.TextSize = 12
+				b.ZIndex = 23
+				Instance.new("UICorner", b).CornerRadius = UDim.new(0, 8)
+				b.MouseButton1Click:Connect(function()
+					remotes.UnlockAlbaZone:FireServer(z.Id)
+				end)
+
+				table.insert(zonesList, { Config = z, Card = row, Title = tLbl, Desc = dLbl, Btn = b })
+			end
+
+			albaRefs = { HeaderInfo = hInfo, Perks = perksList, Zones = zonesList }
 
 		elseif activeTab == "Codes" then
 			local cCard = Instance.new("Frame", scroll)
@@ -571,7 +860,7 @@ function ShopUI.Build(parentGui, remotes)
 			box.Position = UDim2.fromOffset(14, 14)
 			box.Size = UDim2.new(1, -160, 0, 38)
 			box.BackgroundColor3 = Color3.fromRGB(16, 18, 28)
-			box.PlaceholderText = "Codice (es. LUCE100)"
+			box.PlaceholderText = Localization.T(lang, "CODE_PLACEHOLDER")
 			box.Text = ""
 			box.TextColor3 = THEME.TextMain
 			box.Font = Enum.Font.GothamBold
@@ -583,7 +872,7 @@ function ShopUI.Build(parentGui, remotes)
 			statusLbl.Position = UDim2.fromOffset(14, 62)
 			statusLbl.Size = UDim2.new(1, -28, 0, 32)
 			statusLbl.BackgroundTransparency = 1
-			statusLbl.Text = "Codici attivi: LUCE100, FIAMMA, ALBA2026"
+			statusLbl.Text = Localization.T(lang, "CODE_HINT")
 			statusLbl.TextColor3 = THEME.TextSub
 			statusLbl.TextXAlignment = Enum.TextXAlignment.Left
 			statusLbl.Font = Enum.Font.Gotham
@@ -595,7 +884,7 @@ function ShopUI.Build(parentGui, remotes)
 			redeemBtn.Position = UDim2.new(1, -14, 0, 14)
 			redeemBtn.Size = UDim2.fromOffset(126, 38)
 			redeemBtn.BackgroundColor3 = THEME.Green
-			redeemBtn.Text = "RISCATTA"
+			redeemBtn.Text = Localization.T(lang, "CODE_REDEEM")
 			redeemBtn.TextColor3 = Color3.fromRGB(16, 18, 24)
 			redeemBtn.Font = Enum.Font.GothamBlack
 			redeemBtn.TextSize = 12
@@ -624,7 +913,7 @@ function ShopUI.Build(parentGui, remotes)
 		isOpen = val
 		modal.Visible = isOpen
 		if isOpen then
-			if renderedTab ~= activeTab then
+			if renderedTab ~= activeTab or renderedLang ~= getLang() then
 				buildTabStructure()
 			else
 				refreshExistingWidgets()
@@ -646,13 +935,13 @@ function ShopUI.Build(parentGui, remotes)
 	end)
 
 	-- =========================================================================
-	-- SCHERMATA CELEBRATIVA "VITTORIA"
+	-- DAWN CELEBRATION MODAL
 	-- =========================================================================
 	local victoryModal = Instance.new("Frame", parentGui)
 	victoryModal.Name = "VictoryCelebrationModal"
 	victoryModal.AnchorPoint = Vector2.new(0.5, 0.5)
 	victoryModal.Position = UDim2.fromScale(0.5, 0.5)
-	victoryModal.Size = UDim2.fromOffset(440, 230)
+	victoryModal.Size = UDim2.fromOffset(450, 240)
 	victoryModal.BackgroundColor3 = Color3.fromRGB(20, 22, 34)
 	victoryModal.Visible = false
 	victoryModal.ZIndex = 40
@@ -662,49 +951,75 @@ function ShopUI.Build(parentGui, remotes)
 	vStroke.Color = THEME.Gold
 	vStroke.Thickness = 2.4
 
-	local vHead = Instance.new("TextLabel", victoryModal)
-	vHead.Position = UDim2.fromOffset(16, 18)
-	vHead.Size = UDim2.new(1, -32, 0, 34)
+	local vHeader = Instance.new("Frame", victoryModal)
+	vHeader.Size = UDim2.new(1, 0, 0, 44)
+	vHeader.BackgroundTransparency = 1
+	vHeader.ZIndex = 41
+
+	local vHead = Instance.new("TextLabel", vHeader)
+	vHead.Position = UDim2.fromOffset(18, 10)
+	vHead.Size = UDim2.new(1, -64, 0, 28)
 	vHead.BackgroundTransparency = 1
-	vHead.Text = "👑 VITTORIA SUPREMA!"
+	vHead.Text = Localization.T("en", "VICTORY_TITLE")
 	vHead.TextColor3 = THEME.Gold
+	vHead.TextXAlignment = Enum.TextXAlignment.Left
 	vHead.Font = Enum.Font.GothamBlack
-	vHead.TextSize = 20
+	vHead.TextSize = 18
 	vHead.ZIndex = 41
 
+	local vTopClose = createCloseImageButton(vHeader, 42)
+	vTopClose.MouseButton1Click:Connect(function()
+		victoryModal.Visible = false
+	end)
+
 	local vBody = Instance.new("TextLabel", victoryModal)
-	vBody.Position = UDim2.fromOffset(20, 62)
-	vBody.Size = UDim2.new(1, -40, 0, 96)
+	vBody.Position = UDim2.fromOffset(20, 56)
+	vBody.Size = UDim2.new(1, -40, 0, 110)
 	vBody.BackgroundTransparency = 1
-	vBody.Text = "Hai completato tutti i potenziamenti e acceso la Fiamma Suprema!\nPuoi continuare ad esplorare quando vuoi."
+	vBody.Text = ""
 	vBody.TextColor3 = THEME.TextMain
 	vBody.TextWrapped = true
 	vBody.Font = Enum.Font.Gotham
 	vBody.TextSize = 13
 	vBody.ZIndex = 41
 
-	local vClose = Instance.new("TextButton", victoryModal)
-	vClose.AnchorPoint = Vector2.new(0.5, 1)
-	vClose.Position = UDim2.new(0.5, 0, 1, -18)
-	vClose.Size = UDim2.fromOffset(190, 38)
-	vClose.BackgroundColor3 = THEME.Gold
-	vClose.Text = "CONTINUA A GIOCARE"
-	vClose.TextColor3 = Color3.fromRGB(16, 18, 24)
-	vClose.Font = Enum.Font.GothamBlack
-	vClose.TextSize = 12
-	vClose.ZIndex = 41
-	Instance.new("UICorner", vClose).CornerRadius = UDim.new(0, 10)
-	vClose.MouseButton1Click:Connect(function()
+	local vOpenAlba = Instance.new("TextButton", victoryModal)
+	vOpenAlba.AnchorPoint = Vector2.new(0.5, 1)
+	vOpenAlba.Position = UDim2.new(0.5, 0, 1, -18)
+	vOpenAlba.Size = UDim2.fromOffset(210, 38)
+	vOpenAlba.BackgroundColor3 = THEME.Gold
+	vOpenAlba.Text = Localization.T("en", "VICTORY_OPEN_DAWN")
+	vOpenAlba.TextColor3 = Color3.fromRGB(16, 18, 24)
+	vOpenAlba.Font = Enum.Font.GothamBlack
+	vOpenAlba.TextSize = 12
+	vOpenAlba.ZIndex = 41
+	Instance.new("UICorner", vOpenAlba).CornerRadius = UDim.new(0, 10)
+	vOpenAlba.MouseButton1Click:Connect(function()
 		victoryModal.Visible = false
+		activeTab = "Alba"
+		setOpen(true)
 	end)
 
 	return {
 		Update = function(st)
 			latestState = st
+			local lang = getLang()
+
+			homeBtn.Text = Localization.T(lang, "MY_ZONE_BTN")
+			toggleLabel.Text = Localization.T(lang, "CHAR_BTN_TITLE")
+			toggleSub.Text = Localization.T(lang, "CHAR_BTN_SUB")
+			headerTitle.Text = Localization.T(lang, "MODAL_TITLE")
+			vHead.Text = Localization.T(lang, "VICTORY_TITLE")
+			vOpenAlba.Text = Localization.T(lang, "VICTORY_OPEN_DAWN")
+
 			if st.HasDoubleLight then
-				dockBoostBtn.Text = "✅ LUCE x2 ATTIVA"
+				dockBoostBtn.Text = Localization.T(lang, "ROBUX_X2_ACTIVE")
 				dockBoostBtn.TextColor3 = THEME.Green
 				dockBoostStroke.Color = THEME.Green
+			else
+				dockBoostBtn.Text = Localization.T(lang, "ROBUX_X2_BTN")
+				dockBoostBtn.TextColor3 = THEME.Gold
+				dockBoostStroke.Color = THEME.Gold
 			end
 
 			local readyCount = 0
@@ -722,14 +1037,18 @@ function ShopUI.Build(parentGui, remotes)
 			readyBadge.Text = tostring(readyCount)
 
 			if isOpen then
-				if renderedTab ~= activeTab then
+				if renderedTab ~= activeTab or renderedLang ~= lang then
 					buildTabStructure()
 				else
 					refreshExistingWidgets()
 				end
 			end
 		end,
-		ShowVictory = function()
+		ShowVictory = function(st)
+			local lang = getLang()
+			local gained = (st and st.AlbaGained) or 1
+			local totAlba = (st and st.AlbaPoints) or gained
+			vBody.Text = Localization.T(lang, "VICTORY_BODY_FMT", gained, totAlba)
 			victoryModal.Visible = true
 		end,
 	}

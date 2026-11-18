@@ -3,196 +3,167 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local GameConfig = require(ReplicatedStorage:WaitForChild("GameConfig"))
 local EconomyEngine = require(ReplicatedStorage:WaitForChild("EconomyEngine"))
+local Localization = require(ReplicatedStorage:WaitForChild("Localization"))
 
 local Regno1Service = {}
 
+local Regno1Sync = nil
 local PlotsRef = {}
 local PlayerDataRef = {}
-local SyncPlayerCallback = nil
-local Regno1SyncRemote = nil
+local SyncPlayerFn = nil
 
--- Stato individuale per singolo giocatore (100% isolato in multiplayer)
-local PlayerTrials = {} -- [userId] = { Active = bool, CurrentStep = 1..5, TimeLeft = float, TotalTime = float, Cooldown = float, BuffMult = 1.0, BuffRem = 0 }
+local ActiveTrials = {} -- [userId] = { Step = 2, TimeLeft = 18.0 }
+local ActiveBuffs = {}  -- [userId] = { Mult = 1.8, ExpiresAt = os.clock() + 30 }
+local Cooldowns = {}    -- [userId] = os.clock()
 
-local function getOrCreateState(userId)
-	local st = PlayerTrials[userId]
-	if not st then
-		st = {
-			Active = false,
-			CurrentStep = 1,
-			TimeLeft = 0,
-			TotalTime = 0,
-			Cooldown = 0,
-			BuffMult = 1.0,
-			BuffRem = 0,
-		}
-		PlayerTrials[userId] = st
-	end
-	return st
-end
-
-function Regno1Service.Init(remotesFolder, plotsOrRitual, playerDataMap, syncCallback)
-	PlotsRef = (type(plotsOrRitual) == "table") and plotsOrRitual or {}
-	PlayerDataRef = playerDataMap or {}
-	SyncPlayerCallback = syncCallback
-
-	Regno1SyncRemote = Instance.new("RemoteEvent", remotesFolder)
-	Regno1SyncRemote.Name = "Regno1Sync"
-
-	Players.PlayerRemoving:Connect(function(plr)
-		PlayerTrials[plr.UserId] = nil
-	end)
+local function getLang(data)
+	return (data and data.Language) or "en"
 end
 
 function Regno1Service.GetActiveBuff(userId)
-	local st = PlayerTrials[userId]
-	if st and st.BuffRem > 0 then
-		return st.BuffMult, st.BuffRem
+	local b = ActiveBuffs[userId]
+	if not b then return 1.0, 0 end
+	local rem = b.ExpiresAt - os.clock()
+	if rem <= 0 then
+		ActiveBuffs[userId] = nil
+		return 1.0, 0
 	end
-	return 1.0, 0
+	return b.Mult, rem
 end
 
 function Regno1Service.SyncPlayer(player)
-	if not player or not Regno1SyncRemote then return end
+	if not Regno1Sync or not player then return end
 	local data = PlayerDataRef[player.UserId]
 	local unlocked = data and (EconomyEngine.GetLevel(data.Upgrades, GameConfig.Regno1.UnlockUpgradeId) > 0) or false
-	local st = getOrCreateState(player.UserId)
+	local trial = ActiveTrials[player.UserId]
+	local buffMult, buffRem = Regno1Service.GetActiveBuff(player.UserId)
 
-	Regno1SyncRemote:FireClient(player, {
+	Regno1Sync:FireClient(player, {
 		Unlocked = unlocked,
-		Active = st.Active,
-		CurrentStep = st.CurrentStep,
+		Active = trial ~= nil,
+		CurrentStep = trial and trial.Step or 1,
 		TotalSteps = #GameConfig.Regno1.Braziers,
-		TimeLeft = st.TimeLeft,
-		TotalTime = st.TotalTime,
-		Cooldown = st.Cooldown,
-		BuffMult = st.BuffRem > 0 and st.BuffMult or 1.0,
-		BuffRemaining = st.BuffRem,
+		TimeLeft = trial and trial.TimeLeft or 0,
+		BuffMult = buffMult,
+		BuffRemaining = buffRem,
 	})
 end
 
-function Regno1Service.Tick(dt)
-	local cfg = GameConfig.Regno1
-	local braziers = cfg.Braziers
-	local totalBraziers = #braziers
+function Regno1Service.Init(remotesFolder, plots, playerData, syncPlayerCallback)
+	PlotsRef = plots
+	PlayerDataRef = playerData
+	SyncPlayerFn = syncPlayerCallback
 
-	for _, plr in ipairs(Players:GetPlayers()) do
-		local userId = plr.UserId
-		local data = PlayerDataRef[userId]
-		if data then
-			local st = getOrCreateState(userId)
-			local dirty = false
+	Regno1Sync = Instance.new("RemoteEvent", remotesFolder)
+	Regno1Sync.Name = "Regno1Sync"
 
-			-- Aggiorna timer benedizione attiva
-			if st.BuffRem > 0 then
-				st.BuffRem = math.max(0, st.BuffRem - dt)
-				if st.BuffRem == 0 then
-					st.BuffMult = 1.0
-				end
-				dirty = true
-			end
+	local braziers = GameConfig.Regno1.Braziers
 
-			-- Aggiorna cooldown dopo fallimento
-			if st.Cooldown > 0 then
-				st.Cooldown = math.max(0, st.Cooldown - dt)
-				dirty = true
-			end
+	for _, plot in ipairs(plots) do
+		for _, b in ipairs(braziers) do
+			local ped = plot.RitualFolder and plot.RitualFolder:FindFirstChild("Brazier_" .. b.Index)
+			if ped then
+				ped.Touched:Connect(function(hit)
+					local plr = Players:GetPlayerFromCharacter(hit.Parent)
+					if not plr or plot.Owner ~= plr then return end
 
-			local unlocked = EconomyEngine.GetLevel(data.Upgrades, cfg.UnlockUpgradeId) > 0
-			local plotIndex = plr:GetAttribute("PlotIndex")
-			local plot = plotIndex and PlotsRef[plotIndex]
-			local hrp = plr.Character and plr.Character:FindFirstChild("HumanoidRootPart")
+					local data = PlayerDataRef[plr.UserId]
+					if not data then return end
+					if EconomyEngine.GetLevel(data.Upgrades, GameConfig.Regno1.UnlockUpgradeId) <= 0 then
+						return
+					end
 
-			if unlocked and plot and hrp and st.Cooldown <= 0 then
-				if st.Active then
-					st.TimeLeft -= dt
-					dirty = true
+					local lang = getLang(data)
+					local now = os.clock()
+					local trial = ActiveTrials[plr.UserId]
 
-					if st.TimeLeft <= 0 then
-						st.Active = false
-						st.CurrentStep = 1
-						st.TimeLeft = 0
-						st.Cooldown = cfg.RetryCooldown or 3.5
-						if SyncPlayerCallback then
-							SyncPlayerCallback(plr, {
-								PopupText = "⌛ Tempo scaduto nella Catena del Fuoco! Riprova dal Braciere I.",
-							})
+					if not trial then
+						if b.Index == 1 then
+							if Cooldowns[plr.UserId] and (now - Cooldowns[plr.UserId] < GameConfig.Regno1.RetryCooldown) then
+								return
+							end
+							ActiveTrials[plr.UserId] = {
+								Step = 2,
+								TimeLeft = GameConfig.Regno1.BaseTime,
+							}
+							Regno1Service.SyncPlayer(plr)
+							if SyncPlayerFn then
+								SyncPlayerFn(plr, {
+									SoundCue = "Upgrade",
+									PopupText = Localization.T(lang, "R1_START"),
+								})
+							end
 						end
 					else
-						local targetBrazier = braziers[st.CurrentStep]
-						if targetBrazier then
-							local worldPos = plot.Origin + targetBrazier.Pos
-							local dist = (Vector3.new(hrp.Position.X, 0, hrp.Position.Z) - Vector3.new(worldPos.X, 0, worldPos.Z)).Magnitude
-							if dist <= (cfg.IgniteRadius or 11.5) then
-								if st.CurrentStep < totalBraziers then
-									st.CurrentStep += 1
-									st.TimeLeft += (cfg.BonusTimePerBrazier or 2.5)
-									st.TotalTime += (cfg.BonusTimePerBrazier or 2.5)
-									if SyncPlayerCallback then
-										SyncPlayerCallback(plr, {
-											SoundCue = "Click",
-											PopupText = string.format("🔥 Braciere %s acceso! (+%.1fs)", targetBrazier.Numeral, cfg.BonusTimePerBrazier or 2.5),
-										})
-									end
-								else
-									-- Completato Braciere V!
-									local elapsed = math.max(1.0, st.TotalTime - st.TimeLeft)
-									local speedRatio = math.clamp(st.TimeLeft / math.max(1, st.TotalTime), 0, 1)
-									local mult = cfg.BuffMinMult + (cfg.BuffMaxMult - cfg.BuffMinMult) * speedRatio
-									mult = math.floor(mult * 100 + 0.5) / 100
+						if b.Index == trial.Step then
+							if b.Index >= #braziers then
+								-- Completed Chain of Fire!
+								ActiveTrials[plr.UserId] = nil
+								Cooldowns[plr.UserId] = now
+								data.Regno1.Completed = true
+								data.Regno1.Completions = (data.Regno1.Completions or 0) + 1
 
-									st.Active = false
-									st.CurrentStep = 1
-									st.TimeLeft = 0
-									st.BuffMult = mult
-									st.BuffRem = cfg.BuffDuration or 30.0
+								local mult = GameConfig.Regno1.BuffMinMult + math.random() * (GameConfig.Regno1.BuffMaxMult - GameConfig.Regno1.BuffMinMult)
+								mult = math.floor(mult * 100 + 0.5) / 100
+								ActiveBuffs[plr.UserId] = {
+									Mult = mult,
+									ExpiresAt = now + GameConfig.Regno1.BuffDuration,
+								}
 
-									data.Regno1 = data.Regno1 or { Completed = false, Completions = 0, BestTime = nil }
-									data.Regno1.Completed = true
-									data.Regno1.Completions = (data.Regno1.Completions or 0) + 1
-									if not data.Regno1.BestTime or elapsed < data.Regno1.BestTime then
-										data.Regno1.BestTime = math.floor(elapsed * 10 + 0.5) / 10
-									end
-
-									if SyncPlayerCallback then
-										SyncPlayerCallback(plr, {
-											SoundCue = "Prestige",
-											Shockwave = true,
-											PopupText = string.format("🏆 CATENA DEL FUOCO COMPLETATA! Benedizione x%.2f (%ds)!", mult, math.floor(st.BuffRem)),
-										})
-									end
+								Regno1Service.SyncPlayer(plr)
+								if SyncPlayerFn then
+									SyncPlayerFn(plr, {
+										SoundCue = "Prestige",
+										Shockwave = true,
+										PopupText = Localization.T(lang, "R1_WIN_FMT", mult),
+									})
+								end
+							else
+								trial.Step += 1
+								trial.TimeLeft += GameConfig.Regno1.BonusTimePerBrazier
+								local nextCfg = braziers[trial.Step]
+								Regno1Service.SyncPlayer(plr)
+								if SyncPlayerFn then
+									SyncPlayerFn(plr, {
+										SoundCue = "Click",
+										PopupText = Localization.T(lang, "R1_STEP_FMT", b.Numeral, GameConfig.Regno1.BonusTimePerBrazier, nextCfg and nextCfg.Numeral or "V"),
+									})
 								end
 							end
 						end
 					end
-				else
-					-- Controlla se il giocatore tocca il Braciere I della propria Zona per iniziare
-					local firstBrazier = braziers[1]
-					if firstBrazier then
-						local startPos = plot.Origin + firstBrazier.Pos
-						local dist = (Vector3.new(hrp.Position.X, 0, hrp.Position.Z) - Vector3.new(startPos.X, 0, startPos.Z)).Magnitude
-						if dist <= (cfg.IgniteRadius or 11.5) then
-							st.Active = true
-							st.CurrentStep = 2
-							st.TimeLeft = cfg.BaseTime or 18.0
-							st.TotalTime = cfg.BaseTime or 18.0
-							dirty = true
-							if SyncPlayerCallback then
-								SyncPlayerCallback(plr, {
-									SoundCue = "Upgrade",
-									PopupText = "🏃 CATENA DEL FUOCO AVVIATA! Corri al Braciere II!",
-								})
-							end
-						end
-					end
-				end
-			end
-
-			if dirty then
-				Regno1Service.SyncPlayer(plr)
+				end)
 			end
 		end
 	end
 end
+
+function Regno1Service.Tick(dt)
+	for userId, trial in pairs(ActiveTrials) do
+		trial.TimeLeft -= dt
+		local plr = Players:GetPlayerByUserId(userId)
+		if not plr then
+			ActiveTrials[userId] = nil
+		elseif trial.TimeLeft <= 0 then
+			ActiveTrials[userId] = nil
+			Cooldowns[userId] = os.clock()
+			local data = PlayerDataRef[userId]
+			Regno1Service.SyncPlayer(plr)
+			if SyncPlayerFn then
+				SyncPlayerFn(plr, {
+					PopupText = Localization.T(getLang(data), "R1_FAIL"),
+				})
+			end
+		else
+			Regno1Service.SyncPlayer(plr)
+		end
+	end
+end
+
+Players.PlayerRemoving:Connect(function(plr)
+	ActiveTrials[plr.UserId] = nil
+	ActiveBuffs[plr.UserId] = nil
+	Cooldowns[plr.UserId] = nil
+end)
 
 return Regno1Service

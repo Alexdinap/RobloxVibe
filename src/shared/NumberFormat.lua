@@ -1,9 +1,7 @@
 local NumberFormat = {}
 
 local SUFFIXES = {
-	"", "K", "M", "B", "T",
-	"Qa", "Qi", "Sx", "Sp", "Oc", "No",
-	"Dc", "Ud", "Dd", "Td", "Qad", "Qid", "Sxd", "Spd", "Ocd", "Nod", "Vg"
+	"", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc"
 }
 
 function NumberFormat.Format(n)
@@ -14,10 +12,7 @@ function NumberFormat.Format(n)
 		return "-" .. NumberFormat.Format(-n)
 	end
 	if n < 1000 then
-		if n < 10 and math.abs(n - math.floor(n)) >= 0.05 then
-			return string.format("%.1f", n)
-		end
-		return tostring(math.floor(n + 0.5))
+		return tostring(math.floor(n + 1e-6))
 	end
 
 	local tier = math.floor(math.log10(n) / 3)
@@ -29,17 +24,20 @@ function NumberFormat.Format(n)
 	local scaled = n / scale
 
 	if scaled >= 100 then
-		return string.format("%.1f%s", scaled, SUFFIXES[tier + 1])
+		return string.format("%d%s", math.floor(scaled + 1e-6), SUFFIXES[tier + 1])
+	elseif scaled >= 10 then
+		local v = math.floor(scaled * 10 + 1e-6) / 10
+		if v % 1 == 0 then
+			return string.format("%d%s", v, SUFFIXES[tier + 1])
+		end
+		return string.format("%.1f%s", v, SUFFIXES[tier + 1])
 	else
-		return string.format("%.2f%s", scaled, SUFFIXES[tier + 1])
+		local v = math.floor(scaled * 100 + 1e-6) / 100
+		if v % 1 == 0 then
+			return string.format("%d%s", v, SUFFIXES[tier + 1])
+		end
+		return string.format("%.2f%s", v, SUFFIXES[tier + 1])
 	end
-end
-
-function NumberFormat.FormatTime(seconds)
-	seconds = math.max(0, math.floor(seconds or 0))
-	local m = math.floor(seconds / 60)
-	local s = seconds % 60
-	return string.format("%02d:%02d", m, s)
 end
 
 return NumberFormat
