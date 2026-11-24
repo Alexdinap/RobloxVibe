@@ -560,6 +560,7 @@ task.spawn(function()
 					if (not wasAllDone) and stats.AllUpgradesCompleted then
 						triggerShockwave = true
 						customPopup = Localization.T(lang, "POP_ALL_MAXED")
+						ShadowDefenseService.ClearShadowsForPlot(plot.Index)
 					end
 
 					syncPlayer(owner, {
@@ -607,6 +608,10 @@ BuyUpgrade.OnServerEvent:Connect(function(player, upgId)
 		local popup = nil
 		if (not wasAllDone) and nowAllDone then
 			popup = Localization.T(lang, "POP_ALL_MAXED")
+			local plot = PlayerPlotMap[player.UserId]
+			if plot then
+				ShadowDefenseService.ClearShadowsForPlot(plot.Index)
+			end
 		elseif target.Id == "u_braziers" then
 			popup = Localization.T(lang, "POP_R1_UNLOCKED")
 			Regno1Service.SyncPlayer(player)
@@ -635,6 +640,15 @@ BuyWeapon.OnServerEvent:Connect(function(player, wepId)
 	if data.OwnedWeapons[target.Id] == true then return end
 	local lang = getLang(data)
 
+	-- Controllo requisito rinascita (es. 3ª arma)
+	if target.ReqAlba and (data.AlbaCount or 0) < target.ReqAlba then
+		local reqMsg = lang == "it"
+			and string.format("Serve almeno %d Rinascita dell'Alba!", target.ReqAlba)
+			or string.format("Requires at least %d Dawn Rebirth!", target.ReqAlba)
+		syncPlayer(player, { PopupText = reqMsg })
+		return
+	end
+
 	if data.Points >= target.Cost then
 		data.Points -= target.Cost
 		data.OwnedWeapons[target.Id] = true
@@ -661,13 +675,35 @@ BuyDefense.OnServerEvent:Connect(function(player, defId)
 	end
 	if not target then return end
 
+	-- Controllo sblocco potenziamenti torretta (richiede almeno 1 torretta)
+	if target.ReqDefenseId then
+		local reqLvl = EconomyEngine.GetLevel(data.Defenses, target.ReqDefenseId)
+		if reqLvl < (target.ReqDefenseLvl or 1) then
+			return
+		end
+	end
+
 	local cur = EconomyEngine.GetLevel(data.Defenses, target.Id)
 	if cur >= target.MaxLevel then return end
 
 	local lang = getLang(data)
-	local cost = math.floor(target.BaseCost * (target.CostMult ^ cur))
-	if data.Points >= cost then
-		data.Points -= cost
+	local costInfo = GameConfig.GetDefenseCost(target, cur)
+	local needPoints = costInfo.Points or 0
+	local needAlba = costInfo.Alba or 0
+
+	if (data.AlbaPoints or 0) < needAlba then
+		local albaMsg = lang == "it"
+			and string.format("Servono %d Punti Alba!", needAlba)
+			or string.format("Requires %d Dawn Points!", needAlba)
+		syncPlayer(player, { PopupText = albaMsg })
+		return
+	end
+
+	if data.Points >= needPoints then
+		data.Points -= needPoints
+		if needAlba > 0 then
+			data.AlbaPoints = (data.AlbaPoints or 0) - needAlba
+		end
 		local nextLvl = cur + 1
 		data.Defenses[target.Id] = nextLvl
 
@@ -683,7 +719,7 @@ BuyDefense.OnServerEvent:Connect(function(player, defId)
 		})
 	else
 		syncPlayer(player, {
-			PopupText = Localization.T(lang, "POP_NEED_LIGHT", NumberFormat.Format(cost)),
+			PopupText = Localization.T(lang, "POP_NEED_LIGHT", NumberFormat.Format(needPoints)),
 		})
 	end
 end)

@@ -278,6 +278,8 @@ function ShopUI.Build(parentGui, remotes)
 		local lang = getLang()
 		local lightUnit = Localization.T(lang, "LIGHT_UNIT")
 		local points = st.Points or 0
+		local albaPts = st.AlbaPoints or 0
+		local albaCount = st.AlbaCount or 0
 
 		if renderedTab == "Character" then
 			for _, ref in ipairs(charCardRefs) do
@@ -307,25 +309,48 @@ function ShopUI.Build(parentGui, remotes)
 			for _, wRef in ipairs(defenseRefs.Weapons) do
 				local w = wRef.Config
 				local owned = ownedWeapons[w.Id] == true
-				local canBuy = (not owned) and points >= w.Cost
+				local reqAlba = w.ReqAlba or 0
+				local albaLocked = (not owned) and (albaCount < reqAlba)
+				local canBuy = (not owned) and (not albaLocked) and points >= w.Cost
 				local wName = Localization.Pick(lang, w.Name, w.Name_it)
 				local wTag = Localization.Pick(lang, w.Tag, w.Tag_it)
 				local wDesc = Localization.Pick(lang, w.Desc, w.Desc_it)
 
-				wRef.Card.BackgroundColor3 = owned and Color3.fromRGB(24, 42, 36) or THEME.Card
-				wRef.Title.Text = string.format("%s %s (%s)", w.Icon, wName, wTag)
-				wRef.Desc.Text = wDesc
-				wRef.Btn.BackgroundColor3 = owned and Color3.fromRGB(35, 65, 52) or (canBuy and THEME.Gold or Color3.fromRGB(36, 40, 56))
-				wRef.Btn.Text = owned and Localization.T(lang, "BTN_EQUIPPED") or (NumberFormat.Format(w.Cost) .. " " .. lightUnit)
-				wRef.Btn.TextColor3 = canBuy and Color3.fromRGB(16, 18, 24) or THEME.TextMain
+				if albaLocked then
+					wRef.Card.BackgroundColor3 = THEME.CardLocked
+					wRef.Title.Text = string.format("🔒 %s (%s)", wName, wTag)
+					wRef.Desc.Text = wDesc
+					wRef.Btn.BackgroundColor3 = Color3.fromRGB(36, 40, 56)
+					wRef.Btn.Text = (lang == "it") and ("🔒 " .. reqAlba .. " Rinascita") or ("🔒 " .. reqAlba .. " Rebirth")
+					wRef.Btn.TextColor3 = THEME.TextSub
+				else
+					wRef.Card.BackgroundColor3 = owned and Color3.fromRGB(24, 42, 36) or THEME.Card
+					wRef.Title.Text = string.format("%s %s (%s)", w.Icon, wName, wTag)
+					wRef.Desc.Text = wDesc
+					wRef.Btn.BackgroundColor3 = owned and Color3.fromRGB(35, 65, 52) or (canBuy and THEME.Gold or Color3.fromRGB(36, 40, 56))
+					wRef.Btn.Text = owned and Localization.T(lang, "BTN_EQUIPPED") or (NumberFormat.Format(w.Cost) .. " " .. lightUnit)
+					wRef.Btn.TextColor3 = canBuy and Color3.fromRGB(16, 18, 24) or THEME.TextMain
+				end
 			end
 
 			for _, dRef in ipairs(defenseRefs.Structures) do
 				local d = dRef.Config
+
+				-- Nasconde i potenziamenti delle torrette finché non viene comprata la 1ª torretta
+				if d.ReqDefenseId then
+					local reqLvl = EconomyEngine.GetLevel(st.Defenses, d.ReqDefenseId)
+					dRef.Card.Visible = reqLvl >= (d.ReqDefenseLvl or 1)
+				else
+					dRef.Card.Visible = true
+				end
+
 				local lvl = EconomyEngine.GetLevel(st.Defenses, d.Id)
 				local maxed = lvl >= d.MaxLevel
-				local cost = math.floor(d.BaseCost * (d.CostMult ^ lvl))
-				local canBuy = (not maxed) and points >= cost
+				local costInfo = GameConfig.GetDefenseCost(d, lvl)
+				local needPts = costInfo.Points or 0
+				local needAlba = costInfo.Alba or 0
+				local canBuy = (not maxed) and (points >= needPts) and (albaPts >= needAlba)
+
 				local dName = Localization.Pick(lang, d.Name, d.Name_it)
 				local dTag = Localization.Pick(lang, d.Tag, d.Tag_it)
 				local dDesc = Localization.Pick(lang, d.Desc, d.Desc_it)
@@ -333,7 +358,13 @@ function ShopUI.Build(parentGui, remotes)
 				dRef.Title.Text = string.format("%s %s  [Lv.%d/%d]", d.Icon, dName, lvl, d.MaxLevel)
 				dRef.Desc.Text = dTag .. " — " .. dDesc
 				dRef.Btn.BackgroundColor3 = maxed and Color3.fromRGB(35, 55, 45) or (canBuy and THEME.Cyan or Color3.fromRGB(36, 40, 56))
-				dRef.Btn.Text = maxed and Localization.T(lang, "BTN_MAXED") or (NumberFormat.Format(cost) .. " " .. lightUnit)
+				if maxed then
+					dRef.Btn.Text = Localization.T(lang, "BTN_MAXED")
+				elseif needAlba > 0 then
+					dRef.Btn.Text = string.format("%s %s\n+ %d 🌅", NumberFormat.Format(needPts), lightUnit, needAlba)
+				else
+					dRef.Btn.Text = NumberFormat.Format(needPts) .. " " .. lightUnit
+				end
 				dRef.Btn.TextColor3 = canBuy and Color3.fromRGB(16, 18, 24) or THEME.TextMain
 			end
 
@@ -366,14 +397,13 @@ function ShopUI.Build(parentGui, remotes)
 			end
 
 		elseif renderedTab == "Alba" and albaRefs then
-			local albaPts = st.AlbaPoints or 0
 			local rewardPerRebirth = st.AlbaRewardPerRebirth or 1
 			local dawnUnit = Localization.T(lang, "DAWN_PT_UNIT")
 			local statusTxt = st.AllUpgradesCompleted
 				and Localization.T(lang, "DAWN_STATUS_READY", rewardPerRebirth)
 				or Localization.T(lang, "DAWN_STATUS_PROG", st.CompletedUpgradesCount or 0, st.TotalUpgradesCount or 20, rewardPerRebirth)
 
-			albaRefs.HeaderInfo.Text = Localization.T(lang, "DAWN_HEADER_FMT", albaPts, st.AlbaCount or 0, statusTxt)
+			albaRefs.HeaderInfo.Text = Localization.T(lang, "DAWN_HEADER_FMT", albaPts, albaCount, statusTxt)
 
 			for _, apRef in ipairs(albaRefs.Perks) do
 				local ap = apRef.Config
@@ -549,7 +579,7 @@ function ShopUI.Build(parentGui, remotes)
 				b.Position = UDim2.new(1, -10, 0.5, 0)
 				b.Size = UDim2.fromOffset(126, 36)
 				b.Font = Enum.Font.GothamBlack
-				b.TextSize = 12
+				b.TextSize = 11
 				b.ZIndex = 23
 				Instance.new("UICorner", b).CornerRadius = UDim.new(0, 8)
 				b.MouseButton1Click:Connect(function()
@@ -605,7 +635,8 @@ function ShopUI.Build(parentGui, remotes)
 				b.Position = UDim2.new(1, -10, 0.5, 0)
 				b.Size = UDim2.fromOffset(126, 36)
 				b.Font = Enum.Font.GothamBlack
-				b.TextSize = 12
+				b.TextSize = 11
+				b.TextWrapped = true
 				b.ZIndex = 23
 				Instance.new("UICorner", b).CornerRadius = UDim.new(0, 8)
 				b.MouseButton1Click:Connect(function()

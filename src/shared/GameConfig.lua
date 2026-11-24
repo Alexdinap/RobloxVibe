@@ -173,7 +173,7 @@ GameConfig.Weapons = {
 		Tag = "2 DMG • 20 Studs AoE", Tag_it = "2 DANNI • Area 20 Stud",
 		Desc = "A sacred torch that unleashes a solar flare burst against nearby Shadows.",
 		Desc_it = "Torcia sacra che sprigiona un'esplosione solare contro le Ombre vicine.",
-		Cost = 150,
+		Cost = 200,
 		Damage = 2,
 		Range = 20,
 		Cooldown = 0.45,
@@ -184,10 +184,10 @@ GameConfig.Weapons = {
 		Order = 2,
 		Icon = "🏮",
 		Name = "Radiant Lantern", Name_it = "Lanterna Radiosa",
-		Tag = "5 DMG • 38 Studs Beam", Tag_it = "5 DANNI • Raggio 38 Stud",
-		Desc = "Fires a focused beam of pure light that pierces distant Shadows.",
-		Desc_it = "Spara un raggio concentrato di luce pura che colpisce le Ombre a distanza.",
-		Cost = 3500,
+		Tag = "5 DMG • Chain & Slow", Tag_it = "5 DANNI • Catena & Rallenta",
+		Desc = "Chains pure light across up to 3 Shadows and slows their movement.",
+		Desc_it = "Colpisce a catena fino a 3 Ombre con luce pura e le rallenta.",
+		Cost = 55000, -- Prezzo molto più alto
 		Damage = 5,
 		Range = 38,
 		Cooldown = 0.50,
@@ -198,10 +198,11 @@ GameConfig.Weapons = {
 		Order = 3,
 		Icon = "🗡️",
 		Name = "Dawnblade", Name_it = "Lama dell'Alba",
-		Tag = "14 DMG • 30 Studs Slash", Tag_it = "14 DANNI • Fendente 30 Stud",
-		Desc = "Legendary blade of light that cleaves all Shadows in a wide arc.",
-		Desc_it = "Spada leggendaria di luce che spazza via tutte le Ombre in un ampio raggio.",
-		Cost = 65000,
+		Tag = "14 DMG • 1 Rebirth Req", Tag_it = "14 DANNI • Richiede 1 Rinascita",
+		Desc = "Legendary blade of light forged after your first Dawn Rebirth.",
+		Desc_it = "Spada leggendaria forgiata dopo la tua prima Rinascita dell'Alba.",
+		Cost = 250000,
+		ReqAlba = 1, -- Acquistabile solo dopo almeno 1 rinascita
 		Damage = 14,
 		Range = 30,
 		Cooldown = 0.40,
@@ -210,34 +211,68 @@ GameConfig.Weapons = {
 }
 
 -- =========================================================================
--- LIGHTWEIGHT PURCHASABLE DEFENSE STRUCTURES (Walls & Turrets)
+-- DEFENSE STRUCTURES (Turrets & Turret Upgrades - Walls Removed)
 -- =========================================================================
 GameConfig.Defenses = {
 	{
-		Id = "def_walls",
-		Order = 1,
-		Icon = "🧱",
-		Name = "Light Walls", Name_it = "Muri di Luce",
-		Tag = "+1 Barrier Wall & Burn DMG", Tag_it = "+1 Barriera Solare & Danno",
-		Desc = "Builds glowing solar barriers around your Brazier (up to 4) that slow and burn Shadows.",
-		Desc_it = "Costruisce barriere solari attorno al Braciere (fino a 4) che rallentano e bruciano le Ombre.",
-		BaseCost = 400,
-		CostMult = 3.2,
-		MaxLevel = 4,
-	},
-	{
 		Id = "def_turrets",
-		Order = 2,
+		Order = 1,
 		Icon = "🗼",
 		Name = "Solar Turrets", Name_it = "Torrette Solari",
-		Tag = "+1 Auto-Turret & Laser DMG", Tag_it = "+1 Torretta Auto & Danno Laser",
-		Desc = "Constructs crystal sentinel turrets (up to 4) that automatically shoot lasers at invading Shadows.",
-		Desc_it = "Costruisce torrette cristalline (fino a 4) che sparano automaticamente laser alle Ombre.",
-		BaseCost = 1200,
-		CostMult = 3.5,
+		Tag = "+1 Auto-Turret", Tag_it = "+1 Torretta Automatica",
+		Desc = "Builds crystal sentinel turrets (up to 4). From the 2nd onwards they also cost Dawn Points.",
+		Desc_it = "Costruisce torrette sentinella (fino a 4). Dalla 2ª in poi richiedono anche Punti Alba.",
 		MaxLevel = 4,
+		-- Costi per ciascuna delle 4 torrette: 1ª accessibile, dalla 2ª costi molto alti + Punti Alba crescenti
+		LevelCosts = {
+			{ Points = 1200,    Alba = 0 },
+			{ Points = 85000,   Alba = 1 },
+			{ Points = 750000,  Alba = 3 },
+			{ Points = 6500000, Alba = 6 },
+		},
+	},
+	{
+		Id = "def_turret_dmg",
+		Order = 2,
+		Icon = "💥",
+		Name = "Turret Beam Power", Name_it = "Potenza Raggio Torrette",
+		Tag = "+0.85 Turret DMG", Tag_it = "+0.85 Danno Torrette",
+		Desc = "Increases the laser damage dealt by all your Solar Turrets.",
+		Desc_it = "Aumenta il danno dei raggi laser di tutte le tue Torrette Solari.",
+		BaseCost = 2500,
+		CostMult = 2.35,
+		MaxLevel = 15,
+		ReqDefenseId = "def_turrets",
+		ReqDefenseLvl = 1, -- Compare solo dopo aver comprato la prima torretta
+	},
+	{
+		Id = "def_turret_spd",
+		Order = 3,
+		Icon = "⚡",
+		Name = "Turret Fire Rate", Name_it = "Velocità Torrette",
+		Tag = "+15% Attack Speed & Range", Tag_it = "+15% Velocità & Gittata",
+		Desc = "Makes all your Solar Turrets fire faster and target Shadows from farther away.",
+		Desc_it = "Rende tutte le Torrette Solari più veloci nello sparare e aumenta la gittata.",
+		BaseCost = 3000,
+		CostMult = 2.45,
+		MaxLevel = 12,
+		ReqDefenseId = "def_turrets",
+		ReqDefenseLvl = 1, -- Compare solo dopo aver comprato la prima torretta
 	},
 }
+
+-- Helper unico usato da Server e UI per calcolare il costo in Punti Luce + Punti Alba
+function GameConfig.GetDefenseCost(defCfg, currentLevel)
+	if defCfg.LevelCosts then
+		local entry = defCfg.LevelCosts[currentLevel + 1]
+		if entry then
+			return { Points = entry.Points or 0, Alba = entry.Alba or 0 }
+		end
+		return { Points = 0, Alba = 0 }
+	end
+	local pts = math.floor((defCfg.BaseCost or 1000) * ((defCfg.CostMult or 2) ^ currentLevel))
+	return { Points = pts, Alba = 0 }
+end
 
 -- Realm 1 Speed Trial Configuration
 GameConfig.Regno1 = {

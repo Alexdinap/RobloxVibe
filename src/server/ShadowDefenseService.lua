@@ -17,7 +17,6 @@ local CalculateStatsFn = nil
 local DefenseFxEvent = nil
 
 local ActiveShadows = {}
-local BuiltWallNodes = {}
 local BuiltTurrets = {}
 local RaidAnnounceCooldown = {}
 
@@ -26,12 +25,12 @@ local SHADOW_TYPES = {
 		Id = "wisp",
 		Name_en = "Void Wisp",
 		Name_it = "Ombra Errante",
-		MaxHP = 2,
-		Speed = 5.5,
-		Size = 3.2,
-		DrainPct = 0.02,
-		MinDrain = 5,
-		RewardMult = 12,
+		MaxHP = 6,          -- Potenziata: più vita
+		Speed = 5.4,
+		Size = 3.4,
+		DrainPct = 0.045,   -- Potenziata: fa più danni (drena più Punti Luce)
+		MinDrain = 24,
+		RewardMult = 18,
 		Color = Color3.fromRGB(32, 14, 58),
 		LightColor = Color3.fromRGB(165, 65, 255),
 	},
@@ -39,12 +38,12 @@ local SHADOW_TYPES = {
 		Id = "stalker",
 		Name_en = "Dusk Stalker",
 		Name_it = "Ombra Predatrice",
-		MaxHP = 6,
-		Speed = 8.2,
-		Size = 3.8,
-		DrainPct = 0.04,
-		MinDrain = 25,
-		RewardMult = 26,
+		MaxHP = 2,          -- Meno vita, ma spawna molto più spesso
+		Speed = 8.8,
+		Size = 3.6,
+		DrainPct = 0.03,
+		MinDrain = 14,
+		RewardMult = 15,
 		Color = Color3.fromRGB(55, 12, 42),
 		LightColor = Color3.fromRGB(235, 55, 140),
 	},
@@ -52,12 +51,12 @@ local SHADOW_TYPES = {
 		Id = "brute",
 		Name_en = "Abyssal Brute",
 		Name_it = "Colosso d'Ombra",
-		MaxHP = 18,
+		MaxHP = 24,         -- Arriva dalla 2ª rinascita
 		Speed = 2.6,
 		Size = 5.8,
-		DrainPct = 0.07,
-		MinDrain = 80,
-		RewardMult = 65,
+		DrainPct = 0.08,
+		MinDrain = 95,
+		RewardMult = 75,
 		Color = Color3.fromRGB(20, 8, 32),
 		LightColor = Color3.fromRGB(255, 110, 40),
 	},
@@ -65,24 +64,17 @@ local SHADOW_TYPES = {
 		Id = "siphon",
 		Name_en = "Void Siphon",
 		Name_it = "Sifone d'Ombra",
-		MaxHP = 8,
+		MaxHP = 9,          -- Arriva dalla 1ª rinascita
 		Speed = 4.2,
 		Size = 4.0,
 		StopRange = 22,
-		DrainInterval = 2.2,
-		DrainPct = 0.015,
-		MinDrain = 12,
-		RewardMult = 38,
+		DrainInterval = 2.1,
+		DrainPct = 0.02,
+		MinDrain = 16,
+		RewardMult = 42,
 		Color = Color3.fromRGB(14, 28, 46),
 		LightColor = Color3.fromRGB(0, 215, 255),
 	},
-}
-
-local WALL_SLOTS = {
-	{ Dir = Vector3.new(0, 0, 1),  RotY = 0 },
-	{ Dir = Vector3.new(0, 0, -1), RotY = 0 },
-	{ Dir = Vector3.new(1, 0, 0),  RotY = 90 },
-	{ Dir = Vector3.new(-1, 0, 0), RotY = 90 },
 }
 
 local TURRET_SLOTS = {
@@ -94,6 +86,12 @@ local TURRET_SLOTS = {
 
 local function getLang(data)
 	return (data and data.Language) or "en"
+end
+
+-- Quando il braciere è completo, tutto il mondo è illuminato e le ombre non spawnano più
+local function isBrazierComplete(data)
+	if not data then return false end
+	return EconomyEngine.GetUpgradeCompletion(data) == true
 end
 
 local function makePart(props)
@@ -125,60 +123,30 @@ local function weldAttachmentPart(handle, props, offsetCFrame)
 	return p
 end
 
+-- Calcola statistiche torrette: partono molto scarse (0.55 dmg ogni 2.8s) e scalano con i potenziamenti
+function ShadowDefenseService.GetTurretStats(data)
+	local defenses = (data and data.Defenses) or {}
+	local dmgLvl = EconomyEngine.GetLevel(defenses, "def_turret_dmg")
+	local spdLvl = EconomyEngine.GetLevel(defenses, "def_turret_spd")
+
+	local damage = 0.55 + (dmgLvl * 0.85)
+	local cooldown = math.max(0.45, 2.8 * (0.85 ^ spdLvl))
+	local range = 28 + (spdLvl * 1.5)
+
+	return damage, cooldown, range, dmgLvl, spdLvl
+end
+
 function ShadowDefenseService.RebuildPlotDefenses(plot, data)
 	if not plot or not plot.DefensesFolder then return end
 	plot.DefensesFolder:ClearAllChildren()
-	BuiltWallNodes[plot.Index] = {}
 	BuiltTurrets[plot.Index] = {}
 
 	if not data or type(data.Defenses) ~= "table" then return end
 
-	local wallLvl = EconomyEngine.GetLevel(data.Defenses, "def_walls")
-	local turretLvl = EconomyEngine.GetLevel(data.Defenses, "def_turrets")
+	local turretCount = EconomyEngine.GetLevel(data.Defenses, "def_turrets")
+	local dmg, cooldown, range, dmgLvl, spdLvl = ShadowDefenseService.GetTurretStats(data)
 
-	for i = 1, math.min(wallLvl, #WALL_SLOTS) do
-		local slot = WALL_SLOTS[i]
-		local center = plot.Origin + slot.Dir * 26 + Vector3.new(0, 2.2, 0)
-		local cf = CFrame.new(center) * CFrame.Angles(0, math.rad(slot.RotY), 0)
-
-		local leftPillar = makePart({
-			Name = "WallPillarL_" .. i,
-			Size = Vector3.new(1.4, 4.6, 1.4),
-			CFrame = cf * CFrame.new(-6.5, 0, 0),
-			Color = Color3.fromRGB(48, 44, 38),
-			Material = Enum.Material.Marble,
-			Parent = plot.DefensesFolder,
-		})
-		local rightPillar = makePart({
-			Name = "WallPillarR_" .. i,
-			Size = Vector3.new(1.4, 4.6, 1.4),
-			CFrame = cf * CFrame.new(6.5, 0, 0),
-			Color = Color3.fromRGB(48, 44, 38),
-			Material = Enum.Material.Marble,
-			Parent = plot.DefensesFolder,
-		})
-		leftPillar.CanCollide = false
-		rightPillar.CanCollide = false
-
-		local barrier = makePart({
-			Name = "LightBarrier_" .. i,
-			Size = Vector3.new(11.6, 3.8, 0.5),
-			CFrame = cf,
-			Color = Color3.fromRGB(255, 205, 75),
-			Material = Enum.Material.Neon,
-			Transparency = 0.58,
-			CanCollide = false,
-			Parent = plot.DefensesFolder,
-		})
-
-		table.insert(BuiltWallNodes[plot.Index], {
-			Part = barrier,
-			Center = center,
-			Level = wallLvl,
-		})
-	end
-
-	for i = 1, math.min(turretLvl, #TURRET_SLOTS) do
+	for i = 1, math.min(turretCount, #TURRET_SLOTS) do
 		local basePos = plot.Origin + TURRET_SLOTS[i]
 		local ped = makePart({
 			Name = "TurretPedestal_" .. i,
@@ -190,12 +158,15 @@ function ShadowDefenseService.RebuildPlotDefenses(plot, data)
 		})
 		ped.CanCollide = false
 
+		local scaleBonus = 1 + math.min(0.45, dmgLvl * 0.05)
+		local crystalColor = spdLvl > 0 and Color3.fromRGB(255, 235, 110) or Color3.fromRGB(255, 195, 65)
+
 		local crystal = makePart({
 			Name = "TurretCrystal_" .. i,
 			Shape = Enum.PartType.Ball,
-			Size = Vector3.new(1.8, 2.4, 1.8),
-			Position = basePos + Vector3.new(0, 4.6, 0),
-			Color = Color3.fromRGB(255, 215, 75),
+			Size = Vector3.new(1.5, 2.0, 1.5) * scaleBonus,
+			Position = basePos + Vector3.new(0, 4.5, 0),
+			Color = crystalColor,
 			Material = Enum.Material.Neon,
 			CanCollide = false,
 			Parent = plot.DefensesFolder,
@@ -204,8 +175,10 @@ function ShadowDefenseService.RebuildPlotDefenses(plot, data)
 		table.insert(BuiltTurrets[plot.Index], {
 			Crystal = crystal,
 			Pos = crystal.Position,
-			Cooldown = (i - 1) * 0.25,
-			Level = turretLvl,
+			Cooldown = (i - 1) * 0.35,
+			Damage = dmg,
+			AttackInterval = cooldown,
+			Range = range,
 		})
 	end
 end
@@ -233,13 +206,11 @@ end
 function ShadowDefenseService.DamageShadow(sh, dmg, attackerPlayer, knockbackDir, knockbackForce, slowDuration)
 	if not sh or not sh.Part or not sh.Part.Parent then return false end
 
-	-- Rallentamento (es. Lanterna)
 	if slowDuration and slowDuration > 0 then
 		sh.SlowUntil = math.max(sh.SlowUntil or 0, os.clock() + slowDuration)
 		sh.Part:SetAttribute("IsSlowed", true)
 	end
 
-	-- Respingimento (Knockback)
 	if knockbackDir and knockbackForce and knockbackForce > 0 then
 		local flatDir = Vector3.new(knockbackDir.X, 0, knockbackDir.Z)
 		if flatDir.Magnitude > 0.01 then
@@ -260,12 +231,13 @@ function ShadowDefenseService.DamageShadow(sh, dmg, attackerPlayer, knockbackDir
 	if sh.HP <= 0 then
 		local plot = PlotsRef[sh.PlotIndex]
 		local owner = attackerPlayer or (plot and plot.Owner)
+		local rewardMult = sh.RewardMult
 		destroyShadowEntry(sh)
 
 		if owner and PlayerDataRef[owner.UserId] then
 			local data = PlayerDataRef[owner.UserId]
 			local stats = CalculateStatsFn(owner, data)
-			local reward = math.max(15, math.floor(stats.ClickPower * sh.Type.RewardMult))
+			local reward = math.max(15, math.floor(stats.ClickPower * rewardMult))
 			data.Points += reward
 			data.TotalPoints += reward
 			if SyncPlayerFn then
@@ -343,7 +315,6 @@ local function createWeaponTool(wepCfg, lang)
 		light.Parent = core
 
 	else
-		-- Spada / Scettro della Luce
 		handle.Size = Vector3.new(0.35, 1.3, 0.35)
 		handle.Color = Color3.fromRGB(40, 35, 48)
 		handle.Material = Enum.Material.SmoothPlastic
@@ -386,7 +357,6 @@ local function createWeaponTool(wepCfg, lang)
 		end
 
 		if wepCfg.Id == "wep_lantern" then
-			-- Lanterna: colpisce a catena fino a 3 ombre e le rallenta
 			local candidates = {}
 			for _, sh in ipairs(ActiveShadows) do
 				if sh and sh.PlotIndex == plot.Index and sh.Part and sh.Part.Parent then
@@ -426,9 +396,8 @@ local function createWeaponTool(wepCfg, lang)
 				})
 			end
 		else
-			-- Torcia / Spada: fendente frontale + spinta (knockback)
 			local isSword = (wepCfg.Id ~= "wep_torch")
-			local minDot = isSword and -0.25 or 0.15 -- cono più largo per la spada
+			local minDot = isSword and -0.25 or 0.15
 			local kbForce = isSword and 5.5 or 3.5
 
 			for i = #ActiveShadows, 1, -1 do
@@ -491,21 +460,46 @@ function ShadowDefenseService.SyncPlayerTools(player, data)
 	end
 end
 
+-- Selezione archetipo in base alle rinascite (AlbaCount):
+-- Alba 0: Predatrice (molto frequente) + Errante
+-- Alba 1+: si aggiunge il Sifone d'Ombra
+-- Alba 2+: si aggiunge il Colosso d'Ombra
 local function pickShadowType(data)
 	local alba = (data and data.AlbaCount) or 0
 	local roll = math.random(1, 100)
-	if alba >= 1 and roll <= 18 then
-		return SHADOW_TYPES[3] -- Colosso d'Ombra
-	elseif roll <= 36 then
-		return SHADOW_TYPES[4] -- Sifone d'Ombra
-	elseif roll <= 62 then
-		return SHADOW_TYPES[2] -- Ombra Predatrice
+
+	if alba >= 2 then
+		if roll <= 15 then
+			return SHADOW_TYPES[3] -- Colosso d'Ombra (15%)
+		elseif roll <= 35 then
+			return SHADOW_TYPES[4] -- Sifone d'Ombra (20%)
+		elseif roll <= 80 then
+			return SHADOW_TYPES[2] -- Ombra Predatrice (45%)
+		end
+		return SHADOW_TYPES[1]     -- Ombra Errante (20%)
+	elseif alba >= 1 then
+		if roll <= 22 then
+			return SHADOW_TYPES[4] -- Sifone d'Ombra (22%)
+		elseif roll <= 76 then
+			return SHADOW_TYPES[2] -- Ombra Predatrice (54%)
+		end
+		return SHADOW_TYPES[1]     -- Ombra Errante (24%)
+	else
+		if roll <= 68 then
+			return SHADOW_TYPES[2] -- Ombra Predatrice (68% - spawna molto di più)
+		end
+		return SHADOW_TYPES[1]     -- Ombra Errante (32%)
 	end
-	return SHADOW_TYPES[1]     -- Ombra Errante
 end
 
 function ShadowDefenseService.SpawnShadowForPlot(plot, data)
 	if not plot or not plot.Owner or not WorldRef then return end
+
+	-- Se il braciere è completo, il mondo è tutto illuminato e le ombre non spawnano più
+	if isBrazierComplete(data) then
+		ShadowDefenseService.ClearShadowsForPlot(plot.Index)
+		return
+	end
 
 	local countOnPlot = 0
 	for _, sh in ipairs(ActiveShadows) do
@@ -513,13 +507,26 @@ function ShadowDefenseService.SpawnShadowForPlot(plot, data)
 			countOnPlot += 1
 		end
 	end
-	if countOnPlot >= 4 then return end
+	if countOnPlot >= 5 then return end
 
 	local sType = pickShadowType(data)
+	local alba = math.max(0, (data and data.AlbaCount) or 0)
+
+	-- Dopo ogni rinascita tutte le ombre diventano più potenti
+	local hpMult = 1 + (alba * 0.75)
+	local drainMult = 1 + (alba * 0.50)
+	local speedMult = 1 + math.min(0.45, alba * 0.08)
+	local rewardScale = 1 + (alba * 0.55)
+
+	local scaledMaxHP = math.max(1, math.round(sType.MaxHP * hpMult))
+	local scaledSpeed = sType.Speed * speedMult
+	local scaledDrainPct = math.min(0.35, sType.DrainPct * drainMult)
+	local scaledMinDrain = math.max(1, math.round(sType.MinDrain * drainMult))
+	local scaledRewardMult = sType.RewardMult * rewardScale
+
 	local ang = math.random() * math.pi * 2
 	local spawnPos = plot.Origin + Vector3.new(math.cos(ang) * 54, sType.Size * 0.5 + 0.8, math.sin(ang) * 54)
 
-	-- Hitbox invisibile sul server: il modello 3D animato viene montato dal client
 	local part = makePart({
 		Name = "InvadingShadow",
 		Shape = Enum.PartType.Ball,
@@ -532,8 +539,8 @@ function ShadowDefenseService.SpawnShadowForPlot(plot, data)
 	})
 	part:SetAttribute("ShadowTypeId", sType.Id)
 	part:SetAttribute("PlotIndex", plot.Index)
-	part:SetAttribute("HP", sType.MaxHP)
-	part:SetAttribute("MaxHP", sType.MaxHP)
+	part:SetAttribute("HP", scaledMaxHP)
+	part:SetAttribute("MaxHP", scaledMaxHP)
 
 	local bbg = Instance.new("BillboardGui", part)
 	bbg.Size = UDim2.fromOffset(78, 12)
@@ -556,8 +563,12 @@ function ShadowDefenseService.SpawnShadowForPlot(plot, data)
 	local entry = {
 		PlotIndex = plot.Index,
 		Type = sType,
-		HP = sType.MaxHP,
-		MaxHP = sType.MaxHP,
+		HP = scaledMaxHP,
+		MaxHP = scaledMaxHP,
+		Speed = scaledSpeed,
+		DrainPct = scaledDrainPct,
+		MinDrain = scaledMinDrain,
+		RewardMult = scaledRewardMult,
 		Part = part,
 		HpBg = hpBg,
 		HpFill = hpFill,
@@ -600,11 +611,11 @@ function ShadowDefenseService.Init(world, remotesFolder, plots, playerData, play
 
 	task.spawn(function()
 		while true do
-			task.wait(19)
+			task.wait(14)
 			for _, plot in ipairs(PlotsRef) do
 				if plot.Owner then
 					local data = PlayerDataRef[plot.Owner.UserId]
-					if data then
+					if data and not isBrazierComplete(data) then
 						ShadowDefenseService.SpawnShadowForPlot(plot, data)
 					end
 				end
@@ -619,7 +630,11 @@ function ShadowDefenseService.Tick(dt, clickHeatTable)
 	for i = #ActiveShadows, 1, -1 do
 		local sh = ActiveShadows[i]
 		local plot = sh and PlotsRef[sh.PlotIndex]
-		if not sh or not sh.Part or not sh.Part.Parent or not plot or not plot.Owner then
+		local owner = plot and plot.Owner
+		local data = owner and PlayerDataRef[owner.UserId]
+
+		-- Se il braciere viene completato, dissolve subito le ombre rimaste
+		if not sh or not sh.Part or not sh.Part.Parent or not plot or not owner or isBrazierComplete(data) then
 			if sh then destroyShadowEntry(sh) end
 		else
 			local targetPos = Vector3.new(plot.Origin.X, sh.Part.Position.Y, plot.Origin.Z)
@@ -633,31 +648,14 @@ function ShadowDefenseService.Tick(dt, clickHeatTable)
 				sh.Part:SetAttribute("IsSlowed", false)
 			end
 
-			local wallBurnDmg = 0
-			for _, wall in ipairs(BuiltWallNodes[plot.Index] or {}) do
-				if (sh.Part.Position - wall.Center).Magnitude <= 6.8 then
-					speedMult = math.min(speedMult, 0.35)
-					wallBurnDmg = math.max(wallBurnDmg, 1.5 * wall.Level)
-				end
-			end
-
-			if wallBurnDmg > 0 then
-				if ShadowDefenseService.DamageShadow(sh, wallBurnDmg * dt, plot.Owner) then
-					continue
-				end
-			end
-
-			-- Comportamento Sifone d'Ombra: si ferma a distanza e drena Punti Luce con un raggio
 			if sh.Type.StopRange and dist <= sh.Type.StopRange then
 				sh.SiphonTimer = (sh.SiphonTimer or 0) + dt
-				if sh.SiphonTimer >= (sh.Type.DrainInterval or 2.2) then
+				if sh.SiphonTimer >= (sh.Type.DrainInterval or 2.1) then
 					sh.SiphonTimer = 0
-					local owner = plot.Owner
-					local data = owner and PlayerDataRef[owner.UserId]
-					if owner and data then
+					if data then
 						local currentPts = math.floor(data.Points or 0)
 						if currentPts > 0 then
-							local drain = math.min(currentPts, math.max(sh.Type.MinDrain, math.floor(currentPts * sh.Type.DrainPct)))
+							local drain = math.min(currentPts, math.max(sh.MinDrain, math.floor(currentPts * sh.DrainPct)))
 							data.Points = math.max(0, currentPts - drain)
 							if SyncPlayerFn then
 								SyncPlayerFn(owner, {
@@ -676,15 +674,13 @@ function ShadowDefenseService.Tick(dt, clickHeatTable)
 					end
 				end
 			elseif dist <= 7.2 then
-				local owner = plot.Owner
-				local data = owner and PlayerDataRef[owner.UserId]
 				destroyShadowEntry(sh)
 
-				if owner and data then
+				if data then
 					local currentPts = math.floor(data.Points or 0)
 					local drain = 0
 					if currentPts > 0 then
-						drain = math.min(currentPts, math.max(sh.Type.MinDrain, math.floor(currentPts * sh.Type.DrainPct)))
+						drain = math.min(currentPts, math.max(sh.MinDrain, math.floor(currentPts * sh.DrainPct)))
 						data.Points = math.max(0, currentPts - drain)
 					end
 					if clickHeatTable and clickHeatTable[owner.UserId] then
@@ -698,7 +694,7 @@ function ShadowDefenseService.Tick(dt, clickHeatTable)
 					end
 				end
 			else
-				sh.Part.CFrame = CFrame.lookAt(sh.Part.Position, targetPos) + toCenter.Unit * (sh.Type.Speed * speedMult * dt)
+				sh.Part.CFrame = CFrame.lookAt(sh.Part.Position, targetPos) + toCenter.Unit * (sh.Speed * speedMult * dt)
 			end
 		end
 	end
@@ -711,7 +707,7 @@ function ShadowDefenseService.Tick(dt, clickHeatTable)
 				t.Cooldown -= dt
 				if t.Cooldown <= 0 then
 					local targetSh = nil
-					local bestDist = 44
+					local bestDist = t.Range or 28
 					for _, sh in ipairs(ActiveShadows) do
 						if sh.PlotIndex == plotIndex and sh.Part and sh.Part.Parent then
 							local d = (sh.Part.Position - t.Pos).Magnitude
@@ -723,10 +719,9 @@ function ShadowDefenseService.Tick(dt, clickHeatTable)
 					end
 
 					if targetSh then
-						t.Cooldown = 1.15
+						t.Cooldown = t.AttackInterval or 2.8
 						local hitPos = targetSh.Part.Position
-						local dmg = 2 * t.Level
-						ShadowDefenseService.DamageShadow(targetSh, dmg, owner)
+						ShadowDefenseService.DamageShadow(targetSh, t.Damage or 0.55, owner)
 						if DefenseFxEvent then
 							DefenseFxEvent:FireClient(owner, {
 								Kind = "Beam",
@@ -736,7 +731,7 @@ function ShadowDefenseService.Tick(dt, clickHeatTable)
 							})
 						end
 					else
-						t.Cooldown = 0.3
+						t.Cooldown = 0.35
 					end
 				end
 			end
@@ -744,13 +739,16 @@ function ShadowDefenseService.Tick(dt, clickHeatTable)
 	end
 end
 
-function ShadowDefenseService.ClearPlot(plotIndex)
+function ShadowDefenseService.ClearShadowsForPlot(plotIndex)
 	for i = #ActiveShadows, 1, -1 do
 		if ActiveShadows[i].PlotIndex == plotIndex then
 			destroyShadowEntry(ActiveShadows[i])
 		end
 	end
-	BuiltWallNodes[plotIndex] = nil
+end
+
+function ShadowDefenseService.ClearPlot(plotIndex)
+	ShadowDefenseService.ClearShadowsForPlot(plotIndex)
 	BuiltTurrets[plotIndex] = nil
 end
 
