@@ -1,0 +1,86 @@
+local ShadowCombatConfig = {}
+
+ShadowCombatConfig.Archetypes = {
+	OmbraErrante = {
+		DisplayName = "Ombra Errante",
+		MaxHP = 100,
+		Speed = 10,
+		Damage = 10,
+		Reward = 15,
+		Scale = 1.0,
+		PrimaryColor = Color3.fromRGB(18, 14, 28),
+		AccentColor = Color3.fromRGB(150, 60, 255),
+	},
+	SpettroScattante = {
+		DisplayName = "Spettro Scattante",
+		MaxHP = 55,
+		Speed = 20,
+		Damage = 8,
+		Reward = 22,
+		Scale = 0.85,
+		PrimaryColor = Color3.fromRGB(15, 10, 22),
+		AccentColor = Color3.fromRGB(255, 55, 130),
+	},
+	ColossoOmbra = {
+		DisplayName = "Colosso d'Ombra",
+		MaxHP = 450,
+		Speed = 5.5,
+		Damage = 30,
+		Reward = 70,
+		Scale = 1.85,
+		PrimaryColor = Color3.fromRGB(12, 10, 16),
+		AccentColor = Color3.fromRGB(255, 95, 35),
+	},
+	SifoneOmbra = {
+		DisplayName = "Sifone d'Ombra",
+		MaxHP = 135,
+		Speed = 8,
+		Damage = 12,
+		StopRange = 26,
+		Reward = 38,
+		Scale = 1.15,
+		PrimaryColor = Color3.fromRGB(16, 22, 34),
+		AccentColor = Color3.fromRGB(0, 215, 255),
+	},
+}
+
+ShadowCombatConfig.Weapons = {
+	LamaDellaFiamma = {
+		DisplayName = "Lama della Fiamma",
+		Type = "Melee",
+		Damage = 45,
+		Cooldown = 0.45,
+		Range = 11,
+		ArcAngle = 115,
+		Knockback = 26,
+		SlowPercent = 0,
+		SlowDuration = 0,
+		Color = Color3.fromRGB(255, 175, 45),
+	},
+	ScettroSolare = {
+		DisplayName = "Scettro Solare",
+		Type = "Ranged",
+		Damage = 35,
+		Cooldown = 0.55,
+		Range = 65,
+		HitRadius = 4.5,
+		SplashRadius = 7,
+		Knockback = 10,
+		SlowPercent = 0,
+		SlowDuration = 0,
+		Color = Color3.fromRGB(255, 235, 115),
+	},
+	LanternaEsplosiva = {
+		DisplayName = "Lanterna Esplosiva",
+		Type = "AoE",
+		Damage = 65,
+		Cooldown = 3.2,
+		Radius = 18,
+		Knockback = 40,
+		SlowPercent = 0.5,
+		SlowDuration = 3.0,
+		Color = Color3.fromRGB(110, 235, 255),
+	},
+}
+
+return ShadowCombatConfig

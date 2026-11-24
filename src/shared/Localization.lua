@@ -46,8 +46,7 @@ local STRINGS = {
 
 		DAWN_STATUS_READY = "✅ Final Dawn Button is active on your island! Step on it for +%d Dawn Points.",
 		DAWN_STATUS_PROG = "Max all upgrades (%d/%d) and press the Final Dawn Button for +%d Dawn Points.",
-		DAWN_HEADER_FMT = "🌅 AVAILABLE DAWN POINTS: %d   •   Rebirths: %d
-%s",
+		DAWN_HEADER_FMT = "🌅 AVAILABLE DAWN POINTS: %d   •   Rebirths: %d\n%s",
 		SEC_DAWN_PERKS = "✨ DAWN UPGRADES (PERMANENT)",
 		SEC_DAWN_ZONES = "🗺️ UNLOCK NEW ZONES WITH DAWN POINTS",
 
@@ -59,10 +58,7 @@ local STRINGS = {
 		CODE_ERR = "Error redeeming code",
 
 		VICTORY_TITLE = "🌅 SUPREME DAWN ACHIEVED!",
-		VICTORY_BODY_FMT = "You activated the Final Dawn Button and earned +%d Dawn Points!
-Total Dawn Points: %d
-
-Spend them in the Dawn tab to boost Rebirths or unlock New Zones.",
+		VICTORY_BODY_FMT = "You activated the Final Dawn Button and earned +%d Dawn Points!\nTotal Dawn Points: %d\n\nSpend them in the Dawn tab to boost Rebirths or unlock New Zones.",
 		VICTORY_OPEN_DAWN = "OPEN DAWN TAB",
 
 		PLOT_FREE_FMT = "ZONE %d — OPEN",
@@ -146,8 +142,7 @@ Spend them in the Dawn tab to boost Rebirths or unlock New Zones.",
 
 		DAWN_STATUS_READY = "✅ Bottone Finale attivo sull'isola! Premilo per ottenere +%d Punti Alba.",
 		DAWN_STATUS_PROG = "Completa i potenziamenti (%d/%d) e premi il Bottone Finale per +%d Punti Alba.",
-		DAWN_HEADER_FMT = "🌅 PUNTI ALBA DISPONIBILI: %d   •   Rebirth effettuati: %d
-%s",
+		DAWN_HEADER_FMT = "🌅 PUNTI ALBA DISPONIBILI: %d   •   Rebirth effettuati: %d\n%s",
 		SEC_DAWN_PERKS = "✨ POTENZIAMENTI ALBA (PERMANENTI)",
 		SEC_DAWN_ZONES = "🗺️ SBLOCCA NUOVE ZONE CON I PUNTI ALBA",
 
@@ -159,10 +154,7 @@ Spend them in the Dawn tab to boost Rebirths or unlock New Zones.",
 		CODE_ERR = "Errore riscatto codice",
 
 		VICTORY_TITLE = "🌅 ALBA SUPREMA COMPIUTA!",
-		VICTORY_BODY_FMT = "Hai attivato il Bottone Finale e ottenuto +%d Punti Alba!
-Totale Punti Alba: %d
-
-Usali nella scheda Alba per potenziare il Rebirth o sbloccare Nuove Zone.",
+		VICTORY_BODY_FMT = "Hai attivato il Bottone Finale e ottenuto +%d Punti Alba!\nTotale Punti Alba: %d\n\nUsali nella scheda Alba per potenziare il Rebirth o sbloccare Nuove Zone.",
 		VICTORY_OPEN_DAWN = "APRI SCHEDA ALBA",
 
 		PLOT_FREE_FMT = "ZONA %d — LIBERA",

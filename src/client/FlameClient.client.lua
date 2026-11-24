@@ -8,6 +8,8 @@ local NumberFormat = require(ReplicatedStorage:WaitForChild("NumberFormat"))
 local Localization = require(ReplicatedStorage:WaitForChild("Localization"))
 local ClientWorldVisuals = require(script.Parent:WaitForChild("ClientWorldVisuals"))
 local ShopUI = require(script.Parent:WaitForChild("ShopUI"))
+local ShadowModelBuilder = require(script.Parent:WaitForChild("ShadowModelBuilder"))
+ShadowModelBuilder.Start()
 
 local player = Players.LocalPlayer
 local mouse = player:GetMouse()

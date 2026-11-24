@@ -27,7 +27,7 @@ local SHADOW_TYPES = {
 		Name_en = "Void Wisp",
 		Name_it = "Ombra Errante",
 		MaxHP = 2,
-		Speed = 5.2,
+		Speed = 5.5,
 		Size = 3.2,
 		DrainPct = 0.02,
 		MinDrain = 5,
@@ -40,8 +40,8 @@ local SHADOW_TYPES = {
 		Name_en = "Dusk Stalker",
 		Name_it = "Ombra Predatrice",
 		MaxHP = 6,
-		Speed = 3.8,
-		Size = 4.2,
+		Speed = 8.2,
+		Size = 3.8,
 		DrainPct = 0.04,
 		MinDrain = 25,
 		RewardMult = 26,
@@ -52,14 +52,29 @@ local SHADOW_TYPES = {
 		Id = "brute",
 		Name_en = "Abyssal Brute",
 		Name_it = "Colosso d'Ombra",
-		MaxHP = 15,
-		Speed = 2.5,
-		Size = 5.6,
+		MaxHP = 18,
+		Speed = 2.6,
+		Size = 5.8,
 		DrainPct = 0.07,
 		MinDrain = 80,
 		RewardMult = 65,
 		Color = Color3.fromRGB(20, 8, 32),
-		LightColor = Color3.fromRGB(190, 40, 255),
+		LightColor = Color3.fromRGB(255, 110, 40),
+	},
+	{
+		Id = "siphon",
+		Name_en = "Void Siphon",
+		Name_it = "Sifone d'Ombra",
+		MaxHP = 8,
+		Speed = 4.2,
+		Size = 4.0,
+		StopRange = 22,
+		DrainInterval = 2.2,
+		DrainPct = 0.015,
+		MinDrain = 12,
+		RewardMult = 38,
+		Color = Color3.fromRGB(14, 28, 46),
+		LightColor = Color3.fromRGB(0, 215, 255),
 	},
 }
 
@@ -89,6 +104,24 @@ local function makePart(props)
 	for k, v in pairs(props) do
 		p[k] = v
 	end
+	return p
+end
+
+local function weldAttachmentPart(handle, props, offsetCFrame)
+	local p = Instance.new("Part")
+	p.CanCollide = false
+	p.CanQuery = false
+	p.Massless = true
+	for k, v in pairs(props) do
+		p[k] = v
+	end
+	p.CFrame = handle.CFrame * offsetCFrame
+	p.Parent = handle.Parent
+
+	local weld = Instance.new("WeldConstraint")
+	weld.Part0 = handle
+	weld.Part1 = p
+	weld.Parent = p
 	return p
 end
 
@@ -182,6 +215,9 @@ local function updateShadowHealthBar(sh)
 	local pct = math.clamp(sh.HP / math.max(1, sh.MaxHP), 0, 1)
 	sh.HpBg.Visible = (sh.HP < sh.MaxHP)
 	sh.HpFill.Size = UDim2.new(pct, 0, 1, 0)
+	if sh.Part then
+		sh.Part:SetAttribute("HP", sh.HP)
+	end
 end
 
 local function destroyShadowEntry(sh)
@@ -194,8 +230,32 @@ local function destroyShadowEntry(sh)
 	end
 end
 
-function ShadowDefenseService.DamageShadow(sh, dmg, attackerPlayer)
+function ShadowDefenseService.DamageShadow(sh, dmg, attackerPlayer, knockbackDir, knockbackForce, slowDuration)
 	if not sh or not sh.Part or not sh.Part.Parent then return false end
+
+	-- Rallentamento (es. Lanterna)
+	if slowDuration and slowDuration > 0 then
+		sh.SlowUntil = math.max(sh.SlowUntil or 0, os.clock() + slowDuration)
+		sh.Part:SetAttribute("IsSlowed", true)
+	end
+
+	-- Respingimento (Knockback)
+	if knockbackDir and knockbackForce and knockbackForce > 0 then
+		local flatDir = Vector3.new(knockbackDir.X, 0, knockbackDir.Z)
+		if flatDir.Magnitude > 0.01 then
+			local plot = PlotsRef[sh.PlotIndex]
+			local nextPos = sh.Part.Position + flatDir.Unit * knockbackForce
+			if plot then
+				local fromOrigin = Vector3.new(nextPos.X - plot.Origin.X, 0, nextPos.Z - plot.Origin.Z)
+				if fromOrigin.Magnitude <= 56 then
+					sh.Part.Position = nextPos
+				end
+			else
+				sh.Part.Position = nextPos
+			end
+		end
+	end
+
 	sh.HP -= dmg
 	if sh.HP <= 0 then
 		local plot = PlotsRef[sh.PlotIndex]
@@ -233,34 +293,76 @@ local function createWeaponTool(wepCfg, lang)
 	handle.Name = "Handle"
 	handle.CanCollide = false
 	handle.Massless = true
+	handle.Parent = tool
+
+	local light = Instance.new("PointLight")
+	light.Color = wepCfg.Color
+	light.Range = 14
+	light.Brightness = 1.6
 
 	if wepCfg.Id == "wep_torch" then
-		handle.Size = Vector3.new(0.6, 3.2, 0.6)
+		handle.Size = Vector3.new(0.45, 3.0, 0.45)
 		handle.Color = Color3.fromRGB(92, 58, 32)
 		handle.Material = Enum.Material.Wood
-		local tip = Instance.new("Part", tool)
-		tip.Name = "FlameTip"
-		tip.Shape = Enum.PartType.Ball
-		tip.Size = Vector3.new(1.1, 1.3, 1.1)
-		tip.Color = wepCfg.Color
-		tip.Material = Enum.Material.Neon
-		tip.CanCollide = false
-		tip.Massless = true
-		local weld = Instance.new("WeldConstraint", handle)
-		weld.Part0 = handle
-		weld.Part1 = tip
-		tip.CFrame = handle.CFrame * CFrame.new(0, 1.8, 0)
-	elseif wepCfg.Id == "wep_lantern" then
-		handle.Size = Vector3.new(1.1, 1.6, 1.1)
-		handle.Color = wepCfg.Color
-		handle.Material = Enum.Material.Neon
-	else
-		handle.Size = Vector3.new(0.45, 4.6, 0.9)
-		handle.Color = wepCfg.Color
-		handle.Material = Enum.Material.Neon
-	end
 
-	handle.Parent = tool
+		weldAttachmentPart(handle, {
+			Name = "TorchCup",
+			Size = Vector3.new(0.85, 0.35, 0.85),
+			Color = Color3.fromRGB(50, 48, 55),
+			Material = Enum.Material.Metal,
+		}, CFrame.new(0, 1.45, 0))
+
+		local tip = weldAttachmentPart(handle, {
+			Name = "FlameTip",
+			Shape = Enum.PartType.Ball,
+			Size = Vector3.new(1.05, 1.35, 1.05),
+			Color = wepCfg.Color,
+			Material = Enum.Material.Neon,
+		}, CFrame.new(0, 1.95, 0))
+		light.Parent = tip
+
+	elseif wepCfg.Id == "wep_lantern" then
+		handle.Size = Vector3.new(0.35, 0.9, 0.35)
+		handle.Color = Color3.fromRGB(45, 42, 52)
+		handle.Material = Enum.Material.Metal
+
+		weldAttachmentPart(handle, {
+			Name = "LanternCap",
+			Size = Vector3.new(1.25, 0.25, 1.25),
+			Color = Color3.fromRGB(210, 175, 80),
+			Material = Enum.Material.Metal,
+		}, CFrame.new(0, -0.55, -0.35))
+
+		local core = weldAttachmentPart(handle, {
+			Name = "LanternCore",
+			Shape = Enum.PartType.Ball,
+			Size = Vector3.new(0.95, 1.25, 0.95),
+			Color = wepCfg.Color,
+			Material = Enum.Material.Neon,
+		}, CFrame.new(0, -1.15, -0.35))
+		light.Parent = core
+
+	else
+		-- Spada / Scettro della Luce
+		handle.Size = Vector3.new(0.35, 1.3, 0.35)
+		handle.Color = Color3.fromRGB(40, 35, 48)
+		handle.Material = Enum.Material.SmoothPlastic
+
+		weldAttachmentPart(handle, {
+			Name = "CrossGuard",
+			Size = Vector3.new(1.35, 0.22, 0.45),
+			Color = Color3.fromRGB(235, 190, 75),
+			Material = Enum.Material.Metal,
+		}, CFrame.new(0, 0.72, 0))
+
+		local blade = weldAttachmentPart(handle, {
+			Name = "LightBlade",
+			Size = Vector3.new(0.18, 3.6, 0.55),
+			Color = wepCfg.Color,
+			Material = Enum.Material.Neon,
+		}, CFrame.new(0, 2.55, 0))
+		light.Parent = blade
+	end
 
 	local lastUse = 0
 	tool.Activated:Connect(function()
@@ -276,56 +378,81 @@ local function createWeaponTool(wepCfg, lang)
 		local plot = PlayerPlotMapRef[plr.UserId]
 		if not plot then return end
 
-		local hitAny = false
-		local nearestShadow = nil
-		local nearestDist = wepCfg.Range
+		local lookDir = Vector3.new(hrp.CFrame.LookVector.X, 0, hrp.CFrame.LookVector.Z)
+		if lookDir.Magnitude > 0.01 then
+			lookDir = lookDir.Unit
+		else
+			lookDir = Vector3.new(0, 0, -1)
+		end
 
-		for i = #ActiveShadows, 1, -1 do
-			local sh = ActiveShadows[i]
-			if sh and sh.PlotIndex == plot.Index and sh.Part and sh.Part.Parent then
-				local d = (sh.Part.Position - hrp.Position).Magnitude
-				if d <= wepCfg.Range then
-					if wepCfg.Id == "wep_lantern" then
-						if d < nearestDist then
-							nearestDist = d
-							nearestShadow = sh
-						end
-					else
-						hitAny = true
-						ShadowDefenseService.DamageShadow(sh, wepCfg.Damage, plr)
+		if wepCfg.Id == "wep_lantern" then
+			-- Lanterna: colpisce a catena fino a 3 ombre e le rallenta
+			local candidates = {}
+			for _, sh in ipairs(ActiveShadows) do
+				if sh and sh.PlotIndex == plot.Index and sh.Part and sh.Part.Parent then
+					local d = (sh.Part.Position - hrp.Position).Magnitude
+					if d <= wepCfg.Range then
+						table.insert(candidates, { Shadow = sh, Dist = d })
 					end
 				end
 			end
-		end
+			table.sort(candidates, function(a, b) return a.Dist < b.Dist end)
 
-		if wepCfg.Id == "wep_lantern" and nearestShadow then
-			hitAny = true
-			local targetPos = nearestShadow.Part.Position
-			ShadowDefenseService.DamageShadow(nearestShadow, wepCfg.Damage, plr)
-			if DefenseFxEvent then
+			local prevPos = hrp.Position + Vector3.new(0, 1.2, 0)
+			local hits = math.min(3, #candidates)
+			for idx = 1, hits do
+				local targetSh = candidates[idx].Shadow
+				local targetPos = targetSh.Part.Position
+				local dmgMult = (idx == 1) and 1.0 or 0.65
+				ShadowDefenseService.DamageShadow(targetSh, wepCfg.Damage * dmgMult, plr, nil, 0, 2.5)
+
+				if DefenseFxEvent then
+					DefenseFxEvent:FireClient(plr, {
+						Kind = "Beam",
+						From = prevPos,
+						To = targetPos,
+						Color = wepCfg.Color,
+					})
+				end
+				prevPos = targetPos
+			end
+
+			if hits == 0 and DefenseFxEvent then
 				DefenseFxEvent:FireClient(plr, {
-					Kind = "Beam",
-					From = hrp.Position + Vector3.new(0, 1.2, 0),
-					To = targetPos,
+					Kind = "Pulse",
+					Pos = hrp.Position,
+					Radius = math.min(12, wepCfg.Range * 0.5),
 					Color = wepCfg.Color,
 				})
 			end
-		elseif DefenseFxEvent then
-			DefenseFxEvent:FireClient(plr, {
-				Kind = "Pulse",
-				Pos = hrp.Position,
-				Radius = wepCfg.Range,
-				Color = wepCfg.Color,
-			})
-		end
+		else
+			-- Torcia / Spada: fendente frontale + spinta (knockback)
+			local isSword = (wepCfg.Id ~= "wep_torch")
+			local minDot = isSword and -0.25 or 0.15 -- cono più largo per la spada
+			local kbForce = isSword and 5.5 or 3.5
 
-		if not hitAny and DefenseFxEvent then
-			DefenseFxEvent:FireClient(plr, {
-				Kind = "Pulse",
-				Pos = hrp.Position,
-				Radius = math.min(14, wepCfg.Range * 0.65),
-				Color = wepCfg.Color,
-			})
+			for i = #ActiveShadows, 1, -1 do
+				local sh = ActiveShadows[i]
+				if sh and sh.PlotIndex == plot.Index and sh.Part and sh.Part.Parent then
+					local offset = sh.Part.Position - hrp.Position
+					local d = offset.Magnitude
+					if d <= wepCfg.Range then
+						local dir = d > 0.01 and offset.Unit or lookDir
+						if dir:Dot(lookDir) >= minDot or d <= 5.5 then
+							ShadowDefenseService.DamageShadow(sh, wepCfg.Damage, plr, dir, kbForce, 0)
+						end
+					end
+				end
+			end
+
+			if DefenseFxEvent then
+				DefenseFxEvent:FireClient(plr, {
+					Kind = "Pulse",
+					Pos = hrp.Position + lookDir * (wepCfg.Range * 0.35),
+					Radius = wepCfg.Range,
+					Color = wepCfg.Color,
+				})
+			end
 		end
 	end)
 
@@ -367,12 +494,14 @@ end
 local function pickShadowType(data)
 	local alba = (data and data.AlbaCount) or 0
 	local roll = math.random(1, 100)
-	if alba >= 1 and roll <= 20 then
-		return SHADOW_TYPES[3]
-	elseif roll <= 42 then
-		return SHADOW_TYPES[2]
+	if alba >= 1 and roll <= 18 then
+		return SHADOW_TYPES[3] -- Colosso d'Ombra
+	elseif roll <= 36 then
+		return SHADOW_TYPES[4] -- Sifone d'Ombra
+	elseif roll <= 62 then
+		return SHADOW_TYPES[2] -- Ombra Predatrice
 	end
-	return SHADOW_TYPES[1]
+	return SHADOW_TYPES[1]     -- Ombra Errante
 end
 
 function ShadowDefenseService.SpawnShadowForPlot(plot, data)
@@ -388,27 +517,27 @@ function ShadowDefenseService.SpawnShadowForPlot(plot, data)
 
 	local sType = pickShadowType(data)
 	local ang = math.random() * math.pi * 2
-	local spawnPos = plot.Origin + Vector3.new(math.cos(ang) * 54, sType.Size * 0.5 + 0.6, math.sin(ang) * 54)
+	local spawnPos = plot.Origin + Vector3.new(math.cos(ang) * 54, sType.Size * 0.5 + 0.8, math.sin(ang) * 54)
 
+	-- Hitbox invisibile sul server: il modello 3D animato viene montato dal client
 	local part = makePart({
 		Name = "InvadingShadow",
 		Shape = Enum.PartType.Ball,
 		Size = Vector3.new(sType.Size, sType.Size, sType.Size),
 		Position = spawnPos,
 		Color = sType.Color,
-		Material = Enum.Material.Neon,
+		Transparency = 1,
 		CanCollide = false,
 		Parent = WorldRef,
 	})
-
-	local pLight = Instance.new("PointLight", part)
-	pLight.Color = sType.LightColor
-	pLight.Range = 9
-	pLight.Brightness = 1.3
+	part:SetAttribute("ShadowTypeId", sType.Id)
+	part:SetAttribute("PlotIndex", plot.Index)
+	part:SetAttribute("HP", sType.MaxHP)
+	part:SetAttribute("MaxHP", sType.MaxHP)
 
 	local bbg = Instance.new("BillboardGui", part)
-	bbg.Size = UDim2.fromOffset(72, 10)
-	bbg.StudsOffset = Vector3.new(0, sType.Size * 0.7 + 1.0, 0)
+	bbg.Size = UDim2.fromOffset(78, 12)
+	bbg.StudsOffset = Vector3.new(0, sType.Size * 0.7 + 1.4, 0)
 	bbg.AlwaysOnTop = false
 
 	local hpBg = Instance.new("Frame", bbg)
@@ -420,7 +549,7 @@ function ShadowDefenseService.SpawnShadowForPlot(plot, data)
 
 	local hpFill = Instance.new("Frame", hpBg)
 	hpFill.Size = UDim2.fromScale(1, 1)
-	hpFill.BackgroundColor3 = Color3.fromRGB(235, 70, 120)
+	hpFill.BackgroundColor3 = sType.LightColor
 	hpFill.BorderSizePixel = 0
 	Instance.new("UICorner", hpFill).CornerRadius = UDim.new(0, 4)
 
@@ -432,6 +561,8 @@ function ShadowDefenseService.SpawnShadowForPlot(plot, data)
 		Part = part,
 		HpBg = hpBg,
 		HpFill = hpFill,
+		SlowUntil = 0,
+		SiphonTimer = 0,
 	}
 
 	local cd = Instance.new("ClickDetector", part)
@@ -483,6 +614,8 @@ function ShadowDefenseService.Init(world, remotesFolder, plots, playerData, play
 end
 
 function ShadowDefenseService.Tick(dt, clickHeatTable)
+	local now = os.clock()
+
 	for i = #ActiveShadows, 1, -1 do
 		local sh = ActiveShadows[i]
 		local plot = sh and PlotsRef[sh.PlotIndex]
@@ -494,10 +627,16 @@ function ShadowDefenseService.Tick(dt, clickHeatTable)
 			local dist = toCenter.Magnitude
 
 			local speedMult = 1.0
+			if now < (sh.SlowUntil or 0) then
+				speedMult = 0.45
+			elseif sh.Part:GetAttribute("IsSlowed") then
+				sh.Part:SetAttribute("IsSlowed", false)
+			end
+
 			local wallBurnDmg = 0
 			for _, wall in ipairs(BuiltWallNodes[plot.Index] or {}) do
 				if (sh.Part.Position - wall.Center).Magnitude <= 6.8 then
-					speedMult = 0.35
+					speedMult = math.min(speedMult, 0.35)
 					wallBurnDmg = math.max(wallBurnDmg, 1.5 * wall.Level)
 				end
 			end
@@ -508,7 +647,35 @@ function ShadowDefenseService.Tick(dt, clickHeatTable)
 				end
 			end
 
-			if dist <= 7.2 then
+			-- Comportamento Sifone d'Ombra: si ferma a distanza e drena Punti Luce con un raggio
+			if sh.Type.StopRange and dist <= sh.Type.StopRange then
+				sh.SiphonTimer = (sh.SiphonTimer or 0) + dt
+				if sh.SiphonTimer >= (sh.Type.DrainInterval or 2.2) then
+					sh.SiphonTimer = 0
+					local owner = plot.Owner
+					local data = owner and PlayerDataRef[owner.UserId]
+					if owner and data then
+						local currentPts = math.floor(data.Points or 0)
+						if currentPts > 0 then
+							local drain = math.min(currentPts, math.max(sh.Type.MinDrain, math.floor(currentPts * sh.Type.DrainPct)))
+							data.Points = math.max(0, currentPts - drain)
+							if SyncPlayerFn then
+								SyncPlayerFn(owner, {
+									PopupText = Localization.T(getLang(data), "POP_SHADOW_HIT", NumberFormat.Format(drain)),
+								})
+							end
+						end
+						if DefenseFxEvent then
+							DefenseFxEvent:FireClient(owner, {
+								Kind = "Beam",
+								From = sh.Part.Position,
+								To = plot.Origin + Vector3.new(0, 4.5, 0),
+								Color = sh.Type.LightColor,
+							})
+						end
+					end
+				end
+			elseif dist <= 7.2 then
 				local owner = plot.Owner
 				local data = owner and PlayerDataRef[owner.UserId]
 				destroyShadowEntry(sh)
@@ -531,7 +698,7 @@ function ShadowDefenseService.Tick(dt, clickHeatTable)
 					end
 				end
 			else
-				sh.Part.Position += toCenter.Unit * (sh.Type.Speed * speedMult * dt)
+				sh.Part.CFrame = CFrame.lookAt(sh.Part.Position, targetPos) + toCenter.Unit * (sh.Type.Speed * speedMult * dt)
 			end
 		end
 	end
@@ -544,7 +711,7 @@ function ShadowDefenseService.Tick(dt, clickHeatTable)
 				t.Cooldown -= dt
 				if t.Cooldown <= 0 then
 					local targetSh = nil
-					local bestDist = 42
+					local bestDist = 44
 					for _, sh in ipairs(ActiveShadows) do
 						if sh.PlotIndex == plotIndex and sh.Part and sh.Part.Parent then
 							local d = (sh.Part.Position - t.Pos).Magnitude
