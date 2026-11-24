@@ -18,10 +18,51 @@ GameConfig.RobuxPasses = {
 GameConfig.VictoryButton = {
 	Name = "FINAL DAWN BUTTON",
 	Name_it = "BOTTONE DELL'ALBA FINALE",
-	Cost = 5e8, -- 500M Light Points
+	Cost = 5e8, -- 500M Light Points (1st Rebirth base)
 	BaseAlbaReward = 1,
 	Pos = Vector3.new(0, 0.6, 26),
 }
+
+local VICTORY_COSTS_BY_ALBA = {
+	[0] = 5e8,    -- 1ª Rinascita: 500M
+	[1] = 1.5e9,  -- 2ª Rinascita: 1.5B
+	[2] = 5e9,    -- 3ª Rinascita: 5B
+	[3] = 1e10,   -- 4ª Rinascita: 10B
+	[4] = 2.5e10, -- 5ª Rinascita: 25B
+	[5] = 6e10,   -- 6ª Rinascita: 60B
+}
+
+function GameConfig.GetVictoryCost(albaCount)
+	local a = math.max(0, math.floor(albaCount or 0))
+	if VICTORY_COSTS_BY_ALBA[a] then
+		return VICTORY_COSTS_BY_ALBA[a]
+	end
+	return math.floor(6e10 * (2.5 ^ (a - 5)))
+end
+
+-- Tutto costa un po' di più dopo ogni rinascita (+35% per Alba)
+function GameConfig.GetRebirthCostMult(albaCount)
+	local a = math.max(0, math.floor(albaCount or 0))
+	return 1 + (a * 0.35)
+end
+
+function GameConfig.GetUpgradeCost(upgCfg, currentLevel, albaCount)
+	local base = math.floor(upgCfg.BaseCost * (upgCfg.CostMult ^ currentLevel))
+	return math.floor(base * GameConfig.GetRebirthCostMult(albaCount))
+end
+
+function GameConfig.GetAltarCost(altCfg, currentLevel, albaCount)
+	local base = math.floor(altCfg.BaseCost * (altCfg.CostMult ^ currentLevel))
+	return math.floor(base * GameConfig.GetRebirthCostMult(albaCount))
+end
+
+function GameConfig.GetWeaponCost(wepCfg, albaCount)
+	return math.floor(wepCfg.Cost * GameConfig.GetRebirthCostMult(albaCount))
+end
+
+function GameConfig.GetWispCost(albaCount)
+	return math.floor(GameConfig.BaseWispCost * GameConfig.GetRebirthCostMult(albaCount))
+end
 
 -- =========================================================================
 -- CHARACTER UPGRADES (Player actions & abilities only)
@@ -187,7 +228,7 @@ GameConfig.Weapons = {
 		Tag = "5 DMG • Chain & Slow", Tag_it = "5 DANNI • Catena & Rallenta",
 		Desc = "Chains pure light across up to 3 Shadows and slows their movement.",
 		Desc_it = "Colpisce a catena fino a 3 Ombre con luce pura e le rallenta.",
-		Cost = 55000, -- Prezzo molto più alto
+		Cost = 55000,
 		Damage = 5,
 		Range = 38,
 		Cooldown = 0.50,
@@ -202,7 +243,7 @@ GameConfig.Weapons = {
 		Desc = "Legendary blade of light forged after your first Dawn Rebirth.",
 		Desc_it = "Spada leggendaria forgiata dopo la tua prima Rinascita dell'Alba.",
 		Cost = 250000,
-		ReqAlba = 1, -- Acquistabile solo dopo almeno 1 rinascita
+		ReqAlba = 1,
 		Damage = 14,
 		Range = 30,
 		Cooldown = 0.40,
@@ -223,7 +264,6 @@ GameConfig.Defenses = {
 		Desc = "Builds crystal sentinel turrets (up to 4). From the 2nd onwards they also cost Dawn Points.",
 		Desc_it = "Costruisce torrette sentinella (fino a 4). Dalla 2ª in poi richiedono anche Punti Alba.",
 		MaxLevel = 4,
-		-- Costi per ciascuna delle 4 torrette: 1ª accessibile, dalla 2ª costi molto alti + Punti Alba crescenti
 		LevelCosts = {
 			{ Points = 1200,    Alba = 0 },
 			{ Points = 85000,   Alba = 1 },
@@ -243,7 +283,7 @@ GameConfig.Defenses = {
 		CostMult = 2.35,
 		MaxLevel = 15,
 		ReqDefenseId = "def_turrets",
-		ReqDefenseLvl = 1, -- Compare solo dopo aver comprato la prima torretta
+		ReqDefenseLvl = 1,
 	},
 	{
 		Id = "def_turret_spd",
@@ -257,20 +297,23 @@ GameConfig.Defenses = {
 		CostMult = 2.45,
 		MaxLevel = 12,
 		ReqDefenseId = "def_turrets",
-		ReqDefenseLvl = 1, -- Compare solo dopo aver comprato la prima torretta
+		ReqDefenseLvl = 1,
 	},
 }
 
--- Helper unico usato da Server e UI per calcolare il costo in Punti Luce + Punti Alba
-function GameConfig.GetDefenseCost(defCfg, currentLevel)
+function GameConfig.GetDefenseCost(defCfg, currentLevel, albaCount)
+	local mult = GameConfig.GetRebirthCostMult(albaCount)
 	if defCfg.LevelCosts then
 		local entry = defCfg.LevelCosts[currentLevel + 1]
 		if entry then
-			return { Points = entry.Points or 0, Alba = entry.Alba or 0 }
+			return {
+				Points = math.floor((entry.Points or 0) * mult),
+				Alba = entry.Alba or 0,
+			}
 		end
 		return { Points = 0, Alba = 0 }
 	end
-	local pts = math.floor((defCfg.BaseCost or 1000) * ((defCfg.CostMult or 2) ^ currentLevel))
+	local pts = math.floor((defCfg.BaseCost or 1000) * ((defCfg.CostMult or 2) ^ currentLevel) * mult)
 	return { Points = pts, Alba = 0 }
 end
 
@@ -471,7 +514,7 @@ GameConfig.Ranks = {
 
 GameConfig.PromoCodes = {
 	["LIGHT100"] = { Points = 250, Msg = "+250 Light Points redeemed!", Msg_it = "+250 Punti Luce riscattati!" },
-	["LUCE100"] = { Points = 250, Msg = "+250 Light Points redeemed!", Msg_it = "+250 Punti Luce riscattati!" },
+	["LUCE100"] = { Points = 250, Msg = "+250 Punti Luce riscattati!", Msg_it = "+250 Punti Luce riscattati!" },
 	["FLAME"] = { Points = 1500, Msg = "+1,500 Light Points redeemed!", Msg_it = "+1.500 Punti Luce riscattati!" },
 	["FIAMMA"] = { Points = 1500, Msg = "+1,500 Light Points redeemed!", Msg_it = "+1.500 Punti Luce riscattati!" },
 	["DAWN2026"] = { Points = 10000, Msg = "+10,000 Light Points redeemed!", Msg_it = "+10.000 Punti Luce riscattati!" },

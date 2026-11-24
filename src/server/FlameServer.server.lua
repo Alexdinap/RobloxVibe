@@ -132,23 +132,51 @@ local function updatePlotBrazierVisuals(plot, stats)
 	plot.FlameCore.Position = plot.BaseFlamePos + Vector3.new(0, (scaleFactor - 1.0) * plot.BaseFlameSize.Y * 0.42, 0)
 	plot.FlameCore.Color = col
 
-	if plot.EmberRing then
-		plot.EmberRing.Color = col
-	end
-
-	for _, desc in ipairs(plot.FlameCore:GetDescendants()) do
+	-- Luce principale potenziata al massimo raggio consentito da Roblox (60 stud) + alta luminosità
+	for _, desc in ipairs(plot.FlameCore:GetChildren()) do
 		if desc:IsA("PointLight") then
 			desc.Color = col
-			desc.Range = math.min(72, 42 + rLvl * 1.6)
+			desc.Range = 60
+			desc.Brightness = math.min(8.5, 3.6 + rLvl * 0.28)
 		elseif desc:IsA("ParticleEmitter") then
 			desc.Color = ColorSequence.new(col)
 		end
+	end
+
+	-- Seconda luce rialzata per illuminare ampiamente tutta l'isola intorno al braciere
+	local skyAtt = plot.FlameCore:FindFirstChild("BrazierWideLightAtt")
+	if not skyAtt then
+		skyAtt = Instance.new("Attachment")
+		skyAtt.Name = "BrazierWideLightAtt"
+		skyAtt.Position = Vector3.new(0, 12, 0)
+		skyAtt.Parent = plot.FlameCore
+	end
+	local skyLight = skyAtt:FindFirstChildOfClass("PointLight")
+	if not skyLight then
+		skyLight = Instance.new("PointLight")
+		skyLight.Parent = skyAtt
+	end
+	skyLight.Color = col
+	skyLight.Range = 60
+	skyLight.Brightness = math.min(6.0, 2.8 + rLvl * 0.2)
+
+	if plot.EmberRing then
+		plot.EmberRing.Color = col
+		local ringLight = plot.EmberRing:FindFirstChildOfClass("PointLight")
+		if not ringLight then
+			ringLight = Instance.new("PointLight")
+			ringLight.Parent = plot.EmberRing
+		end
+		ringLight.Color = col
+		ringLight.Range = 60
+		ringLight.Brightness = math.min(5.0, 2.2 + rLvl * 0.15)
 	end
 end
 
 local function updatePlotGroundButtons(plot, data)
 	if not plot or not plot.AltarsFolder then return end
 	local altars = (data and data.Altars) or {}
+	local albaCount = (data and data.AlbaCount) or 0
 	local lang = getLang(data)
 	local lightUnit = Localization.T(lang, "LIGHT_UNIT")
 
@@ -158,7 +186,7 @@ local function updatePlotGroundButtons(plot, data)
 			local maxLvl = alt.MaxLevel or 1
 			local lvl = EconomyEngine.GetLevel(altars, alt.Id)
 			local maxed = lvl >= maxLvl
-			local cost = math.floor(alt.BaseCost * (alt.CostMult ^ lvl))
+			local cost = GameConfig.GetAltarCost(alt, lvl, albaCount)
 			local altName = Localization.Pick(lang, alt.Name, alt.Name_it)
 			local benefit = Localization.Pick(lang, alt.BenefitTag, alt.BenefitTag_it)
 
@@ -189,7 +217,7 @@ local function updatePlotGroundButtons(plot, data)
 		plot.VictoryTitleLabel.Text = "🌅 " .. Localization.Pick(lang, GameConfig.VictoryButton.Name, GameConfig.VictoryButton.Name_it)
 	end
 	if plot.VictoryStatusLabel then
-		local vCost = GameConfig.VictoryButton.Cost
+		local vCost = GameConfig.GetVictoryCost(albaCount)
 		local reward = EconomyEngine.GetAlbaRewardPerRebirth(data)
 		plot.VictoryStatusLabel.Text = Localization.T(lang, "FINAL_BTN_COST_FMT", NumberFormat.Format(vCost), reward)
 	end
@@ -472,7 +500,7 @@ for _, plot in ipairs(plots) do
 			VictoryCooldown[plr.UserId] = now
 
 			local lang = getLang(data)
-			local vCost = GameConfig.VictoryButton.Cost
+			local vCost = GameConfig.GetVictoryCost(data.AlbaCount or 0)
 			if data.Points < vCost then
 				syncPlayer(plr, {
 					PopupText = Localization.T(lang, "POP_NEED_FINAL", NumberFormat.Format(vCost)),
@@ -489,6 +517,10 @@ for _, plot in ipairs(plots) do
 			data.Altars = {}
 			data.Upgrades = startLvl > 0 and { u_click_add = 5 * startLvl, u_unlock_alba = 1 } or { u_unlock_alba = 1 }
 
+			-- Elimina torrette e armi dopo la rinascita: andranno ricomprate
+			data.OwnedWeapons = {}
+			data.Defenses = {}
+
 			for _, alt in ipairs(GameConfig.Altars) do
 				TouchingByPlot[plot.Index][alt.Id] = false
 			end
@@ -496,6 +528,8 @@ for _, plot in ipairs(plots) do
 			local freshStats = EconomyEngine.CalculateStats(data, 0, 1, data.HasDoubleLight)
 			updatePlotBrazierVisuals(plot, freshStats)
 			updatePlotGroundButtons(plot, data)
+			ShadowDefenseService.RebuildPlotDefenses(plot, data)
+			ShadowDefenseService.SyncPlayerTools(plr, data)
 			Regno1Service.SyncPlayer(plr)
 
 			syncPlayer(plr, {
@@ -517,6 +551,7 @@ task.spawn(function()
 			local data = owner and owner.Parent and PlayerData[owner.UserId]
 			if data then
 				local lang = getLang(data)
+				local albaCount = data.AlbaCount or 0
 				local wasAllDone = EconomyEngine.GetUpgradeCompletion(data)
 				local boughtSomething = false
 				local triggerShockwave = false
@@ -528,7 +563,7 @@ task.spawn(function()
 						local maxLvl = alt.MaxLevel or 1
 						local lvl = EconomyEngine.GetLevel(data.Altars, alt.Id)
 						if lvl < maxLvl then
-							local cost = math.floor(alt.BaseCost * (alt.CostMult ^ lvl))
+							local cost = GameConfig.GetAltarCost(alt, lvl, albaCount)
 							if data.Points >= cost then
 								data.Points -= cost
 								data.Altars[alt.Id] = lvl + 1
@@ -588,7 +623,7 @@ BuyUpgrade.OnServerEvent:Connect(function(player, upgId)
 	if cur >= target.MaxLevel then return end
 
 	local lang = getLang(data)
-	local cost = math.floor(target.BaseCost * (target.CostMult ^ cur))
+	local cost = GameConfig.GetUpgradeCost(target, cur, data.AlbaCount or 0)
 	if data.Points >= cost then
 		local wasAllDone = EconomyEngine.GetUpgradeCompletion(data)
 		data.Points -= cost
@@ -639,9 +674,9 @@ BuyWeapon.OnServerEvent:Connect(function(player, wepId)
 
 	if data.OwnedWeapons[target.Id] == true then return end
 	local lang = getLang(data)
+	local albaCount = data.AlbaCount or 0
 
-	-- Controllo requisito rinascita (es. 3ª arma)
-	if target.ReqAlba and (data.AlbaCount or 0) < target.ReqAlba then
+	if target.ReqAlba and albaCount < target.ReqAlba then
 		local reqMsg = lang == "it"
 			and string.format("Serve almeno %d Rinascita dell'Alba!", target.ReqAlba)
 			or string.format("Requires at least %d Dawn Rebirth!", target.ReqAlba)
@@ -649,8 +684,9 @@ BuyWeapon.OnServerEvent:Connect(function(player, wepId)
 		return
 	end
 
-	if data.Points >= target.Cost then
-		data.Points -= target.Cost
+	local cost = GameConfig.GetWeaponCost(target, albaCount)
+	if data.Points >= cost then
+		data.Points -= cost
 		data.OwnedWeapons[target.Id] = true
 		ShadowDefenseService.SyncPlayerTools(player, data)
 
@@ -660,7 +696,7 @@ BuyWeapon.OnServerEvent:Connect(function(player, wepId)
 		})
 	else
 		syncPlayer(player, {
-			PopupText = Localization.T(lang, "POP_NEED_LIGHT", NumberFormat.Format(target.Cost)),
+			PopupText = Localization.T(lang, "POP_NEED_LIGHT", NumberFormat.Format(cost)),
 		})
 	end
 end)
@@ -675,7 +711,6 @@ BuyDefense.OnServerEvent:Connect(function(player, defId)
 	end
 	if not target then return end
 
-	-- Controllo sblocco potenziamenti torretta (richiede almeno 1 torretta)
 	if target.ReqDefenseId then
 		local reqLvl = EconomyEngine.GetLevel(data.Defenses, target.ReqDefenseId)
 		if reqLvl < (target.ReqDefenseLvl or 1) then
@@ -687,7 +722,7 @@ BuyDefense.OnServerEvent:Connect(function(player, defId)
 	if cur >= target.MaxLevel then return end
 
 	local lang = getLang(data)
-	local costInfo = GameConfig.GetDefenseCost(target, cur)
+	local costInfo = GameConfig.GetDefenseCost(target, cur, data.AlbaCount or 0)
 	local needPoints = costInfo.Points or 0
 	local needAlba = costInfo.Alba or 0
 
@@ -785,7 +820,8 @@ SummonWisp.OnServerEvent:Connect(function(player, amount)
 	if not data then return end
 	local lang = getLang(data)
 	amount = math.clamp(math.floor(amount or 1), 1, 5)
-	local totalCost = GameConfig.BaseWispCost * amount
+	local unitCost = GameConfig.GetWispCost(data.AlbaCount or 0)
+	local totalCost = unitCost * amount
 	if data.Points < totalCost then
 		syncPlayer(player, { PopupText = Localization.T(lang, "POP_NEED_LIGHT", NumberFormat.Format(totalCost)) })
 		return

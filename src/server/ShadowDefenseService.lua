@@ -25,11 +25,11 @@ local SHADOW_TYPES = {
 		Id = "wisp",
 		Name_en = "Void Wisp",
 		Name_it = "Ombra Errante",
-		MaxHP = 6,          -- Potenziata: più vita
-		Speed = 5.4,
+		MaxHP = 6,
+		Speed = 5.6,
 		Size = 3.4,
-		DrainPct = 0.045,   -- Potenziata: fa più danni (drena più Punti Luce)
-		MinDrain = 24,
+		DrainPct = 0.08,    -- Danno aumentato al braciere
+		MinDrain = 55,
 		RewardMult = 18,
 		Color = Color3.fromRGB(32, 14, 58),
 		LightColor = Color3.fromRGB(165, 65, 255),
@@ -38,11 +38,11 @@ local SHADOW_TYPES = {
 		Id = "stalker",
 		Name_en = "Dusk Stalker",
 		Name_it = "Ombra Predatrice",
-		MaxHP = 2,          -- Meno vita, ma spawna molto più spesso
-		Speed = 8.8,
+		MaxHP = 2,
+		Speed = 9.0,
 		Size = 3.6,
-		DrainPct = 0.03,
-		MinDrain = 14,
+		DrainPct = 0.06,    -- Danno aumentato al braciere
+		MinDrain = 35,
 		RewardMult = 15,
 		Color = Color3.fromRGB(55, 12, 42),
 		LightColor = Color3.fromRGB(235, 55, 140),
@@ -51,11 +51,11 @@ local SHADOW_TYPES = {
 		Id = "brute",
 		Name_en = "Abyssal Brute",
 		Name_it = "Colosso d'Ombra",
-		MaxHP = 24,         -- Arriva dalla 2ª rinascita
-		Speed = 2.6,
+		MaxHP = 24,
+		Speed = 2.8,
 		Size = 5.8,
-		DrainPct = 0.08,
-		MinDrain = 95,
+		DrainPct = 0.15,    -- Danno pesante al braciere
+		MinDrain = 220,
 		RewardMult = 75,
 		Color = Color3.fromRGB(20, 8, 32),
 		LightColor = Color3.fromRGB(255, 110, 40),
@@ -64,13 +64,13 @@ local SHADOW_TYPES = {
 		Id = "siphon",
 		Name_en = "Void Siphon",
 		Name_it = "Sifone d'Ombra",
-		MaxHP = 9,          -- Arriva dalla 1ª rinascita
-		Speed = 4.2,
+		MaxHP = 9,
+		Speed = 4.4,
 		Size = 4.0,
 		StopRange = 22,
-		DrainInterval = 2.1,
-		DrainPct = 0.02,
-		MinDrain = 16,
+		DrainInterval = 1.6, -- Drena più frequentemente
+		DrainPct = 0.045,
+		MinDrain = 40,
 		RewardMult = 42,
 		Color = Color3.fromRGB(14, 28, 46),
 		LightColor = Color3.fromRGB(0, 215, 255),
@@ -88,7 +88,6 @@ local function getLang(data)
 	return (data and data.Language) or "en"
 end
 
--- Quando il braciere è completo, tutto il mondo è illuminato e le ombre non spawnano più
 local function isBrazierComplete(data)
 	if not data then return false end
 	return EconomyEngine.GetUpgradeCompletion(data) == true
@@ -123,7 +122,6 @@ local function weldAttachmentPart(handle, props, offsetCFrame)
 	return p
 end
 
--- Calcola statistiche torrette: partono molto scarse (0.55 dmg ogni 2.8s) e scalano con i potenziamenti
 function ShadowDefenseService.GetTurretStats(data)
 	local defenses = (data and data.Defenses) or {}
 	local dmgLvl = EconomyEngine.GetLevel(defenses, "def_turret_dmg")
@@ -460,33 +458,29 @@ function ShadowDefenseService.SyncPlayerTools(player, data)
 	end
 end
 
--- Selezione archetipo in base alle rinascite (AlbaCount):
--- Alba 0: Predatrice (molto frequente) + Errante
--- Alba 1+: si aggiunge il Sifone d'Ombra
--- Alba 2+: si aggiunge il Colosso d'Ombra
 local function pickShadowType(data)
 	local alba = (data and data.AlbaCount) or 0
 	local roll = math.random(1, 100)
 
 	if alba >= 2 then
-		if roll <= 15 then
-			return SHADOW_TYPES[3] -- Colosso d'Ombra (15%)
-		elseif roll <= 35 then
+		if roll <= 16 then
+			return SHADOW_TYPES[3] -- Colosso d'Ombra (16%)
+		elseif roll <= 36 then
 			return SHADOW_TYPES[4] -- Sifone d'Ombra (20%)
 		elseif roll <= 80 then
-			return SHADOW_TYPES[2] -- Ombra Predatrice (45%)
+			return SHADOW_TYPES[2] -- Ombra Predatrice (44%)
 		end
 		return SHADOW_TYPES[1]     -- Ombra Errante (20%)
 	elseif alba >= 1 then
-		if roll <= 22 then
-			return SHADOW_TYPES[4] -- Sifone d'Ombra (22%)
+		if roll <= 24 then
+			return SHADOW_TYPES[4] -- Sifone d'Ombra (24%)
 		elseif roll <= 76 then
-			return SHADOW_TYPES[2] -- Ombra Predatrice (54%)
+			return SHADOW_TYPES[2] -- Ombra Predatrice (52%)
 		end
 		return SHADOW_TYPES[1]     -- Ombra Errante (24%)
 	else
 		if roll <= 68 then
-			return SHADOW_TYPES[2] -- Ombra Predatrice (68% - spawna molto di più)
+			return SHADOW_TYPES[2] -- Ombra Predatrice (68%)
 		end
 		return SHADOW_TYPES[1]     -- Ombra Errante (32%)
 	end
@@ -495,7 +489,6 @@ end
 function ShadowDefenseService.SpawnShadowForPlot(plot, data)
 	if not plot or not plot.Owner or not WorldRef then return end
 
-	-- Se il braciere è completo, il mondo è tutto illuminato e le ombre non spawnano più
 	if isBrazierComplete(data) then
 		ShadowDefenseService.ClearShadowsForPlot(plot.Index)
 		return
@@ -507,20 +500,20 @@ function ShadowDefenseService.SpawnShadowForPlot(plot, data)
 			countOnPlot += 1
 		end
 	end
-	if countOnPlot >= 5 then return end
+	-- Limite aumentato a 8 ombre contemporanee sull'isola
+	if countOnPlot >= 8 then return end
 
 	local sType = pickShadowType(data)
 	local alba = math.max(0, (data and data.AlbaCount) or 0)
 
-	-- Dopo ogni rinascita tutte le ombre diventano più potenti
 	local hpMult = 1 + (alba * 0.75)
-	local drainMult = 1 + (alba * 0.50)
-	local speedMult = 1 + math.min(0.45, alba * 0.08)
+	local drainMult = 1 + (alba * 0.65)
+	local speedMult = 1 + math.min(0.50, alba * 0.09)
 	local rewardScale = 1 + (alba * 0.55)
 
 	local scaledMaxHP = math.max(1, math.round(sType.MaxHP * hpMult))
 	local scaledSpeed = sType.Speed * speedMult
-	local scaledDrainPct = math.min(0.35, sType.DrainPct * drainMult)
+	local scaledDrainPct = math.min(0.45, sType.DrainPct * drainMult)
 	local scaledMinDrain = math.max(1, math.round(sType.MinDrain * drainMult))
 	local scaledRewardMult = sType.RewardMult * rewardScale
 
@@ -611,12 +604,17 @@ function ShadowDefenseService.Init(world, remotesFolder, plots, playerData, play
 
 	task.spawn(function()
 		while true do
-			task.wait(14)
+			-- Spawn quasi raddoppiato (ogni 7.5 secondi) + probabilità di doppia unità
+			task.wait(7.5)
 			for _, plot in ipairs(PlotsRef) do
 				if plot.Owner then
 					local data = PlayerDataRef[plot.Owner.UserId]
 					if data and not isBrazierComplete(data) then
 						ShadowDefenseService.SpawnShadowForPlot(plot, data)
+						local extraChance = ((data.AlbaCount or 0) >= 1) and 0.45 or 0.25
+						if math.random() < extraChance then
+							ShadowDefenseService.SpawnShadowForPlot(plot, data)
+						end
 					end
 				end
 			end
@@ -633,7 +631,6 @@ function ShadowDefenseService.Tick(dt, clickHeatTable)
 		local owner = plot and plot.Owner
 		local data = owner and PlayerDataRef[owner.UserId]
 
-		-- Se il braciere viene completato, dissolve subito le ombre rimaste
 		if not sh or not sh.Part or not sh.Part.Parent or not plot or not owner or isBrazierComplete(data) then
 			if sh then destroyShadowEntry(sh) end
 		else
@@ -650,7 +647,7 @@ function ShadowDefenseService.Tick(dt, clickHeatTable)
 
 			if sh.Type.StopRange and dist <= sh.Type.StopRange then
 				sh.SiphonTimer = (sh.SiphonTimer or 0) + dt
-				if sh.SiphonTimer >= (sh.Type.DrainInterval or 2.1) then
+				if sh.SiphonTimer >= (sh.Type.DrainInterval or 1.6) then
 					sh.SiphonTimer = 0
 					if data then
 						local currentPts = math.floor(data.Points or 0)
@@ -684,7 +681,7 @@ function ShadowDefenseService.Tick(dt, clickHeatTable)
 						data.Points = math.max(0, currentPts - drain)
 					end
 					if clickHeatTable and clickHeatTable[owner.UserId] then
-						clickHeatTable[owner.UserId].Heat = math.max(0, (clickHeatTable[owner.UserId].Heat or 0) - 0.25)
+						clickHeatTable[owner.UserId].Heat = math.max(0, (clickHeatTable[owner.UserId].Heat or 0) - 0.35)
 					end
 					if SyncPlayerFn then
 						SyncPlayerFn(owner, {

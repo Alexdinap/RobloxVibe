@@ -287,7 +287,7 @@ function ShopUI.Build(parentGui, remotes)
 				local lvl = EconomyEngine.GetLevel(st.Upgrades, u.Id)
 				local unlocked = EconomyEngine.IsUpgradeUnlocked({ Upgrades = st.Upgrades or {} }, u)
 				local maxed = lvl >= u.MaxLevel
-				local cost = math.floor(u.BaseCost * (u.CostMult ^ lvl))
+				local cost = GameConfig.GetUpgradeCost(u, lvl, albaCount)
 				local canBuy = unlocked and (not maxed) and points >= cost
 
 				local uName = Localization.Pick(lang, u.Name, u.Name_it)
@@ -311,7 +311,8 @@ function ShopUI.Build(parentGui, remotes)
 				local owned = ownedWeapons[w.Id] == true
 				local reqAlba = w.ReqAlba or 0
 				local albaLocked = (not owned) and (albaCount < reqAlba)
-				local canBuy = (not owned) and (not albaLocked) and points >= w.Cost
+				local wepCost = GameConfig.GetWeaponCost(w, albaCount)
+				local canBuy = (not owned) and (not albaLocked) and points >= wepCost
 				local wName = Localization.Pick(lang, w.Name, w.Name_it)
 				local wTag = Localization.Pick(lang, w.Tag, w.Tag_it)
 				local wDesc = Localization.Pick(lang, w.Desc, w.Desc_it)
@@ -328,7 +329,7 @@ function ShopUI.Build(parentGui, remotes)
 					wRef.Title.Text = string.format("%s %s (%s)", w.Icon, wName, wTag)
 					wRef.Desc.Text = wDesc
 					wRef.Btn.BackgroundColor3 = owned and Color3.fromRGB(35, 65, 52) or (canBuy and THEME.Gold or Color3.fromRGB(36, 40, 56))
-					wRef.Btn.Text = owned and Localization.T(lang, "BTN_EQUIPPED") or (NumberFormat.Format(w.Cost) .. " " .. lightUnit)
+					wRef.Btn.Text = owned and Localization.T(lang, "BTN_EQUIPPED") or (NumberFormat.Format(wepCost) .. " " .. lightUnit)
 					wRef.Btn.TextColor3 = canBuy and Color3.fromRGB(16, 18, 24) or THEME.TextMain
 				end
 			end
@@ -336,7 +337,6 @@ function ShopUI.Build(parentGui, remotes)
 			for _, dRef in ipairs(defenseRefs.Structures) do
 				local d = dRef.Config
 
-				-- Nasconde i potenziamenti delle torrette finché non viene comprata la 1ª torretta
 				if d.ReqDefenseId then
 					local reqLvl = EconomyEngine.GetLevel(st.Defenses, d.ReqDefenseId)
 					dRef.Card.Visible = reqLvl >= (d.ReqDefenseLvl or 1)
@@ -346,7 +346,7 @@ function ShopUI.Build(parentGui, remotes)
 
 				local lvl = EconomyEngine.GetLevel(st.Defenses, d.Id)
 				local maxed = lvl >= d.MaxLevel
-				local costInfo = GameConfig.GetDefenseCost(d, lvl)
+				local costInfo = GameConfig.GetDefenseCost(d, lvl, albaCount)
 				local needPts = costInfo.Points or 0
 				local needAlba = costInfo.Alba or 0
 				local canBuy = (not maxed) and (points >= needPts) and (albaPts >= needAlba)
@@ -374,12 +374,13 @@ function ShopUI.Build(parentGui, remotes)
 				wispLockRef.Text = Localization.T(lang, "WISPS_LOCKED")
 			end
 			if wispHeaderRefs then
+				local unitWispCost = GameConfig.GetWispCost(albaCount)
 				wispHeaderRefs.Card.Visible = st.WispsUnlocked == true
 				wispHeaderRefs.Info.Text = Localization.T(lang, "WISPS_HEADER_FMT", st.EquippedCount or 0, st.MaxWispSlots or 3)
-				wispHeaderRefs.Btn1.Text = Localization.T(lang, "SUMMON_1_FMT", NumberFormat.Format(GameConfig.BaseWispCost))
-				wispHeaderRefs.Btn1.BackgroundColor3 = (points >= GameConfig.BaseWispCost) and THEME.Cyan or Color3.fromRGB(36, 40, 56)
-				wispHeaderRefs.Btn1.TextColor3 = (points >= GameConfig.BaseWispCost) and Color3.fromRGB(16, 18, 24) or THEME.TextMain
-				local cost5 = GameConfig.BaseWispCost * 5
+				wispHeaderRefs.Btn1.Text = Localization.T(lang, "SUMMON_1_FMT", NumberFormat.Format(unitWispCost))
+				wispHeaderRefs.Btn1.BackgroundColor3 = (points >= unitWispCost) and THEME.Cyan or Color3.fromRGB(36, 40, 56)
+				wispHeaderRefs.Btn1.TextColor3 = (points >= unitWispCost) and Color3.fromRGB(16, 18, 24) or THEME.TextMain
+				local cost5 = unitWispCost * 5
 				wispHeaderRefs.Btn5.Text = Localization.T(lang, "SUMMON_5_FMT", NumberFormat.Format(cost5))
 				wispHeaderRefs.Btn5.BackgroundColor3 = (points >= cost5) and THEME.Gold or Color3.fromRGB(36, 40, 56)
 				wispHeaderRefs.Btn5.TextColor3 = (points >= cost5) and Color3.fromRGB(16, 18, 24) or THEME.TextMain
@@ -1046,10 +1047,11 @@ function ShopUI.Build(parentGui, remotes)
 
 			local readyCount = 0
 			local pts = st.Points or 0
+			local albaCount = st.AlbaCount or 0
 			for _, u in ipairs(GameConfig.Upgrades) do
 				local lvl = EconomyEngine.GetLevel(st.Upgrades, u.Id)
 				if lvl < u.MaxLevel and EconomyEngine.IsUpgradeUnlocked({ Upgrades = st.Upgrades or {} }, u) then
-					local cost = math.floor(u.BaseCost * (u.CostMult ^ lvl))
+					local cost = GameConfig.GetUpgradeCost(u, lvl, albaCount)
 					if pts >= cost then
 						readyCount += 1
 					end
