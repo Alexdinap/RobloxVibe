@@ -50,7 +50,7 @@ local function createCloseImageButton(parent, zIndex)
 	return btn
 end
 
-function ShopUI.Build(parentGui, remotes)
+function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 	local latestState = nil
 	local activeTab = "Character"
 	local renderedTab = nil
@@ -69,7 +69,6 @@ function ShopUI.Build(parentGui, remotes)
 		return (latestState and latestState.Language) or "en"
 	end
 
-	-- Banner timer a schermo (3 minuti iniziali / 2 minuti dopo ogni rinascita)
 	local graceBanner = Instance.new("Frame", parentGui)
 	graceBanner.Name = "DawnTruceTimerBanner"
 	graceBanner.AnchorPoint = Vector2.new(0.5, 0)
@@ -97,14 +96,14 @@ function ShopUI.Build(parentGui, remotes)
 	bottomBar.Name = "BigMenuLaunchBar"
 	bottomBar.AnchorPoint = Vector2.new(0.5, 1)
 	bottomBar.Position = UDim2.new(0.5, 0, 1, -14)
-	bottomBar.Size = UDim2.fromOffset(520, 52)
+	bottomBar.Size = UDim2.fromOffset(620, 52)
 	bottomBar.BackgroundTransparency = 1
 	bottomBar.ZIndex = 15
 
 	local homeBtn = Instance.new("TextButton", bottomBar)
 	homeBtn.Name = "TeleportHomeButton"
 	homeBtn.Position = UDim2.fromOffset(0, 0)
-	homeBtn.Size = UDim2.fromOffset(130, 52)
+	homeBtn.Size = UDim2.fromOffset(122, 52)
 	homeBtn.BackgroundColor3 = Color3.fromRGB(24, 34, 48)
 	homeBtn.Text = Localization.T("en", "MY_ZONE_BTN")
 	homeBtn.TextColor3 = THEME.Cyan
@@ -125,8 +124,8 @@ function ShopUI.Build(parentGui, remotes)
 
 	local toggleBtn = Instance.new("TextButton", bottomBar)
 	toggleBtn.Name = "BigOpenMenuButton"
-	toggleBtn.Position = UDim2.fromOffset(140, 0)
-	toggleBtn.Size = UDim2.fromOffset(230, 52)
+	toggleBtn.Position = UDim2.fromOffset(130, 0)
+	toggleBtn.Size = UDim2.fromOffset(224, 52)
 	toggleBtn.BackgroundColor3 = Color3.fromRGB(22, 24, 36)
 	toggleBtn.Text = ""
 	toggleBtn.AutoButtonColor = true
@@ -182,10 +181,32 @@ function ShopUI.Build(parentGui, remotes)
 	readyBadge.ZIndex = 18
 	Instance.new("UICorner", readyBadge).CornerRadius = UDim.new(1, 0)
 
+	local tutorialBtn = Instance.new("TextButton", bottomBar)
+	tutorialBtn.Name = "OpenTutorialButton"
+	tutorialBtn.Position = UDim2.fromOffset(362, 0)
+	tutorialBtn.Size = UDim2.fromOffset(114, 52)
+	tutorialBtn.BackgroundColor3 = Color3.fromRGB(28, 24, 44)
+	tutorialBtn.Text = Localization.T("en", "TUTORIAL_BTN")
+	tutorialBtn.TextColor3 = THEME.Purple
+	tutorialBtn.Font = Enum.Font.GothamBold
+	tutorialBtn.TextSize = 12
+	tutorialBtn.ZIndex = 15
+	Instance.new("UICorner", tutorialBtn).CornerRadius = UDim.new(0, 14)
+
+	local tutorialStroke = Instance.new("UIStroke", tutorialBtn)
+	tutorialStroke.Color = THEME.Purple
+	tutorialStroke.Thickness = 1.6
+
+	tutorialBtn.MouseButton1Click:Connect(function()
+		if onOpenTutorial then
+			onOpenTutorial()
+		end
+	end)
+
 	local dockBoostBtn = Instance.new("TextButton", bottomBar)
 	dockBoostBtn.Name = "BigDoubleLightButton"
-	dockBoostBtn.Position = UDim2.fromOffset(380, 0)
-	dockBoostBtn.Size = UDim2.fromOffset(140, 52)
+	dockBoostBtn.Position = UDim2.fromOffset(484, 0)
+	dockBoostBtn.Size = UDim2.fromOffset(136, 52)
 	dockBoostBtn.BackgroundColor3 = Color3.fromRGB(42, 32, 16)
 	dockBoostBtn.Text = Localization.T("en", "ROBUX_X2_BTN")
 	dockBoostBtn.TextColor3 = THEME.Gold
@@ -1054,9 +1075,8 @@ function ShopUI.Build(parentGui, remotes)
 			latestState = st
 			local lang = getLang()
 
-			-- Aggiornamento banner timer (3 minuti iniziali / 2 minuti dopo la rinascita)
 			local graceRem = math.max(0, math.floor(st.ShadowGraceRemaining or 0))
-			if graceRem > 0 and not st.AllUpgradesCompleted then
+			if graceRem > 0 and st.TutorialCompleted == true and not st.AllUpgradesCompleted then
 				graceBanner.Visible = true
 				local mins = math.floor(graceRem / 60)
 				local secs = graceRem % 60
@@ -1069,6 +1089,7 @@ function ShopUI.Build(parentGui, remotes)
 			homeBtn.Text = Localization.T(lang, "MY_ZONE_BTN")
 			toggleLabel.Text = Localization.T(lang, "CHAR_BTN_TITLE")
 			toggleSub.Text = Localization.T(lang, "CHAR_BTN_SUB")
+			tutorialBtn.Text = Localization.T(lang, "TUTORIAL_BTN")
 			headerTitle.Text = Localization.T(lang, "MODAL_TITLE")
 			vHead.Text = Localization.T(lang, "VICTORY_TITLE")
 			vOpenAlba.Text = Localization.T(lang, "VICTORY_OPEN_DAWN")

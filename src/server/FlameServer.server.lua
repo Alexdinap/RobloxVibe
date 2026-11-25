@@ -38,6 +38,7 @@ local FuseWisp = makeRemote("RemoteEvent", "FuseWisp")
 local SyncGamePass = makeRemote("RemoteEvent", "SyncGamePass")
 local TeleportHome = makeRemote("RemoteEvent", "TeleportHome")
 local SetLanguage = makeRemote("RemoteEvent", "SetLanguage")
+local CompleteTutorial = makeRemote("RemoteEvent", "CompleteTutorial")
 local RedeemCode = makeRemote("RemoteFunction", "RedeemCode")
 
 local mainStore
@@ -186,12 +187,20 @@ local function updatePlotGroundButtons(plot, data)
 			local maxed = lvl >= maxLvl
 			local cost = GameConfig.GetAltarCost(alt, lvl, albaCount)
 			local altName = Localization.Pick(lang, alt.Name, alt.Name_it)
+			local altDesc = Localization.Pick(lang, alt.Desc, alt.Desc_it)
 			local benefit = Localization.Pick(lang, alt.BenefitTag, alt.BenefitTag_it)
 
 			local bbg = pad:FindFirstChildOfClass("BillboardGui")
-			if bbg then
-				local t1 = bbg:FindFirstChild("TitleLabel")
-				local t2 = bbg:FindFirstChild("CostLabel")
+			local container = bbg and (bbg:FindFirstChildOfClass("Frame") or bbg)
+			if container then
+				local t1 = container:FindFirstChild("TitleLabel")
+				local td = container:FindFirstChild("DescLabel")
+				local t2 = container:FindFirstChild("CostLabel")
+
+				if td then
+					td.Text = altDesc
+				end
+
 				if alt.IsColorButton then
 					if t1 then
 						t1.Text = maxed and ("✅ " .. altName) or ("🎨 " .. altName)
@@ -213,6 +222,9 @@ local function updatePlotGroundButtons(plot, data)
 
 	if plot.VictoryTitleLabel then
 		plot.VictoryTitleLabel.Text = "🌅 " .. Localization.Pick(lang, GameConfig.VictoryButton.Name, GameConfig.VictoryButton.Name_it)
+	end
+	if plot.VictoryDescLabel then
+		plot.VictoryDescLabel.Text = Localization.Pick(lang, GameConfig.VictoryButton.Desc, GameConfig.VictoryButton.Desc_it)
 	end
 	if plot.VictoryStatusLabel then
 		local vCost = GameConfig.GetVictoryCost(albaCount)
@@ -251,7 +263,7 @@ local function updatePlotAlbaZones(plot, data)
 			zRef.IslandBase.Transparency = isUnlocked and 0 or 0.55
 			zRef.IslandBase.CanCollide = isUnlocked
 			zRef.IslandRim.Transparency = isUnlocked and 0.10 or 0.70
-			zRef.IslandRim.CanCollide = isUnlocked
+			zRef.IslandRim.CanCollide = false
 			zRef.IslandInner.Transparency = isUnlocked and 0 or 0.55
 			zRef.IslandInner.CanCollide = isUnlocked
 
@@ -263,17 +275,30 @@ local function updatePlotAlbaZones(plot, data)
 			zRef.MonumentPedestal.Transparency = isUnlocked and 0 or 0.55
 			zRef.MonumentPedestal.CanCollide = isUnlocked
 
-			zRef.Crystal.Transparency = isUnlocked and 0.08 or 0.70
-			zRef.Crystal.CanCollide = isUnlocked
-			if zRef.CrystalLight then
-				zRef.CrystalLight.Enabled = isUnlocked
+			if zRef.MonumentParts then
+				for _, mPart in ipairs(zRef.MonumentParts) do
+					if mPart and mPart.Parent then
+						if mPart.Name ~= "MonumentAuraCore" then
+							mPart.Transparency = isUnlocked and 0.04 or 0.72
+						end
+						mPart.CanCollide = isUnlocked
+					end
+				end
+			end
+
+			if zRef.MonumentLights then
+				for _, mLight in ipairs(zRef.MonumentLights) do
+					if mLight and mLight.Parent then
+						mLight.Enabled = isUnlocked
+					end
+				end
 			end
 
 			if zRef.ZoneTitle then
 				if isUnlocked then
-					zRef.ZoneTitle.Text = string.format("%s %s (x%.1f)", z.Icon, zName, z.LightMult or 1.0)
+					zRef.ZoneTitle.Text = string.format("%s %s (x%.2f)", z.Icon, zName, z.LightMult or 1.0)
 				else
-					zRef.ZoneTitle.Text = string.format("🔒 %s (x%.1f)", zName, z.LightMult or 1.0)
+					zRef.ZoneTitle.Text = string.format("🔒 %s (x%.2f)", zName, z.LightMult or 1.0)
 				end
 			end
 		end
@@ -354,6 +379,7 @@ local function syncPlayer(player, extra)
 
 	local payload = {
 		Language = lang,
+		TutorialCompleted = (data.TutorialCompleted == true),
 		PlotIndex = plot and plot.Index or 1,
 		PlotOrigin = plot and plot.Origin or Vector3.zero,
 		ShadowGraceRemaining = plot and ShadowDefenseService.GetGraceRemaining(plot.Index) or 0,
@@ -420,6 +446,22 @@ SetLanguage.OnServerEvent:Connect(function(player, lang)
 	ShadowDefenseService.SyncPlayerTools(player, data)
 	Regno1Service.SyncPlayer(player)
 	syncPlayer(player)
+end)
+
+CompleteTutorial.OnServerEvent:Connect(function(player)
+	local data = PlayerData[player.UserId]
+	if not data then return end
+	if data.TutorialCompleted then return end
+
+	data.TutorialCompleted = true
+	local plot = PlayerPlotMap[player.UserId]
+	if plot then
+		ShadowDefenseService.StartGracePeriod(plot.Index, GameConfig.InitialShadowGraceSeconds or 180, true)
+	end
+
+	syncPlayer(player, {
+		PopupText = Localization.T(getLang(data), "POP_TUTORIAL_DONE"),
+	})
 end)
 
 TeleportHome.OnServerEvent:Connect(function(player)
@@ -546,7 +588,6 @@ for _, plot in ipairs(plots) do
 		end
 	end
 
-	-- Pedane davanti ai portali delle Zone Extra (sblocco anche calpestandole)
 	for _, z in ipairs(GameConfig.AlbaZones) do
 		local zRef = plot.AlbaZoneRefs and plot.AlbaZoneRefs[z.Id]
 		if zRef and zRef.GatePad then
@@ -619,11 +660,9 @@ for _, plot in ipairs(plots) do
 			data.Altars = startLvl > 0 and { alt_click = 5 * startLvl } or {}
 			data.Upgrades = { u_unlock_alba = 1 }
 
-			-- Elimina torrette e armi dopo la rinascita: andranno ricomprate
 			data.OwnedWeapons = {}
 			data.Defenses = {}
 
-			-- Avvia 2 minuti (120 secondi) di tregua prima che ricomincino a spawnare le ombre
 			ShadowDefenseService.StartGracePeriod(plot.Index, GameConfig.RebirthShadowGraceSeconds or 120, false)
 
 			for _, alt in ipairs(GameConfig.Altars) do
@@ -921,7 +960,7 @@ UnlockAlbaZone.OnServerEvent:Connect(function(player, zoneId)
 		syncPlayer(player, {
 			SoundCue = "Prestige",
 			Shockwave = true,
-			PopupText = Localization.T(lang, "POP_ZONE_UNLOCK", Localization.Pick(lang, target.Name, target.Name_it)),
+			PopupText = Localization.T(lang, "POP_ZONE_UNLOCK", Localization.Pick(lang, z.Name, z.Name_it)),
 		})
 	else
 		syncPlayer(player, {
@@ -1148,14 +1187,18 @@ Players.PlayerAdded:Connect(function(player)
 		data.Regno1 = { Completed = false, Completions = 0, BestTime = nil }
 	end
 	data.HasDoubleLight = (data.HasDoubleLight == true)
+	data.TutorialCompleted = (data.TutorialCompleted == true)
 
 	verifyDoubleLightOwnership(player, data)
 	PlayerData[player.UserId] = data
 
 	local assignedPlot = assignPlotToPlayer(player, getLang(data))
 	if assignedPlot then
-		-- 3 minuti (180s) di tregua iniziale prima che arrivino le Ombre
-		ShadowDefenseService.StartGracePeriod(assignedPlot.Index, GameConfig.InitialShadowGraceSeconds or 180, true)
+		if data.TutorialCompleted then
+			ShadowDefenseService.StartGracePeriod(assignedPlot.Index, GameConfig.InitialShadowGraceSeconds or 180, true)
+		else
+			ShadowDefenseService.StartGracePeriod(assignedPlot.Index, 999999, true)
+		end
 	end
 
 	player.CharacterAdded:Connect(function()

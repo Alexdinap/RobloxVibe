@@ -1,622 +1,707 @@
 local GameConfig = {}
 
--- Multiplayer Configuration: 10 Independent Plots
-GameConfig.MaxPlots = 10
-GameConfig.PlotRingRadius = 430
+GameConfig.PlotCount = 10
+GameConfig.PlotRingRadius = 245
+GameConfig.PlotHalfSize = 42
 
--- Shadow Truce Timers (seconds)
-GameConfig.InitialGraceDuration = 180 -- 3 minutes at the start of the match
-GameConfig.RebirthGraceDuration = 120 -- 2 minutes after each Dawn Rebirth
+GameConfig.InitialShadowGraceSeconds = 180 -- 3 minuti all'ingresso
+GameConfig.RebirthShadowGraceSeconds = 120 -- 2 minuti dopo ogni Rinascita
 
--- Brazier Click Cooldown Bounds (seconds)
-GameConfig.BaseClickCooldown = 0.50
-GameConfig.MinClickCooldown = 0.06
-
--- Robux GamePass
 GameConfig.RobuxPasses = {
 	DoubleLight = {
-		GamePassId = 0, -- INSERT YOUR ROBLOX GAMEPASS ID HERE
-		Name = "Permanent x2 Light",
-		Name_it = "Luce x2 Permanente",
-		Multiplier = 2.0,
+		GamePassId = 0, -- Inserisci qui il tuo GamePass ID Roblox
+		Mult = 2.0,
 	},
 }
 
--- Final Dawn Button (Appears ONLY after maxing all Character & Brazier upgrades)
-GameConfig.VictoryButton = {
-	Name = "FINAL DAWN BUTTON",
-	Name_it = "BOTTONE DELL'ALBA FINALE",
-	Cost = 5e8, -- 500M Light Points (1st Rebirth base)
-	BaseAlbaReward = 1,
-	Pos = Vector3.new(0, 0.6, 26),
-}
-
-local VICTORY_COSTS_BY_ALBA = {
-	[0] = 5e8,    -- 1ª Rinascita: 500M
-	[1] = 1.5e9,  -- 2ª Rinascita: 1.5B
-	[2] = 5e9,    -- 3ª Rinascita: 5B
-	[3] = 1e10,   -- 4ª Rinascita: 10B
-	[4] = 2.5e10, -- 5ª Rinascita: 25B
-	[5] = 6e10,   -- 6ª Rinascita: 60B
-}
-
-function GameConfig.GetVictoryCost(albaCount)
-	local a = math.max(0, math.floor(albaCount or 0))
-	if VICTORY_COSTS_BY_ALBA[a] then
-		return VICTORY_COSTS_BY_ALBA[a]
-	end
-	return math.floor(6e10 * (2.5 ^ (a - 5)))
-end
-
--- Tutto costa un po' di più dopo ogni rinascita (+35% per Alba)
-function GameConfig.GetRebirthCostMult(albaCount)
-	local a = math.max(0, math.floor(albaCount or 0))
-	return 1 + (a * 0.35)
-end
-
-function GameConfig.GetUpgradeCost(upgCfg, currentLevel, albaCount)
-	local base = math.floor(upgCfg.BaseCost * (upgCfg.CostMult ^ currentLevel))
-	return math.floor(base * GameConfig.GetRebirthCostMult(albaCount))
-end
-
-function GameConfig.GetAltarCost(altCfg, currentLevel, albaCount)
-	local base = math.floor(altCfg.BaseCost * (altCfg.CostMult ^ currentLevel))
-	return math.floor(base * GameConfig.GetRebirthCostMult(albaCount))
-end
-
-function GameConfig.GetWeaponCost(wepCfg, albaCount)
-	return math.floor(wepCfg.Cost * GameConfig.GetRebirthCostMult(albaCount))
-end
-
-function GameConfig.GetWispCost(albaCount)
-	return math.floor(GameConfig.BaseWispCost * GameConfig.GetRebirthCostMult(albaCount))
-end
-
--- =========================================================================
--- CHARACTER UPGRADES (Player actions & abilities only)
--- =========================================================================
-GameConfig.Upgrades = {
-	{
-		Id = "u_click_cd", Category = "Character", Order = 1,
-		Icon = "⚡",
-		Name = "Blazing Cadence", Name_it = "Cadenza Ardente",
-		Tag = "-0.04s Click Cooldown", Tag_it = "-0.04s Attesa Click",
-		Desc = "Reduces the cooldown between manual clicks on the Brazier (from 0.50s down to 0.06s).",
-		Desc_it = "Riduce il tempo di attesa tra un click e l'altro sul Braciere (da 0,50s a 0,06s).",
-		BaseCost = 20, CostMult = 1.65, MaxLevel = 11, LightPct = 0.5,
-		Effect = "ClickCooldown", Value = 0.04,
-		ReqId = nil, ReqLvl = 0,
-	},
-	{
-		Id = "u_speed", Category = "Character", Order = 2,
-		Icon = "👟",
-		Name = "Wind Step", Name_it = "Passo del Vento",
-		Tag = "+1.5 Walk Speed", Tag_it = "+1.5 Velocità Corsa",
-		Desc = "Increases your character's movement speed across the island.",
-		Desc_it = "Aumenta la velocità di corsa del personaggio sull'isola.",
-		BaseCost = 35, CostMult = 1.62, MaxLevel = 12, LightPct = 0.6,
-		Effect = "WalkSpeed", Value = 1.5,
-		ReqId = "u_click_cd", ReqLvl = 1,
-	},
-	{
-		Id = "u_crit", Category = "Character", Order = 3,
-		Icon = "💥",
-		Name = "Swift Reflexes", Name_it = "Riflessi Fulminei",
-		Tag = "+4% Crit Chance", Tag_it = "+4% Prob. Critico",
-		Desc = "Increases your chance to land critical hits on the Brazier.",
-		Desc_it = "Aumenta la probabilità di sferrare colpi critici.",
-		BaseCost = 120, CostMult = 1.95, MaxLevel = 10, LightPct = 0.7,
-		Effect = "CritChance", Value = 0.04,
-		ReqId = "u_speed", ReqLvl = 1,
-	},
-	{
-		Id = "u_crit_dmg", Category = "Character", Order = 4,
-		Icon = "⚔️",
-		Name = "Solar Strike", Name_it = "Colpo Solare",
-		Tag = "+1.5x Crit Power", Tag_it = "+1.5x Danno Critico",
-		Desc = "Increases the multiplier of critical hits landed by your character.",
-		Desc_it = "Aumenta il moltiplicatore dei colpi critici sferrati.",
-		BaseCost = 320, CostMult = 2.25, MaxLevel = 8, LightPct = 0.8,
-		Effect = "CritMult", Value = 1.5,
-		ReqId = "u_crit", ReqLvl = 1,
-	},
-	{
-		Id = "u_braziers", Category = "Character", Order = 5,
-		Icon = "🏃",
-		Name = "Realm 1 Seal", Name_it = "Sigillo Regno 1",
-		Tag = "Unlock Speed Trial", Tag_it = "Sblocca Prova Corsa",
-		Desc = "Unlocks the timed sprint challenge across the 5 Ritual Braziers.",
-		Desc_it = "Abilita la corsa a tempo tra i 5 Bracieri Rituali.",
-		BaseCost = 500, CostMult = 1, MaxLevel = 1, LightPct = 6,
-		Zone = "Braziers", Effect = "UnlockRegno1", Value = 1,
-		ReqId = "u_speed", ReqLvl = 1,
-	},
-	{
-		Id = "u_autoclick", Category = "Character", Order = 6,
-		Icon = "⏱️",
-		Name = "Pulsing Aura", Name_it = "Aura Pulsante",
-		Tag = "+1 Auto-Click/s", Tag_it = "+1 Click Auto/s",
-		Desc = "Your character channels energy, generating automatic clicks per second.",
-		Desc_it = "Il personaggio canalizza energia generando click automatici al secondo.",
-		BaseCost = 950, CostMult = 2.15, MaxLevel = 10, LightPct = 0.8,
-		Effect = "AutoClick", Value = 1.0,
-		ReqId = "u_crit_dmg", ReqLvl = 1,
-	},
-	{
-		Id = "u_unlock_wisps", Category = "Character", Order = 7,
-		Icon = "✨",
-		Name = "Spirit Summoning", Name_it = "Evocazione Spiriti",
-		Tag = "Unlock Wisps", Tag_it = "Sblocca Spiriti",
-		Desc = "Allows your character to summon and forge companion Light Wisps.",
-		Desc_it = "Permette di evocare e fondere Spiriti compagni.",
-		BaseCost = 1800, CostMult = 1, MaxLevel = 1, LightPct = 4,
-		Effect = "UnlockWisps", Value = 1,
-		ReqId = "u_braziers", ReqLvl = 1,
-	},
-	{
-		Id = "u_ember_mag", Category = "Character", Order = 8,
-		Icon = "🧲",
-		Name = "Ethereal Magnet", Name_it = "Calamita Eterea",
-		Tag = "Pull Light Orbs", Tag_it = "Attira Sfere",
-		Desc = "Automatically pulls nearby wandering Light Orbs toward your character.",
-		Desc_it = "Attira automaticamente le Sfere di Luce vaganti vicine.",
-		BaseCost = 5500, CostMult = 1, MaxLevel = 1, LightPct = 3,
-		Effect = "Magnet", Value = 1,
-		ReqId = "u_unlock_wisps", ReqLvl = 1,
-	},
-	{
-		Id = "u_wisp_slot", Category = "Character", Order = 9,
-		Icon = "🔗",
-		Name = "Spirit Bond", Name_it = "Legame Spiritico",
-		Tag = "+1 Active Wisp", Tag_it = "+1 Spirito Attivo",
-		Desc = "Increases max orbiting Wisps following your character (up to 6).",
-		Desc_it = "Aumenta il numero massimo di Spiriti attivi (fino a 6).",
-		BaseCost = 22000, CostMult = 4.2, MaxLevel = 3, LightPct = 2.5,
-		Effect = "ExtraWisp", Value = 1,
-		ReqId = "u_unlock_wisps", ReqLvl = 1,
-	},
-	{
-		Id = "u_char_mastery", Category = "Character", Order = 10,
-		Icon = "⚡",
-		Name = "Keeper Mastery", Name_it = "Maestria del Custode",
-		Tag = "x1.8 Click Power", Tag_it = "x1.8 Potere Click",
-		Desc = "Multiplies all Light generated by your character's clicks by x1.8.",
-		Desc_it = "Moltiplica x1.8 tutta la Luce generata dai click del personaggio.",
-		BaseCost = 90000, CostMult = 3.1, MaxLevel = 6, LightPct = 2.5,
-		Effect = "ClickPowerMult", Value = 1.8,
-		ReqId = "u_ember_mag", ReqLvl = 1,
-	},
-	{
-		Id = "u_unlock_alba", Category = "Character", Order = 11,
-		Icon = "🌅",
-		Name = "Rite of Dawn", Name_it = "Rito dell'Alba",
-		Tag = "Unlock Dawn Tab", Tag_it = "Sblocca Scheda Alba",
-		Desc = "Unlocks the Dawn tab to manage Dawn Points and unlock New Zones.",
-		Desc_it = "Sblocca la scheda Alba per gestire i Punti Alba e le Nuove Zone.",
-		BaseCost = 450000, CostMult = 1, MaxLevel = 1, LightPct = 4,
-		Effect = "UnlockAlba", Value = 1,
-		ReqId = "u_char_mastery", ReqLvl = 1,
-	},
-	{
-		Id = "u_apotheosis", Category = "Character", Order = 12,
-		Icon = "👑",
-		Name = "Keeper Ascension", Name_it = "Ascensione del Custode",
-		Tag = "x2.5 Click Power", Tag_it = "x2.5 Potere Click",
-		Desc = "Supreme character mastery: multiplies your click power by x2.5.",
-		Desc_it = "Potenziamento supremo: moltiplica x2.5 il potere dei click.",
-		BaseCost = 4.5e6, CostMult = 4.5, MaxLevel = 4, LightPct = 3.5,
-		Effect = "ClickPowerMult", Value = 2.5,
-		ReqId = "u_unlock_alba", ReqLvl = 1,
-	},
-}
-
--- =========================================================================
--- WEAPONS / TOOLS TO DEFEND AGAINST SHADOWS (Up to Dawn Rebirth 5)
--- =========================================================================
-GameConfig.Weapons = {
-	{
-		Id = "wep_torch",
-		Order = 1,
-		Icon = "🔥",
-		Name = "Sunfire Torch", Name_it = "Torcia Solare",
-		Tag = "3 DMG • 22 Studs AoE", Tag_it = "3 DANNI • Area 22 Stud",
-		Desc = "A sacred torch that unleashes a solar flare burst against nearby Shadows.",
-		Desc_it = "Torcia sacra che sprigiona un'esplosione solare contro le Ombre vicine.",
-		Cost = 200,
-		Damage = 3,
-		Range = 22,
-		Cooldown = 0.42,
-		Color = Color3.fromRGB(255, 175, 55),
-	},
-	{
-		Id = "wep_lantern",
-		Order = 2,
-		Icon = "🏮",
-		Name = "Radiant Lantern", Name_it = "Lanterna Radiosa",
-		Tag = "7.5 DMG • Chain 3 & Slow", Tag_it = "7.5 DANNI • Catena 3 & Rallenta",
-		Desc = "Chains pure light across up to 3 Shadows and slows their movement.",
-		Desc_it = "Colpisce a catena fino a 3 Ombre con luce pura e le rallenta.",
-		Cost = 55000,
-		Damage = 7.5,
-		ChainCount = 3,
-		Range = 40,
-		Cooldown = 0.48,
-		Color = Color3.fromRGB(75, 225, 255),
-	},
-	{
-		Id = "wep_dawnblade",
-		Order = 3,
-		Icon = "🗡️",
-		Name = "Dawnblade", Name_it = "Lama dell'Alba",
-		Tag = "19 DMG • Rebirth 1", Tag_it = "19 DANNI • Rinascita 1",
-		Desc = "Legendary blade of light forged after your first Dawn Rebirth.",
-		Desc_it = "Spada leggendaria forgiata dopo la tua prima Rinascita dell'Alba.",
-		Cost = 250000,
-		ReqAlba = 1,
-		Damage = 19,
-		Range = 32,
-		Cooldown = 0.38,
-		Color = Color3.fromRGB(255, 235, 110),
-	},
-	{
-		Id = "wep_solstice_spear",
-		Order = 4,
-		Icon = "🔱",
-		Name = "Solstice Halberd", Name_it = "Alabarda del Solstizio",
-		Tag = "34 DMG • Rebirth 2 • Pierce", Tag_it = "34 DANNI • Rinascita 2 • Perforante",
-		Desc = "Long solar polearm that impales Shadows from afar with heavy knockback.",
-		Desc_it = "Lancia solare che trafigge le Ombre da lontano con forte respingimento.",
-		Cost = 1200000,
-		ReqAlba = 2,
-		Damage = 34,
-		Range = 38,
-		Cooldown = 0.38,
-		Knockback = 8.0,
-		Color = Color3.fromRGB(255, 125, 55),
-	},
-	{
-		Id = "wep_astral_scepter",
-		Order = 5,
-		Icon = "🔮",
-		Name = "Astral Prism Scepter", Name_it = "Scettro Prisma Astrale",
-		Tag = "58 DMG • Rebirth 3 • Chain 5", Tag_it = "58 DANNI • Rinascita 3 • Catena 5",
-		Desc = "Fires prismatic arcs that jump across up to 5 Shadows and freeze them in place.",
-		Desc_it = "Scaglia archi prismatici su fino a 5 Ombre rallentandole pesantemente.",
-		Cost = 6500000,
-		ReqAlba = 3,
-		Damage = 58,
-		ChainCount = 5,
-		SlowDuration = 3.2,
-		Range = 46,
-		Cooldown = 0.42,
-		Color = Color3.fromRGB(205, 110, 255),
-	},
-	{
-		Id = "wep_corona_greatsword",
-		Order = 6,
-		Icon = "⚔️",
-		Name = "Solar Corona Claymore", Name_it = "Spadone Corona Solare",
-		Tag = "95 DMG • Rebirth 4 • 360° Wave", Tag_it = "95 DANNI • Rinascita 4 • Onda 360°",
-		Desc = "Unleashes a full 360-degree solar shockwave blasting back every nearby Shadow.",
-		Desc_it = "Scatena un'onda d'urto solare a 360° che travolge tutte le Ombre vicine.",
-		Cost = 35000000,
-		ReqAlba = 4,
-		Damage = 95,
-		Is360Nova = true,
-		Knockback = 9.5,
-		Range = 36,
-		Cooldown = 0.40,
-		Color = Color3.fromRGB(255, 210, 65),
-	},
-	{
-		Id = "wep_zenith_reaver",
-		Order = 7,
-		Icon = "☀️",
-		Name = "Zenith Sun Scythe", Name_it = "Falce Zenith del Sole",
-		Tag = "160 DMG • Rebirth 5 • Supreme", Tag_it = "160 DANNI • Rinascita 5 • Suprema",
-		Desc = "Ultimate divine scythe: obliterates all Shadows in a massive 48-stud solar nova.",
-		Desc_it = "Falce divina definitiva: annienta tutte le Ombre in un'enorme nova di 48 stud.",
-		Cost = 180000000,
-		ReqAlba = 5,
-		Damage = 160,
-		Is360Nova = true,
-		SlowDuration = 3.5,
-		Knockback = 11.0,
-		Range = 48,
-		Cooldown = 0.35,
-		Color = Color3.fromRGB(255, 252, 200),
-	},
-}
-
--- =========================================================================
--- DEFENSE STRUCTURES (Turrets & Turret Upgrades - Walls Removed)
--- =========================================================================
-GameConfig.Defenses = {
-	{
-		Id = "def_turrets",
-		Order = 1,
-		Icon = "🗼",
-		Name = "Solar Turrets", Name_it = "Torrette Solari",
-		Tag = "+1 Auto-Turret", Tag_it = "+1 Torretta Automatica",
-		Desc = "Builds crystal sentinel turrets (up to 4). From the 2nd onwards they also cost Dawn Points.",
-		Desc_it = "Costruisce torrette sentinella (fino a 4). Dalla 2ª in poi richiedono anche Punti Alba.",
-		MaxLevel = 4,
-		LevelCosts = {
-			{ Points = 300,     Alba = 0 }, -- Costo prima torretta abbassato
-			{ Points = 85000,   Alba = 1 },
-			{ Points = 750000,  Alba = 3 },
-			{ Points = 6500000, Alba = 6 },
-		},
-	},
-	{
-		Id = "def_turret_dmg",
-		Order = 2,
-		Icon = "💥",
-		Name = "Turret Beam Power", Name_it = "Potenza Raggio Torrette",
-		Tag = "+0.85 Turret DMG", Tag_it = "+0.85 Danno Torrette",
-		Desc = "Increases the laser damage dealt by all your Solar Turrets.",
-		Desc_it = "Aumenta il danno dei raggi laser di tutte le tue Torrette Solari.",
-		BaseCost = 2500,
-		CostMult = 2.35,
-		MaxLevel = 15,
-		ReqDefenseId = "def_turrets",
-		ReqDefenseLvl = 1,
-	},
-	{
-		Id = "def_turret_spd",
-		Order = 3,
-		Icon = "⚡",
-		Name = "Turret Fire Rate", Name_it = "Velocità Torrette",
-		Tag = "+15% Attack Speed & Range", Tag_it = "+15% Velocità & Gittata",
-		Desc = "Makes all your Solar Turrets fire faster and target Shadows from farther away.",
-		Desc_it = "Rende tutte le Torrette Solari più veloci nello sparare e aumenta la gittata.",
-		BaseCost = 3000,
-		CostMult = 2.45,
-		MaxLevel = 12,
-		ReqDefenseId = "def_turrets",
-		ReqDefenseLvl = 1,
-	},
-}
-
-function GameConfig.GetDefenseCost(defCfg, currentLevel, albaCount)
-	local mult = GameConfig.GetRebirthCostMult(albaCount)
-	if defCfg.LevelCosts then
-		local entry = defCfg.LevelCosts[currentLevel + 1]
-		if entry then
-			return {
-				Points = math.floor((entry.Points or 0) * mult),
-				Alba = entry.Alba or 0,
-			}
-		end
-		return { Points = 0, Alba = 0 }
-	end
-	local pts = math.floor((defCfg.BaseCost or 1000) * ((defCfg.CostMult or 2) ^ currentLevel) * mult)
-	return { Points = pts, Alba = 0 }
-end
-
--- Realm 1 Speed Trial Configuration
-GameConfig.Regno1 = {
-	Name = "Realm 1",
-	TrialTitle = "Chain of Fire",
-	UnlockUpgradeId = "u_braziers",
-	BaseTime = 18.0,
-	BonusTimePerBrazier = 2.5,
-	IgniteRadius = 11.5,
-	RetryCooldown = 3.5,
-	PermanentBlessingMult = 1.35,
-	BuffDuration = 30.0,
-	BuffMinMult = 1.50,
-	BuffMaxMult = 2.50,
-	Braziers = {
-		{ Index = 1, Numeral = "I",   Pos = Vector3.new(0, 1.0, 47),     PedestalHeight = 1.4 },
-		{ Index = 2, Numeral = "II",  Pos = Vector3.new(34, 1.0, 34),    PedestalHeight = 2.2 },
-		{ Index = 3, Numeral = "III", Pos = Vector3.new(48, 1.0, 0),     PedestalHeight = 3.0 },
-		{ Index = 4, Numeral = "IV",  Pos = Vector3.new(34, 1.0, -34),   PedestalHeight = 2.4 },
-		{ Index = 5, Numeral = "V",   Pos = Vector3.new(0, 1.0, -49),    PedestalHeight = 3.8 },
-	},
-}
-
--- =========================================================================
--- GROUND BUTTONS: BRAZIER & CLICK UPGRADES
--- (Posizionati per evitare sovrapposizioni con torrette a ±15, ±15)
--- =========================================================================
+-- Bottoni a terra attorno al Braciere (con descrizioni EN/IT e costi progressivi)
 GameConfig.Altars = {
 	{
 		Id = "alt_click",
-		Name = "Kindling Touch", Name_it = "Mano Ardente",
-		BenefitTag = "+1/click", BenefitTag_it = "+1/click",
-		BaseCost = 15, CostMult = 1.48, MaxLevel = 25,
-		Pps = 0, ClickAdd = 1.0,
-		Color = Color3.fromRGB(255, 130, 40), Pos = Vector3.new(-11, 0.7, 31),
+		Name = "Kindle Flame",
+		Name_it = "Alimenta Fiamma",
+		Desc = "Increases Light gained per click (+2 base / lv).",
+		Desc_it = "Aumenta la Luce ottenuta per ogni click (+2 base / lv).",
+		BenefitTag = "+Click Power",
+		BenefitTag_it = "+Potere Click",
+		BaseCost = 18,
+		CostMult = 1.62,
+		SteepAfterLevel = 6,
+		SteepFactor = 0.14,
+		MaxLevel = 45,
+		ClickBonus = 2,
+		Color = Color3.fromRGB(255, 165, 55),
 	},
 	{
-		Id = "alt1",
-		Name = "Brazier Power", Name_it = "Potenza Braciere",
-		BaseCost = 25, CostMult = 1.35, MaxLevel = 25,
-		Pps = 3,
-		Color = Color3.fromRGB(255, 165, 55), Pos = Vector3.new(-11, 0.7, 22),
+		Id = "alt_radius",
+		Name = "Expand Hearth",
+		Name_it = "Espandi Braciere",
+		Desc = "Grows brazier size, light radius and global Light %.",
+		Desc_it = "Ingrandisce il braciere, il raggio luminoso e la % Luce.",
+		BenefitTag = "+Radius & Light %",
+		BenefitTag_it = "+Raggio e % Luce",
+		BaseCost = 65,
+		CostMult = 1.95,
+		SteepAfterLevel = 5,
+		SteepFactor = 0.18,
+		MaxLevel = 25,
+		RadiusBonus = 1,
+		Color = Color3.fromRGB(255, 205, 75),
 	},
 	{
-		Id = "alt2",
-		Name = "Flame Multiplier", Name_it = "Moltiplicatore Fiamma",
-		BaseCost = 180, CostMult = 1.45, MaxLevel = 20,
-		Pps = 12, BrazierMult = 1.12,
-		Color = Color3.fromRGB(255, 215, 80), Pos = Vector3.new(11, 0.7, 22),
+		Id = "alt_heat",
+		Name = "Stoke Embers",
+		Name_it = "Attizza Braci",
+		Desc = "Raises max Flame Heat multiplier when clicking fast.",
+		Desc_it = "Aumenta il moltiplicatore massimo del Calore cliccando rapido.",
+		BenefitTag = "+Max Heat Mult",
+		BenefitTag_it = "+Moltiplicatore Calore",
+		BaseCost = 180,
+		CostMult = 2.15,
+		SteepAfterLevel = 4,
+		SteepFactor = 0.22,
+		MaxLevel = 25,
+		HeatCapBonus = 0.18,
+		Color = Color3.fromRGB(255, 105, 65),
 	},
 	{
-		Id = "alt3",
-		Name = "Brazier Size", Name_it = "Grandezza Braciere",
-		BaseCost = 850, CostMult = 1.55, MaxLevel = 15,
-		Pps = 45, RadiusBonus = 1,
-		Color = Color3.fromRGB(255, 115, 45), Pos = Vector3.new(-24, 0.7, 0),
+		Id = "alt_spark",
+		Name = "Eternal Sparks",
+		Name_it = "Scintille Eterne",
+		Desc = "Generates automatic passive Light every second.",
+		Desc_it = "Genera Luce passiva automatica ogni secondo.",
+		BenefitTag = "+Light / sec",
+		BenefitTag_it = "+Luce / sec",
+		BaseCost = 520,
+		CostMult = 2.25,
+		SteepAfterLevel = 4,
+		SteepFactor = 0.24,
+		MaxLevel = 30,
+		PassiveBonus = 8,
+		Color = Color3.fromRGB(95, 225, 255),
 	},
 	{
-		Id = "alt4",
-		Name = "Azure Flame", Name_it = "Fiamma Azzurra",
-		BaseCost = 25000, CostMult = 1, MaxLevel = 1, IsColorButton = true, ColorTier = 1,
-		BenefitTag = "x2.0 Brazier & +500/s", BenefitTag_it = "x2.0 Braciere & +500/s",
-		Pps = 500, BrazierMult = 2.0,
-		BrazierColor = Color3.fromRGB(70, 210, 255),
-		Color = Color3.fromRGB(70, 210, 255), Pos = Vector3.new(24, 0.7, 0),
+		Id = "alt_mult",
+		Name = "Solar Multiplier",
+		Name_it = "Moltiplicatore Solare",
+		Desc = "Multiplies ALL Light earned (clicks & passive) by x1.28 per lv.",
+		Desc_it = "Moltiplica TUTTA la Luce ottenuta (click e passiva) di x1.28/lv.",
+		BenefitTag = "x1.28 All Light",
+		BenefitTag_it = "x1.28 Luce Totale",
+		BaseCost = 3200,
+		CostMult = 2.65,
+		SteepAfterLevel = 3,
+		SteepFactor = 0.30,
+		MaxLevel = 20,
+		MultBonus = 0.28,
+		Color = Color3.fromRGB(215, 130, 255),
+	},
+
+	-- Bottoni Colore Fiamma (sblocco unico con bonus permanenti fino alla Rinascita)
+	{
+		Id = "alt_col_amber",
+		Name = "Amber Flame",
+		Name_it = "Fiamma Ambra",
+		Desc = "Tints your brazier golden amber and grants +15% total Light.",
+		Desc_it = "Colora il braciere d'ambra dorata e dona +15% Luce totale.",
+		BenefitTag = "+15% Light",
+		BenefitTag_it = "+15% Luce",
+		BaseCost = 2500,
+		CostMult = 1,
+		MaxLevel = 1,
+		IsColorButton = true,
+		BrazierColor = Color3.fromRGB(255, 175, 45),
+		AllLightBonus = 0.15,
+		Color = Color3.fromRGB(255, 175, 45),
 	},
 	{
-		Id = "alt5",
-		Name = "Incandescent Core", Name_it = "Nucleo Incandescente",
-		BaseCost = 14000, CostMult = 1.52, MaxLevel = 15,
-		Pps = 850, HeatBonus = 0.08,
-		Color = Color3.fromRGB(255, 240, 120), Pos = Vector3.new(0, 0.7, -23),
+		Id = "alt_col_cyan",
+		Name = "Aether Flame",
+		Name_it = "Fiamma Eterea",
+		Desc = "Tints your brazier celestial cyan and grants +35% total Light.",
+		Desc_it = "Colora il braciere di ciano celeste e dona +35% Luce totale.",
+		BenefitTag = "+35% Light",
+		BenefitTag_it = "+35% Luce",
+		BaseCost = 85000,
+		CostMult = 1,
+		MaxLevel = 1,
+		IsColorButton = true,
+		BrazierColor = Color3.fromRGB(70, 225, 255),
+		AllLightBonus = 0.35,
+		Color = Color3.fromRGB(70, 225, 255),
 	},
 	{
-		Id = "alt6",
-		Name = "Violet Flame", Name_it = "Fiamma Viola",
-		BaseCost = 750000, CostMult = 1, MaxLevel = 1, IsColorButton = true, ColorTier = 2,
-		BenefitTag = "x3.0 Brazier & +18K/s", BenefitTag_it = "x3.0 Braciere & +18K/s",
-		Pps = 18000, BrazierMult = 3.0,
-		BrazierColor = Color3.fromRGB(205, 95, 255),
-		Color = Color3.fromRGB(205, 95, 255), Pos = Vector3.new(-25, 0.7, 25),
+		Id = "alt_col_violet",
+		Name = "Astral Flame",
+		Name_it = "Fiamma Astrale",
+		Desc = "Tints your brazier royal violet and grants +75% total Light.",
+		Desc_it = "Colora il braciere di viola astrale e dona +75% Luce totale.",
+		BenefitTag = "+75% Light",
+		BenefitTag_it = "+75% Luce",
+		BaseCost = 3500000,
+		CostMult = 1,
+		MaxLevel = 1,
+		IsColorButton = true,
+		BrazierColor = Color3.fromRGB(195, 100, 255),
+		AllLightBonus = 0.75,
+		Color = Color3.fromRGB(195, 100, 255),
 	},
 	{
-		Id = "alt7",
-		Name = "Brazier Crown", Name_it = "Corona del Braciere",
-		BaseCost = 420000, CostMult = 1.58, MaxLevel = 15,
-		Pps = 28000, RadiusBonus = 1,
-		Color = Color3.fromRGB(70, 255, 180), Pos = Vector3.new(25, 0.7, 25),
-	},
-	{
-		Id = "alt8",
-		Name = "Divine Sun", Name_it = "Sole Divino",
-		BaseCost = 2.5e7, CostMult = 1, MaxLevel = 1, IsColorButton = true, ColorTier = 3,
-		BenefitTag = "x5.0 Brazier & +450K/s", BenefitTag_it = "x5.0 Braciere & +450K/s",
-		Pps = 450000, BrazierMult = 5.0,
-		BrazierColor = Color3.fromRGB(255, 250, 185),
-		Color = Color3.fromRGB(255, 235, 120), Pos = Vector3.new(0, 0.7, -36),
+		Id = "alt_col_white",
+		Name = "Zenith Flame",
+		Name_it = "Fiamma Zenith",
+		Desc = "Ignites pure white starlight and grants +150% total Light.",
+		Desc_it = "Accende luce stellare bianca pura e dona +150% Luce totale.",
+		BenefitTag = "+150% Light",
+		BenefitTag_it = "+150% Luce",
+		BaseCost = 180000000,
+		CostMult = 1,
+		MaxLevel = 1,
+		IsColorButton = true,
+		BrazierColor = Color3.fromRGB(245, 250, 255),
+		AllLightBonus = 1.50,
+		Color = Color3.fromRGB(245, 250, 255),
 	},
 }
 
--- 5 Light Wisps
-GameConfig.BaseWispCost = 750
-GameConfig.BaseEquippedWisps = 3
-GameConfig.Wisps = {
-	{ Id = "w_ember", Name = "Amber Firefly", Name_it = "Lucciola Ambra", Chance = "50%", Weight = 500, ClickMult = 1.2, Color = Color3.fromRGB(255, 190, 60) },
-	{ Id = "w_azure", Name = "Azure Spirit", Name_it = "Spirito Celeste", Chance = "26%", Weight = 260, ClickMult = 1.5, Color = Color3.fromRGB(70, 225, 255) },
-	{ Id = "w_jade", Name = "Jade Sprite", Name_it = "Fata di Giada", Chance = "14%", Weight = 140, ClickMult = 2.0, Color = Color3.fromRGB(80, 255, 150) },
-	{ Id = "w_aurora", Name = "Aurora Wisp", Name_it = "Spirito Aurora", Chance = "7%", Weight = 70, ClickMult = 3.0, Color = Color3.fromRGB(220, 110, 255) },
-	{ Id = "w_phoenix", Name = "Primordial Phoenix", Name_it = "Fenice Primordiale", Chance = "3%", Weight = 30, ClickMult = 5.0, Color = Color3.fromRGB(255, 255, 255) },
+-- Potenziamenti nel Menu Personaggio (primi livelli accessibili, moltiplicatori e livelli alti molto costosi)
+GameConfig.Upgrades = {
+	{
+		Id = "u_click_cooldown",
+		Order = 1,
+		Icon = "⚡",
+		Name = "Swift Hand",
+		Name_it = "Mano Rapida",
+		Tag = "-0.04s Click Cooldown",
+		Tag_it = "-0.04s Cooldown Click",
+		Desc = "Reduces delay between brazier clicks (0.50s down to 0.10s).",
+		Desc_it = "Riduce l'attesa tra i click sul braciere (da 0.50s a 0.10s).",
+		BaseCost = 30,
+		CostMult = 2.35,
+		SteepAfterLevel = 4,
+		SteepFactor = 0.25,
+		MaxLevel = 10,
+		CooldownReduce = 0.04,
+	},
+	{
+		Id = "u_auto_1",
+		Order = 2,
+		Icon = "🕯️",
+		Name = "Lantern Acolyte",
+		Name_it = "Accolito della Lanterna",
+		Tag = "+5 Light/s",
+		Tag_it = "+5 Luce/s",
+		Desc = "Tends the outer lanterns for steady passive Light.",
+		Desc_it = "Cura le lanterne esterne generando Luce passiva costante.",
+		BaseCost = 45,
+		CostMult = 1.85,
+		SteepAfterLevel = 5,
+		SteepFactor = 0.20,
+		MaxLevel = 25,
+		PassiveAdd = 5,
+	},
+	{
+		Id = "u_walkspeed",
+		Order = 3,
+		Icon = "👟",
+		Name = "Wind Stride",
+		Name_it = "Passo del Vento",
+		Tag = "+2 WalkSpeed",
+		Tag_it = "+2 Velocità",
+		Desc = "Move faster between ground buttons and incoming Shadows.",
+		Desc_it = "Muoviti più veloce tra i bottoni a terra e le Ombre.",
+		BaseCost = 75,
+		CostMult = 2.15,
+		SteepAfterLevel = 4,
+		SteepFactor = 0.22,
+		MaxLevel = 10,
+		WalkSpeedAdd = 2,
+	},
+	{
+		Id = "u_crit_chance",
+		Order = 4,
+		Icon = "🎯",
+		Name = "Flare Precision",
+		Name_it = "Precisione della Vampa",
+		Tag = "+3% Crit Chance",
+		Tag_it = "+3% Prob. Critico",
+		Desc = "Increases chance to trigger critical Light bursts on click.",
+		Desc_it = "Aumenta la probabilità di esplosioni critiche di Luce al click.",
+		BaseCost = 220,
+		CostMult = 2.25,
+		SteepAfterLevel = 4,
+		SteepFactor = 0.25,
+		MaxLevel = 12,
+		CritChanceAdd = 0.03,
+		ReqId = "u_click_cooldown",
+		ReqLvl = 1,
+	},
+	{
+		Id = "u_ember_mag",
+		Order = 5,
+		Icon = "🧲",
+		Name = "Ember Magnet",
+		Name_it = "Magnete di Braci",
+		Tag = "Pulls Wandering Embers",
+		Tag_it = "Attira Braci Vaganti",
+		Desc = "Automatically pulls nearby wandering embers toward you.",
+		Desc_it = "Attira automaticamente verso di te le braci vaganti vicine.",
+		BaseCost = 650,
+		CostMult = 1,
+		MaxLevel = 1,
+		ReqId = "u_walkspeed",
+		ReqLvl = 1,
+	},
+	{
+		Id = "u_mult_click_1",
+		Order = 6,
+		Icon = "🔥",
+		Name = "Focused Kindle",
+		Name_it = "Innesco Concentrato",
+		Tag = "x1.35 Click Power",
+		Tag_it = "x1.35 Potere Click",
+		Desc = "Multiplies all click Light power by x1.35 per level.",
+		Desc_it = "Moltiplica il potere di click di x1.35 per livello.",
+		BaseCost = 1200,
+		CostMult = 2.65,
+		SteepAfterLevel = 3,
+		SteepFactor = 0.30,
+		MaxLevel = 15,
+		ClickMult = 1.35,
+		ReqId = "u_crit_chance",
+		ReqLvl = 1,
+	},
+	{
+		Id = "u_unlock_wisps",
+		Order = 7,
+		Icon = "✨",
+		Name = "Spirit Awakening",
+		Name_it = "Risveglio degli Spiriti",
+		Tag = "Unlocks Wisps Tab",
+		Tag_it = "Sblocca Scheda Spiriti",
+		Desc = "Unlocks summoning and forging orbiting Light Wisps.",
+		Desc_it = "Sblocca l'evocazione e la forgiatura degli Spiriti di Luce.",
+		BaseCost = 2500,
+		CostMult = 1,
+		MaxLevel = 1,
+		ReqId = "u_auto_1",
+		ReqLvl = 2,
+	},
+	{
+		Id = "u_crit_mult",
+		Order = 8,
+		Icon = "💥",
+		Name = "Solar Flare",
+		Name_it = "Brillamento Solare",
+		Tag = "+0.6x Crit Damage",
+		Tag_it = "+0.6x Molt. Critico",
+		Desc = "Increases the multiplier of every critical click.",
+		Desc_it = "Aumenta il moltiplicatore di ogni click critico.",
+		BaseCost = 4800,
+		CostMult = 2.55,
+		SteepAfterLevel = 3,
+		SteepFactor = 0.28,
+		MaxLevel = 12,
+		CritMultAdd = 0.6,
+		ReqId = "u_crit_chance",
+		ReqLvl = 2,
+	},
+	{
+		Id = "u_mult_passive_1",
+		Order = 9,
+		Icon = "🌟",
+		Name = "Beacon Resonance",
+		Name_it = "Risonanza del Faro",
+		Tag = "x1.40 Passive Light",
+		Tag_it = "x1.40 Luce Passiva",
+		Desc = "Multiplies all passive Light per second by x1.40 per level.",
+		Desc_it = "Moltiplica tutta la Luce passiva al secondo di x1.40/lv.",
+		BaseCost = 9500,
+		CostMult = 2.75,
+		SteepAfterLevel = 3,
+		SteepFactor = 0.32,
+		MaxLevel = 15,
+		PassiveMult = 1.40,
+		ReqId = "u_auto_1",
+		ReqLvl = 4,
+	},
+	{
+		Id = "u_wisp_slots",
+		Order = 10,
+		Icon = "🔮",
+		Name = "Spirit Conduit",
+		Name_it = "Condotto Spiritico",
+		Tag = "+1 Equipped Wisp",
+		Tag_it = "+1 Spirito Equipaggiato",
+		Desc = "Allows +1 additional Wisp to orbit and empower your flame.",
+		Desc_it = "Permette di equipaggiare +1 Spirito orbitante aggiuntivo.",
+		BaseCost = 22000,
+		CostMult = 3.40,
+		SteepAfterLevel = 2,
+		SteepFactor = 0.35,
+		MaxLevel = 5,
+		WispSlotAdd = 1,
+		ReqId = "u_unlock_wisps",
+		ReqLvl = 1,
+	},
+	{
+		Id = "u_braziers",
+		Order = 11,
+		Icon = "⛩️",
+		Name = "Realm 1 Portal",
+		Name_it = "Portale Regno 1",
+		Tag = "Unlocks Realm 1 Trial",
+		Tag_it = "Sblocca Prova Regno 1",
+		Desc = "Opens the Realm 1 timed brazier challenge for temporary buffs.",
+		Desc_it = "Apre la sfida a tempo di Regno 1 per bonus temporanei.",
+		BaseCost = 45000,
+		CostMult = 1,
+		MaxLevel = 1,
+		ReqId = "u_mult_click_1",
+		ReqLvl = 2,
+	},
+	{
+		Id = "u_mult_all_1",
+		Order = 12,
+		Icon = "👑",
+		Name = "Radiant Amplifier",
+		Name_it = "Amplificatore Radioso",
+		Tag = "x1.45 ALL Light",
+		Tag_it = "x1.45 TUTTA la Luce",
+		Desc = "Global multiplier: boosts every Light source by x1.45 per level.",
+		Desc_it = "Moltiplicatore globale: potenzia ogni fonte di Luce di x1.45/lv.",
+		BaseCost = 120000,
+		CostMult = 3.10,
+		SteepAfterLevel = 2,
+		SteepFactor = 0.38,
+		MaxLevel = 15,
+		AllMult = 1.45,
+		ReqId = "u_mult_passive_1",
+		ReqLvl = 2,
+	},
+	{
+		Id = "u_mult_all_2",
+		Order = 13,
+		Icon = "☀️",
+		Name = "Zenith Core",
+		Name_it = "Nucleo dello Zenith",
+		Tag = "x1.75 ALL Light",
+		Tag_it = "x1.75 TUTTA la Luce",
+		Desc = "Endgame multiplier: massively scales total Light output.",
+		Desc_it = "Moltiplicatore avanzato: scala enormemente la Luce totale.",
+		BaseCost = 15000000,
+		CostMult = 3.60,
+		SteepAfterLevel = 2,
+		SteepFactor = 0.45,
+		MaxLevel = 12,
+		AllMult = 1.75,
+		ReqId = "u_mult_all_1",
+		ReqLvl = 3,
+	},
 }
 
--- =========================================================================
--- DAWN SYSTEM: Rebirth Upgrades & Unlockable New Zones
--- =========================================================================
+GameConfig.VictoryButton = {
+	Name = "Dawn Rebirth",
+	Name_it = "Rinascita dell'Alba",
+	Desc = "Requires ALL upgrades & ground buttons maxed. Resets Light for Dawn Points!",
+	Desc_it = "Richiede TUTTI i potenziamenti e bottoni al MAX. Azzera la Luce per Punti Alba!",
+	BaseCost = 25000000000,
+	CostMult = 3.5,
+}
+
 GameConfig.AlbaPerks = {
 	{
-		Id = "ap_alba_gain",
-		Name = "Dawn Echo", Name_it = "Eco dell'Alba",
-		Desc = "+1 extra Dawn Point every time you activate the Final Dawn Button",
-		Desc_it = "+1 Punto Alba extra ogni volta che premi il Bottone Finale",
+		Id = "ap_mult",
+		Name = "Dawn Blessing",
+		Name_it = "Benedizione dell'Alba",
+		Desc = "+50% permanent global Light multiplier per level.",
+		Desc_it = "+50% moltiplicatore globale permanente alla Luce per livello.",
 		Cost = 1,
-		CostMult = 2,
-		MaxLevel = 10,
-	},
-	{
-		Id = "ap_power",
-		Name = "Primordial Flame", Name_it = "Fiamma Primordiale",
-		Desc = "Multiplies all Light Points earned by x2.5 per level",
-		Desc_it = "Tutti i Punti Luce x2.5 per livello",
-		Cost = 1,
-		CostMult = 2,
-		MaxLevel = 6,
+		CostMult = 2.0,
+		MaxLevel = 20,
 	},
 	{
 		Id = "ap_start",
-		Name = "Inherited Spark", Name_it = "Scintilla Ereditata",
-		Desc = "Start after Rebirth with 10,000 Light and Kindling Touch Lv. 5",
-		Desc_it = "Parti dopo il Rebirth con 10.000 Punti e Mano Ardente Lv. 5",
+		Name = "Inherited Spark",
+		Name_it = "Scintilla Ereditata",
+		Desc = "Start after Rebirth with 10,000 Light & +5 Kindle levels per lv.",
+		Desc_it = "Riparti dopo la Rinascita con 10.000 Luce e +5 Alimenta Fiamma/lv.",
 		Cost = 1,
-		CostMult = 2,
-		MaxLevel = 4,
+		CostMult = 2.2,
+		MaxLevel = 10,
 	},
 	{
-		Id = "ap_crit",
-		Name = "Solar Eye", Name_it = "Occhio Solare",
-		Desc = "Multiplies Critical Power by x2 per level",
-		Desc_it = "Moltiplicatore Critici x2 per livello",
+		Id = "ap_discount",
+		Name = "Ancient Wisdom",
+		Name_it = "Saggezza Antica",
+		Desc = "Reduces all Light upgrade & button costs by 8% per level.",
+		Desc_it = "Riduce il costo di tutti i potenziamenti e bottoni dell'8% per livello.",
 		Cost = 2,
-		CostMult = 3,
-		MaxLevel = 3,
+		CostMult = 2.5,
+		MaxLevel = 8,
+	},
+	{
+		Id = "ap_alba_gain",
+		Name = "Dawn Harvest",
+		Name_it = "Raccolto dell'Alba",
+		Desc = "+1 extra Dawn Point earned on every Rebirth.",
+		Desc_it = "+1 Punto Alba extra ottenuto ad ogni Rinascita.",
+		Cost = 3,
+		CostMult = 3.0,
+		MaxLevel = 10,
 	},
 }
 
+-- 4 Zone Extra acquistabili con Punti Alba: disposte a ventaglio ben distanziate all'esterno del plot
+-- CatalogAssetId: ID reali del Creator Store Roblox (con fallback architettonico automatico se Third-Party Assets è disattivato)
 GameConfig.AlbaZones = {
 	{
 		Id = "az_2",
-		Order = 1,
-		Icon = "🌋",
-		Name = "Zone 2: Crimson Sanctuary", Name_it = "Zona 2: Santuario Cremisi",
-		Desc = "Builds the Crimson Sanctuary island and grants permanent +50% Light Points.",
-		Desc_it = "Costruisce l'isola del Santuario Cremisi e dona +50% Punti Luce permanenti.",
+		Icon = "⛲",
+		Name = "Sanctuary of First Light",
+		Name_it = "Santuario della Prima Luce",
+		Desc = "Floating marble terrace with the Fountain of Dawn. Grants x1.50 total Light.",
+		Desc_it = "Terrazza di marmo con la Fontana dell'Alba. Dona x1.50 Luce totale.",
 		Cost = 1,
-		LightMult = 1.5,
-		AngleDeg = -54,
-		Color = Color3.fromRGB(255, 75, 95),
-		StoneColor = Color3.fromRGB(42, 22, 28),
+		LightMult = 1.50,
+		FanAngle = -42, -- gradi rispetto all'asse esterno del plot
+		Distance = 88,  -- distanza dal centro del plot
+		Color = Color3.fromRGB(255, 200, 85),
+		CatalogAssetId = 1522, -- Classic Roblox Fountain
+		MonumentType = "Fountain",
 	},
 	{
 		Id = "az_3",
-		Order = 2,
-		Icon = "🌌",
-		Name = "Zone 3: Astral Observatory", Name_it = "Zona 3: Osservatorio Astrale",
-		Desc = "Builds the Astral Observatory island and permanently doubles (x2) Light Points.",
-		Desc_it = "Costruisce l'isola dell'Osservatorio Astrale e raddoppia (x2) i Punti Luce permanenti.",
-		Cost = 3,
-		LightMult = 2.0,
-		AngleDeg = -18,
-		Color = Color3.fromRGB(95, 195, 255),
-		StoneColor = Color3.fromRGB(24, 30, 52),
+		Icon = "🗿",
+		Name = "Solar Obelisk Plaza",
+		Name_it = "Piazza dell'Obelisco Solare",
+		Desc = "Sacred monolith island channeling solar rays. Grants x2.00 total Light.",
+		Desc_it = "Isola del monolito sacro che canalizza i raggi solari. Dona x2.00 Luce totale.",
+		Cost = 2,
+		LightMult = 2.00,
+		FanAngle = -14,
+		Distance = 96,
+		Color = Color3.fromRGB(90, 225, 255),
+		CatalogAssetId = 384227221, -- Roblox Catalog Statue
+		MonumentType = "Obelisk",
 	},
 	{
 		Id = "az_4",
-		Order = 3,
-		Icon = "☀️",
-		Name = "Zone 4: Solar Forge", Name_it = "Zona 4: Forgia Solare",
-		Desc = "Builds the Solar Forge island and permanently triples (x3) Light Points.",
-		Desc_it = "Costruisce l'isola della Forgia Solare e triplica (x3) i Punti Luce permanenti.",
-		Cost = 6,
-		LightMult = 3.0,
-		AngleDeg = 18,
-		Color = Color3.fromRGB(255, 195, 65),
-		StoneColor = Color3.fromRGB(48, 36, 22),
+		Icon = "🏛️",
+		Name = "Temple of Ancient Marble",
+		Name_it = "Tempio del Marmo Antico",
+		Desc = "Colonnaded sanctuary housing an ancient guardian statue. Grants x2.75 total Light.",
+		Desc_it = "Santuario colonnato con un'antica statua guardiana. Dona x2.75 Luce totale.",
+		Cost = 4,
+		LightMult = 2.75,
+		FanAngle = 14,
+		Distance = 96,
+		Color = Color3.fromRGB(205, 125, 255),
+		CatalogAssetId = 118095201795774, -- Roman Greek Statue Sculpture Marble Ancient
+		MonumentType = "Temple",
 	},
 	{
 		Id = "az_5",
-		Order = 4,
 		Icon = "👑",
-		Name = "Zone 5: Primordial Throne", Name_it = "Zona 5: Trono Primordiale",
-		Desc = "Builds the Primordial Throne island and permanently multiplies Light Points by x5.",
-		Desc_it = "Costruisce l'isola del Trono Primordiale e moltiplica x5 i Punti Luce permanenti.",
-		Cost = 12,
-		LightMult = 5.0,
-		AngleDeg = 54,
-		Color = Color3.fromRGB(235, 175, 255),
-		StoneColor = Color3.fromRGB(44, 38, 56),
+		Name = "Zenith Phoenix Citadel",
+		Name_it = "Cittadella della Fenice Zenith",
+		Desc = "Crown monument of eternal dawn fire. Grants x4.00 total Light.",
+		Desc_it = "Monumento supremo del fuoco eterno dell'alba. Dona x4.00 Luce totale.",
+		Cost = 7,
+		LightMult = 4.00,
+		FanAngle = 42,
+		Distance = 88,
+		Color = Color3.fromRGB(255, 240, 150),
+		CatalogAssetId = 118095201795774,
+		MonumentType = "Phoenix",
 	},
 }
 
+GameConfig.Weapons = {
+	{
+		Id = "wep_torch",
+		Icon = "🔥",
+		Name = "Ember Torch",
+		Name_it = "Torcia di Brace",
+		Tag = "18 DMG • Fast",
+		Tag_it = "18 DANNI • Veloce",
+		Desc = "Starter melee torch to fend off early wandering shadows.",
+		Desc_it = "Torcia iniziale per respingere le prime ombre vaganti.",
+		BaseCost = 250,
+		ReqAlba = 0,
+		Damage = 18,
+		Cooldown = 0.45,
+		Range = 11,
+		Color = Color3.fromRGB(255, 165, 65),
+	},
+	{
+		Id = "wep_sunblade",
+		Icon = "⚔️",
+		Name = "Solar Greatsword",
+		Name_it = "Spadone Solare",
+		Tag = "55 DMG • Cleave",
+		Tag_it = "55 DANNI • Fendente",
+		Desc = "Wide radiant blade capable of striking multiple shadows.",
+		Desc_it = "Lama radiosa ampia capace di colpire più ombre insieme.",
+		BaseCost = 18000,
+		ReqAlba = 0,
+		Damage = 55,
+		Cooldown = 0.55,
+		Range = 14,
+		Color = Color3.fromRGB(255, 215, 75),
+	},
+	{
+		Id = "wep_aether_spear",
+		Icon = "🔱",
+		Name = "Aether Lance",
+		Name_it = "Lancia dell'Etere",
+		Tag = "160 DMG • Long Reach",
+		Tag_it = "160 DANNI • Lunga Portata",
+		Desc = "Pierces heavy shadows from safe distance.",
+		Desc_it = "Trafigge le ombre pesanti da distanza di sicurezza.",
+		BaseCost = 1200000,
+		ReqAlba = 1,
+		Damage = 160,
+		Cooldown = 0.50,
+		Range = 18,
+		Color = Color3.fromRGB(80, 225, 255),
+	},
+	{
+		Id = "wep_zenith_scythe",
+		Icon = "🌙",
+		Name = "Zenith Sun Scythe",
+		Name_it = "Falce Zenith del Sole",
+		Tag = "520 DMG • Cosmic Arc",
+		Tag_it = "520 DANNI • Arco Cosmico",
+		Desc = "Legendary dawn relic that obliterates shadow bosses.",
+		Desc_it = "Reliquia leggendaria dell'alba che annienta i boss d'ombra.",
+		BaseCost = 95000000,
+		ReqAlba = 3,
+		Damage = 520,
+		Cooldown = 0.42,
+		Range = 22,
+		Color = Color3.fromRGB(255, 245, 165),
+	},
+}
+
+GameConfig.Defenses = {
+	{
+		Id = "def_pylon_1",
+		Icon = "🗼",
+		Name = "Sunfire Turret",
+		Name_it = "Torretta Fuoco Solare",
+		Tag = "Auto-Shoots Shadows",
+		Tag_it = "Spara alle Ombre",
+		Desc = "Automatically zaps nearby shadows approaching your brazier.",
+		Desc_it = "Colpisce automaticamente le ombre vicine al tuo braciere.",
+		BaseCost = 350,
+		CostMult = 2.35,
+		MaxLevel = 8,
+		Damage = 14,
+		FireRate = 1.1,
+		Range = 36,
+	},
+	{
+		Id = "def_ward_ring",
+		Icon = "🛡️",
+		Name = "Radiant Ward",
+		Name_it = "Barriera Radiosa",
+		Tag = "Slows & Burns Shadows",
+		Tag_it = "Rallenta e Brucia Ombre",
+		Desc = "Damages and slows shadows inside the brazier perimeter.",
+		Desc_it = "Danneggia e rallenta le ombre dentro il perimetro del braciere.",
+		BaseCost = 4500,
+		CostMult = 2.60,
+		MaxLevel = 6,
+		Damage = 10,
+		FireRate = 0.8,
+		Range = 26,
+		ReqDefenseId = "def_pylon_1",
+		ReqDefenseLvl = 1,
+	},
+	{
+		Id = "def_obelisk_beam",
+		Icon = "🔮",
+		Name = "Zenith Prism Tower",
+		Name_it = "Torre Prisma Zenith",
+		Tag = "Heavy Beam + Dawn Pts",
+		Tag_it = "Raggio Pesante + Punti Alba",
+		Desc = "Fires high-energy solar beams at Shadow Colossi.",
+		Desc_it = "Spara raggi solari ad alta energia contro i Colossi d'Ombra.",
+		BaseCost = 85000,
+		CostMult = 2.90,
+		AlbaCost = 1,
+		MaxLevel = 5,
+		Damage = 65,
+		FireRate = 1.4,
+		Range = 46,
+		ReqDefenseId = "def_pylon_1",
+		ReqDefenseLvl = 2,
+	},
+}
+
+GameConfig.Wisps = {
+	{ Id = "w_ember", Name = "Ember Wisp", Name_it = "Spirito Brace", ClickMult = 1.15, PassiveMult = 1.10, Weight = 520, Chance = 52, Color = Color3.fromRGB(255, 165, 65) },
+	{ Id = "w_aqua",  Name = "Aether Wisp", Name_it = "Spirito Etere", ClickMult = 1.35, PassiveMult = 1.30, Weight = 280, Chance = 28, Color = Color3.fromRGB(80, 225, 255) },
+	{ Id = "w_solar", Name = "Solar Wisp", Name_it = "Spirito Solare", ClickMult = 1.75, PassiveMult = 1.65, Weight = 140, Chance = 14, Color = Color3.fromRGB(255, 225, 75) },
+	{ Id = "w_void",  Name = "Astral Wisp", Name_it = "Spirito Astrale", ClickMult = 2.50, PassiveMult = 2.30, Weight = 50,  Chance = 5,  Color = Color3.fromRGB(200, 110, 255) },
+	{ Id = "w_zenith",Name = "Zenith Phoenix", Name_it = "Fenice Zenith", ClickMult = 4.20, PassiveMult = 3.80, Weight = 10,  Chance = 1,  Color = Color3.fromRGB(255, 245, 180) },
+}
+
 GameConfig.Ranks = {
-	{ MinLight = 0, Name = "Spark Bearer", Name_it = "Portatore di Scintilla", Color = Color3.fromRGB(255, 175, 80) },
-	{ MinLight = 20, Name = "Realm 1 Keeper", Name_it = "Custode di Regno 1", Color = Color3.fromRGB(255, 215, 70) },
-	{ MinLight = 45, Name = "Crystal Weaver", Name_it = "Tessitore di Cristallo", Color = Color3.fromRGB(70, 240, 210) },
-	{ MinLight = 70, Name = "Twilight Herald", Name_it = "Araldo del Crepuscolo", Color = Color3.fromRGB(130, 190, 255) },
-	{ MinLight = 90, Name = "Dawn Sovereign", Name_it = "Signore dell'Alba", Color = Color3.fromRGB(255, 235, 120) },
-	{ MinLight = 100, Name = "Living Sun", Name_it = "Sole Vivente", Color = Color3.fromRGB(255, 255, 255) },
+	{ MinPercent = 0,  Name = "Spark Bearer",     Name_it = "Portatore di Scintilla" },
+	{ MinPercent = 15, Name = "Hearth Keeper",    Name_it = "Custode del Focolare" },
+	{ MinPercent = 35, Name = "Flame Warden",     Name_it = "Guardiano della Fiamma" },
+	{ MinPercent = 60, Name = "Solar Knight",     Name_it = "Cavaliere Solare" },
+	{ MinPercent = 85, Name = "Zenith Herald",    Name_it = "Araldo dello Zenith" },
+	{ MinPercent = 100,Name = "Avatar of Dawn",   Name_it = "Avatar dell'Alba" },
 }
 
 GameConfig.PromoCodes = {
-	["LIGHT100"] = { Points = 250, Msg = "+250 Light Points redeemed!", Msg_it = "+250 Punti Luce riscattati!" },
-	["LUCE100"] = { Points = 250, Msg = "+250 Punti Luce riscattati!", Msg_it = "+250 Punti Luce riscattati!" },
-	["FLAME"] = { Points = 1500, Msg = "+1,500 Light Points redeemed!", Msg_it = "+1.500 Punti Luce riscattati!" },
-	["FIAMMA"] = { Points = 1500, Msg = "+1,500 Punti Luce riscattati!", Msg_it = "+1.500 Punti Luce riscattati!" },
-	["DAWN2026"] = { Points = 10000, Msg = "+10,000 Light Points redeemed!", Msg_it = "+10.000 Punti Luce riscattati!" },
-	["ALBA2026"] = { Points = 10000, Msg = "+10.000 Punti Luce riscattati!", Msg_it = "+10.000 Punti Luce riscattati!" },
+	DAWN2026 = { Points = 500, Msg = "+500 Light Points redeemed!", Msg_it = "+500 Punti Luce riscattati!" },
+	FLAME    = { Points = 250, Msg = "+250 Light Points redeemed!", Msg_it = "+250 Punti Luce riscattati!" },
 }
+
+local function computeSteepCurve(baseCost, costMult, lvl, steepAfter, steepFactor)
+	local cost = baseCost * (costMult ^ lvl)
+	if steepAfter and lvl > steepAfter then
+		local extraLevels = lvl - steepAfter
+		cost = cost * ((1 + (steepFactor or 0.2)) ^ (extraLevels * (extraLevels + 1) * 0.5))
+	end
+	return cost
+end
+
+function GameConfig.GetAltarCost(alt, lvl, albaCount)
+	local rebirthScale = 1 + (albaCount or 0) * 0.35
+	local raw = computeSteepCurve(alt.BaseCost, alt.CostMult or 1.5, lvl, alt.SteepAfterLevel, alt.SteepFactor)
+	return math.max(1, math.floor(raw * rebirthScale))
+end
+
+function GameConfig.GetUpgradeCost(upg, lvl, albaCount)
+	local rebirthScale = 1 + (albaCount or 0) * 0.35
+	local raw = computeSteepCurve(upg.BaseCost, upg.CostMult or 1.8, lvl, upg.SteepAfterLevel, upg.SteepFactor)
+	return math.max(1, math.floor(raw * rebirthScale))
+end
+
+function GameConfig.GetVictoryCost(albaCount)
+	local vb = GameConfig.VictoryButton
+	return math.floor(vb.BaseCost * (vb.CostMult ^ (albaCount or 0)))
+end
+
+function GameConfig.GetWeaponCost(wep, albaCount)
+	local scale = 1 + (albaCount or 0) * 0.25
+	return math.floor(wep.BaseCost * scale)
+end
+
+function GameConfig.GetDefenseCost(def, lvl, albaCount)
+	local scale = 1 + (albaCount or 0) * 0.25
+	local pts = math.floor(def.BaseCost * ((def.CostMult or 2.0) ^ lvl) * scale)
+	local alba = (def.AlbaCost and lvl == 0) and def.AlbaCost or 0
+	return { Points = pts, Alba = alba }
+end
+
+function GameConfig.GetWispCost(albaCount)
+	return math.floor(800 * (1 + (albaCount or 0) * 0.4))
+end
 
 return GameConfig

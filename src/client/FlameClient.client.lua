@@ -8,6 +8,7 @@ local NumberFormat = require(ReplicatedStorage:WaitForChild("NumberFormat"))
 local Localization = require(ReplicatedStorage:WaitForChild("Localization"))
 local ClientWorldVisuals = require(script.Parent:WaitForChild("ClientWorldVisuals"))
 local ShopUI = require(script.Parent:WaitForChild("ShopUI"))
+local TutorialUI = require(script.Parent:WaitForChild("TutorialUI"))
 local ShadowModelBuilder = require(script.Parent:WaitForChild("ShadowModelBuilder"))
 ShadowModelBuilder.Start()
 
@@ -28,6 +29,7 @@ local remotes = {
 	SyncGamePass = remotesFolder:WaitForChild("SyncGamePass"),
 	TeleportHome = remotesFolder:WaitForChild("TeleportHome"),
 	SetLanguage = remotesFolder:WaitForChild("SetLanguage"),
+	CompleteTutorial = remotesFolder:WaitForChild("CompleteTutorial"),
 	RedeemCode = remotesFolder:WaitForChild("RedeemCode"),
 	Regno1Sync = remotesFolder:WaitForChild("Regno1Sync"),
 	DefenseFx = remotesFolder:WaitForChild("DefenseFx"),
@@ -270,7 +272,10 @@ UserInputService.InputBegan:Connect(function(inp, gp)
 	end
 end)
 
-local shopController = ShopUI.Build(gui, remotes)
+local tutorialController = TutorialUI.Build(gui, remotes)
+local shopController = ShopUI.Build(gui, remotes, function()
+	tutorialController.Open()
+end)
 
 remotes.StateSync.OnClientEvent:Connect(function(st)
 	if not st then return end
@@ -309,6 +314,7 @@ remotes.StateSync.OnClientEvent:Connect(function(st)
 
 	ClientWorldVisuals.Update(st)
 	shopController.Update(st)
+	tutorialController.Update(st)
 
 	if st.FlameClicked and st.ClickGained then
 		spawnFloatingGain(st.ClickGained, st.IsCrit)
