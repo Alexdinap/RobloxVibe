@@ -69,6 +69,30 @@ function ShopUI.Build(parentGui, remotes)
 		return (latestState and latestState.Language) or "en"
 	end
 
+	-- Banner timer a schermo (3 minuti iniziali / 2 minuti dopo ogni rinascita)
+	local graceBanner = Instance.new("Frame", parentGui)
+	graceBanner.Name = "DawnTruceTimerBanner"
+	graceBanner.AnchorPoint = Vector2.new(0.5, 0)
+	graceBanner.Position = UDim2.new(0.5, 0, 0, 74)
+	graceBanner.Size = UDim2.fromOffset(400, 32)
+	graceBanner.BackgroundColor3 = Color3.fromRGB(20, 26, 40)
+	graceBanner.Visible = false
+	graceBanner.ZIndex = 16
+	Instance.new("UICorner", graceBanner).CornerRadius = UDim.new(0, 10)
+
+	local graceStroke = Instance.new("UIStroke", graceBanner)
+	graceStroke.Color = THEME.Cyan
+	graceStroke.Thickness = 1.5
+
+	local graceLabel = Instance.new("TextLabel", graceBanner)
+	graceLabel.Size = UDim2.fromScale(1, 1)
+	graceLabel.BackgroundTransparency = 1
+	graceLabel.Text = ""
+	graceLabel.TextColor3 = THEME.Cyan
+	graceLabel.Font = Enum.Font.GothamBlack
+	graceLabel.TextSize = 13
+	graceLabel.ZIndex = 17
+
 	local bottomBar = Instance.new("Frame", parentGui)
 	bottomBar.Name = "BigMenuLaunchBar"
 	bottomBar.AnchorPoint = Vector2.new(0.5, 1)
@@ -322,7 +346,9 @@ function ShopUI.Build(parentGui, remotes)
 					wRef.Title.Text = string.format("🔒 %s (%s)", wName, wTag)
 					wRef.Desc.Text = wDesc
 					wRef.Btn.BackgroundColor3 = Color3.fromRGB(36, 40, 56)
-					wRef.Btn.Text = (lang == "it") and ("🔒 " .. reqAlba .. " Rinascita") or ("🔒 " .. reqAlba .. " Rebirth")
+					wRef.Btn.Text = (lang == "it")
+						and ("🔒 Rinascita " .. reqAlba)
+						or ("🔒 Rebirth " .. reqAlba)
 					wRef.Btn.TextColor3 = THEME.TextSub
 				else
 					wRef.Card.BackgroundColor3 = owned and Color3.fromRGB(24, 42, 36) or THEME.Card
@@ -402,7 +428,7 @@ function ShopUI.Build(parentGui, remotes)
 			local dawnUnit = Localization.T(lang, "DAWN_PT_UNIT")
 			local statusTxt = st.AllUpgradesCompleted
 				and Localization.T(lang, "DAWN_STATUS_READY", rewardPerRebirth)
-				or Localization.T(lang, "DAWN_STATUS_PROG", st.CompletedUpgradesCount or 0, st.TotalUpgradesCount or 20, rewardPerRebirth)
+				or Localization.T(lang, "DAWN_STATUS_PROG", st.CompletedUpgradesCount or 0, st.TotalUpgradesCount or 21, rewardPerRebirth)
 
 			albaRefs.HeaderInfo.Text = Localization.T(lang, "DAWN_HEADER_FMT", albaPts, albaCount, statusTxt)
 
@@ -1027,6 +1053,18 @@ function ShopUI.Build(parentGui, remotes)
 		Update = function(st)
 			latestState = st
 			local lang = getLang()
+
+			-- Aggiornamento banner timer (3 minuti iniziali / 2 minuti dopo la rinascita)
+			local graceRem = math.max(0, math.floor(st.ShadowGraceRemaining or 0))
+			if graceRem > 0 and not st.AllUpgradesCompleted then
+				graceBanner.Visible = true
+				local mins = math.floor(graceRem / 60)
+				local secs = graceRem % 60
+				local fmtKey = st.ShadowGraceIsInitial and "TRUCE_INITIAL_FMT" or "TRUCE_DAWN_FMT"
+				graceLabel.Text = Localization.T(lang, fmtKey, mins, secs)
+			else
+				graceBanner.Visible = false
+			end
 
 			homeBtn.Text = Localization.T(lang, "MY_ZONE_BTN")
 			toggleLabel.Text = Localization.T(lang, "CHAR_BTN_TITLE")

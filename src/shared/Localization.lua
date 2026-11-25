@@ -5,7 +5,7 @@ Localization.DefaultLang = "en"
 local STRINGS = {
 	en = {
 		POINTS_SUFFIX = "Light Points",
-		RATE_FMT = "+%s / click  •  +%s / sec",
+		RATE_FMT = "+%s / click (%.2fs)  •  +%s / sec",
 		ZONE_BADGE_FMT = "ZONES %d/5 • %s (%d%%)",
 		HEAT_ALBA_FMT = "Heat x%.2f • 🌅Dawn: %d • Upg. %d/%d%s",
 		MY_ZONE_BTN = "🏠 MY ZONE",
@@ -14,6 +14,9 @@ local STRINGS = {
 		ROBUX_X2_BTN = "⚡ x2 LIGHT (ROBUX)",
 		ROBUX_X2_ACTIVE = "✅ x2 LIGHT ACTIVE",
 		MODAL_TITLE = "🧙 KEEPER'S SANCTUARY",
+
+		TRUCE_INITIAL_FMT = "🛡️ Initial Truce: Shadows arrive in %d:%02d",
+		TRUCE_DAWN_FMT = "🛡️ Dawn Truce: Shadows arrive in %d:%02d",
 
 		TAB_CHAR = "🔥 Character",
 		TAB_DEFENSE = "🛡️ Defense",
@@ -26,15 +29,18 @@ local STRINGS = {
 		BTN_MAXED = "MAXED",
 		BTN_OWNED = "✅ OWNED",
 		BTN_EQUIPPED = "✅ EQUIPPED",
-		BTN_UNLOCKED = "✅ UNLOCKED",
+		BTN_UNLOCKED = "✅ BUILT",
 		LIGHT_UNIT = "Light",
 		DAWN_PT_UNIT = "Dawn Pt",
 		MAX_GROUND_PAD = "✅ MAXED",
 		ACTIVE_GROUND_PAD = "✅ ACTIVE",
 
+		ZONE_GATE_LOCKED_FMT = "🔒 %s\nStep here or use Dawn tab (%d Dawn Pt)",
+		ZONE_GATE_UNLOCKED_FMT = "✅ %s (x%.1f Light)",
+
 		SEC_WEAPONS = "⚔️ SPIRIT WEAPONS (Equipped to Hotbar)",
 		SEC_STRUCTURES = "🏰 BASE DEFENSES (Auto-built around Brazier)",
-		DEF_TIP = "Shadows raid your Brazier and drain Light! Equip weapons or build Light Walls & Solar Turrets to repel them.",
+		DEF_TIP = "Shadows raid your Brazier and drain Light! Equip weapons or build Solar Turrets to repel them.",
 
 		WISPS_LOCKED = "🔒 Unlock 'Spirit Summoning' in the Character tab first!",
 		WISPS_HEADER_FMT = "✨ Active Wisps: %d / %d  (Strongest wisps auto-equip)",
@@ -48,7 +54,7 @@ local STRINGS = {
 		DAWN_STATUS_PROG = "Max all upgrades (%d/%d) and press the Final Dawn Button for +%d Dawn Points.",
 		DAWN_HEADER_FMT = "🌅 AVAILABLE DAWN POINTS: %d   •   Rebirths: %d\n%s",
 		SEC_DAWN_PERKS = "✨ DAWN UPGRADES (PERMANENT)",
-		SEC_DAWN_ZONES = "🗺️ UNLOCK NEW ZONES WITH DAWN POINTS",
+		SEC_DAWN_ZONES = "🗺️ BUILD EXTRA ZONES WITH DAWN POINTS",
 
 		CODE_PLACEHOLDER = "Enter code (e.g. LIGHT100)",
 		CODE_HINT = "Active codes: LIGHT100, FLAME, DAWN2026",
@@ -58,7 +64,7 @@ local STRINGS = {
 		CODE_ERR = "Error redeeming code",
 
 		VICTORY_TITLE = "🌅 SUPREME DAWN ACHIEVED!",
-		VICTORY_BODY_FMT = "You activated the Final Dawn Button and earned +%d Dawn Points!\nTotal Dawn Points: %d\n\nSpend them in the Dawn tab to boost Rebirths or unlock New Zones.",
+		VICTORY_BODY_FMT = "You activated the Final Dawn Button and earned +%d Dawn Points!\nTotal Dawn Points: %d\n\nSpend them in the Dawn tab to boost Rebirths or build Extra Zones.",
 		VICTORY_OPEN_DAWN = "OPEN DAWN TAB",
 
 		PLOT_FREE_FMT = "ZONE %d — OPEN",
@@ -85,7 +91,8 @@ local STRINGS = {
 		POP_R1_UNLOCKED = "🏃 REALM 1 UNLOCKED! Run to Brazier I on your island!",
 		POP_NEW_UNLOCK = "🆕 UNLOCKED: %s!",
 		POP_DAWN_PERK = "🌅 Dawn Upgrade purchased: %s!",
-		POP_ZONE_UNLOCK = "🗺️ NEW ZONE UNLOCKED: %s!",
+		POP_ZONE_UNLOCK = "🗺️ EXTRA ZONE BUILT: %s!",
+		POP_NEED_DAWN_PTS = "🌅 You need %d Dawn Points to build this zone!",
 		POP_WEAPON_BOUGHT = "⚔️ Weapon unlocked & equipped: %s!",
 		POP_DEFENSE_BUILT = "🛡️ Defense upgraded: %s [Lv.%d]!",
 		POP_NEED_LIGHT = "You need %s Light Points!",
@@ -101,7 +108,7 @@ local STRINGS = {
 
 	it = {
 		POINTS_SUFFIX = "Punti Luce",
-		RATE_FMT = "+%s / click  •  +%s / sec",
+		RATE_FMT = "+%s / click (%.2fs)  •  +%s / sec",
 		ZONE_BADGE_FMT = "ZONE %d/5 • %s (%d%%)",
 		HEAT_ALBA_FMT = "Calore x%.2f • 🌅Alba: %d • Potenz. %d/%d%s",
 		MY_ZONE_BTN = "🏠 LA MIA ZONA",
@@ -110,6 +117,9 @@ local STRINGS = {
 		ROBUX_X2_BTN = "⚡ LUCE x2 (ROBUX)",
 		ROBUX_X2_ACTIVE = "✅ LUCE x2 ATTIVA",
 		MODAL_TITLE = "🧙 SANTUARIO DEL CUSTODE",
+
+		TRUCE_INITIAL_FMT = "🛡️ Tregua Iniziale: le Ombre arrivano tra %d:%02d",
+		TRUCE_DAWN_FMT = "🛡️ Tregua dell'Alba: le Ombre arrivano tra %d:%02d",
 
 		TAB_CHAR = "🔥 Personaggio",
 		TAB_DEFENSE = "🛡️ Difesa",
@@ -122,15 +132,18 @@ local STRINGS = {
 		BTN_MAXED = "MASSIMO",
 		BTN_OWNED = "✅ POSSEDUTO",
 		BTN_EQUIPPED = "✅ EQUIPAGGIATO",
-		BTN_UNLOCKED = "✅ SBLOCCATA",
+		BTN_UNLOCKED = "✅ COSTRUITA",
 		LIGHT_UNIT = "Luce",
 		DAWN_PT_UNIT = "P. Alba",
 		MAX_GROUND_PAD = "✅ MASSIMO",
 		ACTIVE_GROUND_PAD = "✅ ATTIVO",
 
+		ZONE_GATE_LOCKED_FMT = "🔒 %s\nPassa qui o usa scheda Alba (%d P. Alba)",
+		ZONE_GATE_UNLOCKED_FMT = "✅ %s (x%.1f Luce)",
+
 		SEC_WEAPONS = "⚔️ ARMI SPIRITICHE (Aggiunte all'inventario)",
 		SEC_STRUCTURES = "🏰 DIFESE BASE (Costruite attorno al Braciere)",
-		DEF_TIP = "Le Ombre attaccano il Braciere e rubano Luce! Compra armi o costruisci Muri di Luce e Torrette Solari.",
+		DEF_TIP = "Le Ombre attaccano il Braciere e rubano Luce! Compra armi o costruisci Torrette Solari.",
 
 		WISPS_LOCKED = "🔒 Sblocca 'Evocazione Spiriti' nella scheda Personaggio!",
 		WISPS_HEADER_FMT = "✨ Spiriti Attivi: %d / %d  (I migliori si equipaggiano in automatico)",
@@ -144,7 +157,7 @@ local STRINGS = {
 		DAWN_STATUS_PROG = "Completa i potenziamenti (%d/%d) e premi il Bottone Finale per +%d Punti Alba.",
 		DAWN_HEADER_FMT = "🌅 PUNTI ALBA DISPONIBILI: %d   •   Rebirth effettuati: %d\n%s",
 		SEC_DAWN_PERKS = "✨ POTENZIAMENTI ALBA (PERMANENTI)",
-		SEC_DAWN_ZONES = "🗺️ SBLOCCA NUOVE ZONE CON I PUNTI ALBA",
+		SEC_DAWN_ZONES = "🗺️ COSTRUISCI ZONE EXTRA CON I PUNTI ALBA",
 
 		CODE_PLACEHOLDER = "Codice (es. LIGHT100)",
 		CODE_HINT = "Codici attivi: LIGHT100, FLAME, DAWN2026",
@@ -154,7 +167,7 @@ local STRINGS = {
 		CODE_ERR = "Errore riscatto codice",
 
 		VICTORY_TITLE = "🌅 ALBA SUPREMA COMPIUTA!",
-		VICTORY_BODY_FMT = "Hai attivato il Bottone Finale e ottenuto +%d Punti Alba!\nTotale Punti Alba: %d\n\nUsali nella scheda Alba per potenziare il Rebirth o sbloccare Nuove Zone.",
+		VICTORY_BODY_FMT = "Hai attivato il Bottone Finale e ottenuto +%d Punti Alba!\nTotale Punti Alba: %d\n\nUsali nella scheda Alba per potenziare il Rebirth o costruire Zone Extra.",
 		VICTORY_OPEN_DAWN = "APRI SCHEDA ALBA",
 
 		PLOT_FREE_FMT = "ZONA %d — LIBERA",
@@ -181,7 +194,8 @@ local STRINGS = {
 		POP_R1_UNLOCKED = "🏃 REGNO 1 SBLOCCATO! Corri al Braciere I della tua Zona!",
 		POP_NEW_UNLOCK = "🆕 SBLOCCATO: %s!",
 		POP_DAWN_PERK = "🌅 Potenziamento Alba acquistato: %s!",
-		POP_ZONE_UNLOCK = "🗺️ NUOVA ZONA SBLOCCATA: %s!",
+		POP_ZONE_UNLOCK = "🗺️ ZONA EXTRA COSTRUITA: %s!",
+		POP_NEED_DAWN_PTS = "🌅 Servono %d Punti Alba per costruire questa zona!",
 		POP_WEAPON_BOUGHT = "⚔️ Arma sbloccata ed equipaggiata: %s!",
 		POP_DEFENSE_BUILT = "🛡️ Difesa potenziata: %s [Lv.%d]!",
 		POP_NEED_LIGHT = "Servono %s Punti Luce!",

@@ -36,6 +36,7 @@ local remotes = {
 ClientWorldVisuals.StartWispRenderer()
 
 local currentLang = "en"
+local currentClickCooldown = 0.50
 
 local gui = Instance.new("ScreenGui")
 gui.Name = "LastFlameHUD"
@@ -70,9 +71,9 @@ pointsLbl.ZIndex = 11
 
 local rateLbl = Instance.new("TextLabel", topHud)
 rateLbl.Position = UDim2.fromOffset(14, 32)
-rateLbl.Size = UDim2.fromOffset(270, 18)
+rateLbl.Size = UDim2.fromOffset(290, 18)
 rateLbl.BackgroundTransparency = 1
-rateLbl.Text = "+1 / click  •  +0 / sec"
+rateLbl.Text = "+1 / click (0.50s)  •  +0 / sec"
 rateLbl.TextColor3 = Color3.fromRGB(175, 190, 215)
 rateLbl.TextXAlignment = Enum.TextXAlignment.Left
 rateLbl.Font = Enum.Font.GothamBold
@@ -96,7 +97,7 @@ heatAndAlbaLbl.AnchorPoint = Vector2.new(1, 0)
 heatAndAlbaLbl.Position = UDim2.new(1, -64, 0, 31)
 heatAndAlbaLbl.Size = UDim2.fromOffset(300, 18)
 heatAndAlbaLbl.BackgroundTransparency = 1
-heatAndAlbaLbl.Text = "Heat x1.00 • 🌅Dawn: 0 • Upg. 0/20"
+heatAndAlbaLbl.Text = "Heat x1.00 • 🌅Dawn: 0 • Upg. 0/21"
 heatAndAlbaLbl.TextColor3 = Color3.fromRGB(255, 175, 95)
 heatAndAlbaLbl.TextXAlignment = Enum.TextXAlignment.Right
 heatAndAlbaLbl.Font = Enum.Font.Gotham
@@ -126,7 +127,7 @@ end)
 local trialBanner = Instance.new("TextLabel", gui)
 trialBanner.Name = "Regno1Banner"
 trialBanner.AnchorPoint = Vector2.new(0.5, 0)
-trialBanner.Position = UDim2.new(0.5, 0, 0, 76)
+trialBanner.Position = UDim2.new(0.5, 0, 0, 112)
 trialBanner.Size = UDim2.fromOffset(390, 26)
 trialBanner.BackgroundColor3 = Color3.fromRGB(38, 24, 14)
 trialBanner.Text = ""
@@ -140,7 +141,7 @@ Instance.new("UICorner", trialBanner).CornerRadius = UDim.new(0, 10)
 local toastLbl = Instance.new("TextLabel", gui)
 toastLbl.Name = "PopupToast"
 toastLbl.AnchorPoint = Vector2.new(0.5, 0)
-toastLbl.Position = UDim2.new(0.5, 0, 0, 108)
+toastLbl.Position = UDim2.new(0.5, 0, 0, 144)
 toastLbl.Size = UDim2.fromOffset(450, 28)
 toastLbl.BackgroundColor3 = Color3.fromRGB(22, 26, 40)
 toastLbl.Text = ""
@@ -242,7 +243,7 @@ end
 local lastLocalClick = 0
 local function tryClickMyFlame()
 	local now = os.clock()
-	if now - lastLocalClick < 0.065 then return end
+	if now - lastLocalClick < currentClickCooldown then return end
 	lastLocalClick = now
 	remotes.ClickFlame:FireServer()
 end
@@ -278,8 +279,18 @@ remotes.StateSync.OnClientEvent:Connect(function(st)
 		langBtn.Text = (currentLang == "en") and "🌐 EN" or "🌐 IT"
 	end
 
+	if type(st.ClickCooldown) == "number" then
+		currentClickCooldown = math.max(0.05, st.ClickCooldown)
+	end
+
 	pointsLbl.Text = "🔥 " .. NumberFormat.Format(math.floor(st.Points or 0)) .. " " .. Localization.T(currentLang, "POINTS_SUFFIX")
-	rateLbl.Text = Localization.T(currentLang, "RATE_FMT", NumberFormat.Format(st.ClickPower or 1), NumberFormat.Format(st.PointsPerSec or 0))
+	rateLbl.Text = Localization.T(
+		currentLang,
+		"RATE_FMT",
+		NumberFormat.Format(st.ClickPower or 1),
+		currentClickCooldown,
+		NumberFormat.Format(st.PointsPerSec or 0)
+	)
 	zoneBadge.Text = Localization.T(currentLang, "ZONE_BADGE_FMT", st.UnlockedZonesCount or 1, st.RankName or "Keeper", st.LightPercent or 4)
 
 	local buffSuffix = ""
@@ -292,7 +303,7 @@ remotes.StateSync.OnClientEvent:Connect(function(st)
 		st.HeatMult or 1,
 		st.AlbaPoints or 0,
 		st.CompletedUpgradesCount or 0,
-		st.TotalUpgradesCount or 20,
+		st.TotalUpgradesCount or 21,
 		buffSuffix
 	)
 

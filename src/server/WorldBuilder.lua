@@ -199,7 +199,7 @@ local function buildSinglePlot(index, origin, plotsFolder)
 	flameTitle.Font = Enum.Font.GothamBlack
 	flameTitle.TextSize = 36
 
-	-- 4. Ground Upgrade Pads for the Brazier
+	-- 4. Ground Upgrade Pads for Click Power & Brazier
 	local altarsFolder = Instance.new("Folder", plotModel)
 	altarsFolder.Name = "Altars"
 
@@ -211,7 +211,7 @@ local function buildSinglePlot(index, origin, plotsFolder)
 		pad.CanCollide = false
 
 		local bbg = Instance.new("BillboardGui", pad)
-		bbg.Size = UDim2.fromOffset(175, 44)
+		bbg.Size = UDim2.fromOffset(185, 44)
 		bbg.StudsOffset = Vector3.new(0, 3.6, 0)
 		bbg.AlwaysOnTop = false
 
@@ -292,14 +292,177 @@ local function buildSinglePlot(index, origin, plotsFolder)
 		makeCylinder(bPos, 3.0, b.PedestalHeight, Color3.fromRGB(38, 41, 56), Enum.Material.Marble, ritualFolder, "Brazier_" .. b.Index)
 	end
 
-	-- 7. Defense Structures Folder (Light Walls & Solar Turrets)
+	-- 7. Defense Structures Folder (Solar Turrets)
 	local defensesFolder = Instance.new("Folder", plotModel)
 	defensesFolder.Name = "Defenses"
+
+	-- 8. Physical Extra Zones unlocked with Dawn Points (az_2 .. az_5)
+	local albaZonesFolder = Instance.new("Folder", plotModel)
+	albaZonesFolder.Name = "AlbaZones"
+	local albaZoneRefs = {}
+
+	for _, z in ipairs(GameConfig.AlbaZones) do
+		local dir = z.Direction or Vector3.new(-1, 0, 0)
+		local zCenter = origin + (dir * 94)
+		local zColor = z.Color or Color3.fromRGB(255, 200, 80)
+
+		local zModel = Instance.new("Model", albaZonesFolder)
+		zModel.Name = z.Id
+
+		-- Bridge connecting main island (radius 61) to satellite zone island (radius 76)
+		local bridgeMid = origin + (dir * 68.5) + Vector3.new(0, 0.12, 0)
+		local bridge = makePart({
+			Name = "ZoneBridge",
+			Size = Vector3.new(8, 0.45, 17),
+			CFrame = CFrame.lookAt(bridgeMid, zCenter + Vector3.new(0, 0.12, 0)),
+			Color = Color3.fromRGB(30, 34, 48),
+			Material = Enum.Material.Marble,
+			Transparency = 0.55,
+			CanCollide = false,
+			Parent = zModel,
+		})
+
+		local bridgeTrim = makePart({
+			Name = "ZoneBridgeTrim",
+			Size = Vector3.new(8.6, 0.25, 17),
+			CFrame = CFrame.lookAt(bridgeMid - Vector3.new(0, 0.1, 0), zCenter + Vector3.new(0, 0.02, 0)),
+			Color = zColor,
+			Material = Enum.Material.Neon,
+			Transparency = 0.75,
+			CanCollide = false,
+			Parent = zModel,
+		})
+
+		-- Gate Barrier at edge of main island (radius 62.5)
+		local gatePos = origin + (dir * 62.5) + Vector3.new(0, 4.2, 0)
+		local gateBarrier = makePart({
+			Name = "GateBarrier",
+			Size = Vector3.new(9.5, 8.2, 1.0),
+			CFrame = CFrame.lookAt(gatePos, zCenter + Vector3.new(0, 4.2, 0)),
+			Color = zColor,
+			Material = Enum.Material.ForceField,
+			Transparency = 0.35,
+			CanCollide = true,
+			Parent = zModel,
+		})
+
+		local gateBbg = Instance.new("BillboardGui", gateBarrier)
+		gateBbg.Name = "GateBillboard"
+		gateBbg.Size = UDim2.fromOffset(230, 52)
+		gateBbg.StudsOffset = Vector3.new(0, 3.2, 0)
+		gateBbg.AlwaysOnTop = false
+
+		local gateLbl = Instance.new("TextLabel", gateBbg)
+		gateLbl.Name = "GateLabel"
+		gateLbl.Size = UDim2.fromScale(1, 1)
+		gateLbl.BackgroundTransparency = 1
+		gateLbl.Text = string.format("🔒 %s\n(%d Dawn Pt)", z.Name, z.Cost)
+		gateLbl.TextColor3 = zColor
+		gateLbl.TextStrokeColor3 = Color3.fromRGB(12, 14, 22)
+		gateLbl.TextStrokeTransparency = 0.15
+		gateLbl.Font = Enum.Font.GothamBlack
+		gateLbl.TextSize = 13
+
+		-- Ground Pad right in front of the Gate (radius 58) to unlock by stepping on it
+		local padPos = origin + (dir * 57.5) + Vector3.new(0, 0.55, 0)
+		local gatePad = makeCylinder(padPos, 3.4, 0.55, zColor, Enum.Material.Neon, zModel, "GatePad")
+		gatePad.CanCollide = false
+		gatePad.Transparency = 0.25
+
+		-- Extra Zone Satellite Island (radius 20)
+		local islBase = makeCylinder(zCenter + Vector3.new(0, -1.2, 0), 20, 2.6, Color3.fromRGB(24, 26, 38), Enum.Material.Slate, zModel, "ZoneIslandBase")
+		islBase.Transparency = 0.45
+		islBase.CanCollide = false
+
+		local islRim = makeCylinder(zCenter + Vector3.new(0, 0.12, 0), 20.4, 0.35, zColor, Enum.Material.Neon, zModel, "ZoneIslandRim")
+		islRim.Transparency = 0.65
+		islRim.CanCollide = false
+
+		local islInner = makeCylinder(zCenter + Vector3.new(0, 0.18, 0), 12, 0.3, Color3.fromRGB(34, 38, 54), Enum.Material.Marble, zModel, "ZoneInnerCircle")
+		islInner.Transparency = 0.45
+		islInner.CanCollide = false
+
+		-- 4 Corner Pillars on the Extra Zone
+		local pillars = {}
+		for k = 1, 4 do
+			local pAng = (k - 1) * (math.pi * 0.5) + math.pi * 0.25
+			local pilPos = zCenter + Vector3.new(math.cos(pAng) * 16.5, 4.0, math.sin(pAng) * 16.5)
+			local pil = makePart({
+				Name = "ZonePillar_" .. k,
+				Size = Vector3.new(2.0, 8.0, 2.0),
+				Position = pilPos,
+				Color = Color3.fromRGB(36, 40, 56),
+				Material = Enum.Material.Marble,
+				Transparency = 0.45,
+				CanCollide = false,
+				Parent = zModel,
+			})
+			table.insert(pillars, pil)
+		end
+
+		-- Central Monument Pedestal & Crystal
+		local monPed = makeCylinder(zCenter + Vector3.new(0, 1.2, 0), 4.2, 2.0, Color3.fromRGB(30, 34, 48), Enum.Material.Basalt, zModel, "MonumentPedestal")
+		monPed.Transparency = 0.45
+		monPed.CanCollide = false
+
+		local crystal = makePart({
+			Name = "ZoneCrystal",
+			Shape = Enum.PartType.Ball,
+			Size = Vector3.new(4.2, 6.2, 4.2),
+			Position = zCenter + Vector3.new(0, 6.0, 0),
+			Color = zColor,
+			Material = Enum.Material.Neon,
+			Transparency = 0.65,
+			CanCollide = false,
+			Parent = zModel,
+		})
+
+		local cLight = Instance.new("PointLight", crystal)
+		cLight.Color = zColor
+		cLight.Range = 36
+		cLight.Brightness = 3.0
+		cLight.Enabled = false
+
+		local zBbg = Instance.new("BillboardGui", crystal)
+		zBbg.Name = "ZoneBillboard"
+		zBbg.Size = UDim2.fromOffset(260, 54)
+		zBbg.StudsOffset = Vector3.new(0, 5.2, 0)
+		zBbg.AlwaysOnTop = false
+
+		local zTitle = Instance.new("TextLabel", zBbg)
+		zTitle.Name = "TitleLabel"
+		zTitle.Size = UDim2.fromScale(1, 1)
+		zTitle.BackgroundTransparency = 1
+		zTitle.Text = string.format("%s %s (x%.1f)", z.Icon, z.Name, z.LightMult or 1.0)
+		zTitle.TextColor3 = zColor
+		zTitle.TextStrokeColor3 = Color3.fromRGB(12, 14, 22)
+		zTitle.TextStrokeTransparency = 0.1
+		zTitle.Font = Enum.Font.GothamBlack
+		zTitle.TextSize = 15
+
+		albaZoneRefs[z.Id] = {
+			Config = z,
+			Model = zModel,
+			Bridge = bridge,
+			BridgeTrim = bridgeTrim,
+			GateBarrier = gateBarrier,
+			GateLabel = gateLbl,
+			GatePad = gatePad,
+			IslandBase = islBase,
+			IslandRim = islRim,
+			IslandInner = islInner,
+			Pillars = pillars,
+			MonumentPedestal = monPed,
+			Crystal = crystal,
+			CrystalLight = cLight,
+			ZoneTitle = zTitle,
+		}
+	end
 
 	return {
 		Index = index,
 		Origin = origin,
-		SpawnPos = origin + Vector3.new(0, 4.5, 16),
+		SpawnPos = origin + Vector3.new(0, 4.5, 18.5),
 		Model = plotModel,
 		SignBoard = signBoard,
 		FlameCore = flameCore,
@@ -317,6 +480,8 @@ local function buildSinglePlot(index, origin, plotsFolder)
 		VictoryStatusLabel = vCostLbl,
 		RitualFolder = ritualFolder,
 		DefensesFolder = defensesFolder,
+		AlbaZonesFolder = albaZonesFolder,
+		AlbaZoneRefs = albaZoneRefs,
 		Owner = nil,
 	}
 end

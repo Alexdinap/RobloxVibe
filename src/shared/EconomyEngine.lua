@@ -99,6 +99,9 @@ function EconomyEngine.CalculateStats(data, heat, regno1BuffMult, hasDoubleLight
 	local walkSpeed = 16.0
 	local extraWispSlots = 0
 	local lightPct = 4.0
+	local baseClickCooldown = GameConfig.BaseClickCooldown or 0.50
+	local minClickCooldown = GameConfig.MinClickCooldown or 0.06
+	local cooldownReduction = 0.0
 
 	for _, u in ipairs(GameConfig.Upgrades) do
 		local lvl = EconomyEngine.GetLevel(upgrades, u.Id)
@@ -106,6 +109,8 @@ function EconomyEngine.CalculateStats(data, heat, regno1BuffMult, hasDoubleLight
 			lightPct += (u.LightPct or 0) * lvl
 			if u.Effect == "ClickAdd" then
 				baseClick += (u.Value or 0) * lvl
+			elseif u.Effect == "ClickCooldown" then
+				cooldownReduction += (u.Value or 0) * lvl
 			elseif u.Effect == "ClickPowerMult" or u.Effect == "ClickMult" then
 				charClickMult *= ((u.Value or 1) ^ lvl)
 			elseif u.Effect == "CritChance" then
@@ -122,7 +127,9 @@ function EconomyEngine.CalculateStats(data, heat, regno1BuffMult, hasDoubleLight
 		end
 	end
 
-	-- 2. Brazier Stats
+	local clickCooldown = math.max(minClickCooldown, baseClickCooldown - cooldownReduction)
+
+	-- 2. Ground Buttons & Brazier Stats
 	local brazierPps = 0.0
 	local brazierMult = 1.0
 	local radiusLevel = 1
@@ -135,6 +142,9 @@ function EconomyEngine.CalculateStats(data, heat, regno1BuffMult, hasDoubleLight
 		local lvl = EconomyEngine.GetLevel(altars, alt.Id)
 		if lvl > 0 then
 			totalBrazierLevels += lvl
+			if alt.ClickAdd then
+				baseClick += alt.ClickAdd * lvl
+			end
 			brazierPps += (alt.Pps or 0) * lvl
 			if alt.BrazierMult then
 				brazierMult *= (alt.BrazierMult ^ lvl)
@@ -206,6 +216,7 @@ function EconomyEngine.CalculateStats(data, heat, regno1BuffMult, hasDoubleLight
 
 	return {
 		ClickPower = clickPower,
+		ClickCooldown = clickCooldown,
 		PointsPerSec = pointsPerSec,
 		Heat = clampedHeat,
 		HeatMult = heatMult,

@@ -4,6 +4,14 @@ local GameConfig = {}
 GameConfig.MaxPlots = 10
 GameConfig.PlotRingRadius = 430
 
+-- Shadow Truce Timers (seconds)
+GameConfig.InitialGraceDuration = 180 -- 3 minutes at the start of the match
+GameConfig.RebirthGraceDuration = 120 -- 2 minutes after each Dawn Rebirth
+
+-- Brazier Click Cooldown Bounds (seconds)
+GameConfig.BaseClickCooldown = 0.50
+GameConfig.MinClickCooldown = 0.06
+
 -- Robux GamePass
 GameConfig.RobuxPasses = {
 	DoubleLight = {
@@ -69,14 +77,14 @@ end
 -- =========================================================================
 GameConfig.Upgrades = {
 	{
-		Id = "u_click_add", Category = "Character", Order = 1,
-		Icon = "🔥",
-		Name = "Kindling Touch", Name_it = "Mano Ardente",
-		Tag = "+1 Manual Click", Tag_it = "+1 Click Manuale",
-		Desc = "Increases your character's base power when striking the Brazier.",
-		Desc_it = "Aumenta la forza base del personaggio quando colpisce il Braciere.",
-		BaseCost = 15, CostMult = 1.48, MaxLevel = 25, LightPct = 0.5,
-		Effect = "ClickAdd", Value = 1.0,
+		Id = "u_click_cd", Category = "Character", Order = 1,
+		Icon = "⚡",
+		Name = "Blazing Cadence", Name_it = "Cadenza Ardente",
+		Tag = "-0.04s Click Cooldown", Tag_it = "-0.04s Attesa Click",
+		Desc = "Reduces the cooldown between manual clicks on the Brazier (from 0.50s down to 0.06s).",
+		Desc_it = "Riduce il tempo di attesa tra un click e l'altro sul Braciere (da 0,50s a 0,06s).",
+		BaseCost = 20, CostMult = 1.65, MaxLevel = 11, LightPct = 0.5,
+		Effect = "ClickCooldown", Value = 0.04,
 		ReqId = nil, ReqLvl = 0,
 	},
 	{
@@ -88,7 +96,7 @@ GameConfig.Upgrades = {
 		Desc_it = "Aumenta la velocità di corsa del personaggio sull'isola.",
 		BaseCost = 35, CostMult = 1.62, MaxLevel = 12, LightPct = 0.6,
 		Effect = "WalkSpeed", Value = 1.5,
-		ReqId = "u_click_add", ReqLvl = 1,
+		ReqId = "u_click_cd", ReqLvl = 1,
 	},
 	{
 		Id = "u_crit", Category = "Character", Order = 3,
@@ -203,7 +211,7 @@ GameConfig.Upgrades = {
 }
 
 -- =========================================================================
--- WEAPONS / TOOLS TO DEFEND AGAINST SHADOWS
+-- WEAPONS / TOOLS TO DEFEND AGAINST SHADOWS (Up to Dawn Rebirth 5)
 -- =========================================================================
 GameConfig.Weapons = {
 	{
@@ -211,13 +219,13 @@ GameConfig.Weapons = {
 		Order = 1,
 		Icon = "🔥",
 		Name = "Sunfire Torch", Name_it = "Torcia Solare",
-		Tag = "2 DMG • 20 Studs AoE", Tag_it = "2 DANNI • Area 20 Stud",
+		Tag = "3 DMG • 22 Studs AoE", Tag_it = "3 DANNI • Area 22 Stud",
 		Desc = "A sacred torch that unleashes a solar flare burst against nearby Shadows.",
 		Desc_it = "Torcia sacra che sprigiona un'esplosione solare contro le Ombre vicine.",
 		Cost = 200,
-		Damage = 2,
-		Range = 20,
-		Cooldown = 0.45,
+		Damage = 3,
+		Range = 22,
+		Cooldown = 0.42,
 		Color = Color3.fromRGB(255, 175, 55),
 	},
 	{
@@ -225,13 +233,14 @@ GameConfig.Weapons = {
 		Order = 2,
 		Icon = "🏮",
 		Name = "Radiant Lantern", Name_it = "Lanterna Radiosa",
-		Tag = "5 DMG • Chain & Slow", Tag_it = "5 DANNI • Catena & Rallenta",
+		Tag = "7.5 DMG • Chain 3 & Slow", Tag_it = "7.5 DANNI • Catena 3 & Rallenta",
 		Desc = "Chains pure light across up to 3 Shadows and slows their movement.",
 		Desc_it = "Colpisce a catena fino a 3 Ombre con luce pura e le rallenta.",
 		Cost = 55000,
-		Damage = 5,
-		Range = 38,
-		Cooldown = 0.50,
+		Damage = 7.5,
+		ChainCount = 3,
+		Range = 40,
+		Cooldown = 0.48,
 		Color = Color3.fromRGB(75, 225, 255),
 	},
 	{
@@ -239,15 +248,83 @@ GameConfig.Weapons = {
 		Order = 3,
 		Icon = "🗡️",
 		Name = "Dawnblade", Name_it = "Lama dell'Alba",
-		Tag = "14 DMG • 1 Rebirth Req", Tag_it = "14 DANNI • Richiede 1 Rinascita",
+		Tag = "19 DMG • Rebirth 1", Tag_it = "19 DANNI • Rinascita 1",
 		Desc = "Legendary blade of light forged after your first Dawn Rebirth.",
 		Desc_it = "Spada leggendaria forgiata dopo la tua prima Rinascita dell'Alba.",
 		Cost = 250000,
 		ReqAlba = 1,
-		Damage = 14,
-		Range = 30,
-		Cooldown = 0.40,
+		Damage = 19,
+		Range = 32,
+		Cooldown = 0.38,
 		Color = Color3.fromRGB(255, 235, 110),
+	},
+	{
+		Id = "wep_solstice_spear",
+		Order = 4,
+		Icon = "🔱",
+		Name = "Solstice Halberd", Name_it = "Alabarda del Solstizio",
+		Tag = "34 DMG • Rebirth 2 • Pierce", Tag_it = "34 DANNI • Rinascita 2 • Perforante",
+		Desc = "Long solar polearm that impales Shadows from afar with heavy knockback.",
+		Desc_it = "Lancia solare che trafigge le Ombre da lontano con forte respingimento.",
+		Cost = 1200000,
+		ReqAlba = 2,
+		Damage = 34,
+		Range = 38,
+		Cooldown = 0.38,
+		Knockback = 8.0,
+		Color = Color3.fromRGB(255, 125, 55),
+	},
+	{
+		Id = "wep_astral_scepter",
+		Order = 5,
+		Icon = "🔮",
+		Name = "Astral Prism Scepter", Name_it = "Scettro Prisma Astrale",
+		Tag = "58 DMG • Rebirth 3 • Chain 5", Tag_it = "58 DANNI • Rinascita 3 • Catena 5",
+		Desc = "Fires prismatic arcs that jump across up to 5 Shadows and freeze them in place.",
+		Desc_it = "Scaglia archi prismatici su fino a 5 Ombre rallentandole pesantemente.",
+		Cost = 6500000,
+		ReqAlba = 3,
+		Damage = 58,
+		ChainCount = 5,
+		SlowDuration = 3.2,
+		Range = 46,
+		Cooldown = 0.42,
+		Color = Color3.fromRGB(205, 110, 255),
+	},
+	{
+		Id = "wep_corona_greatsword",
+		Order = 6,
+		Icon = "⚔️",
+		Name = "Solar Corona Claymore", Name_it = "Spadone Corona Solare",
+		Tag = "95 DMG • Rebirth 4 • 360° Wave", Tag_it = "95 DANNI • Rinascita 4 • Onda 360°",
+		Desc = "Unleashes a full 360-degree solar shockwave blasting back every nearby Shadow.",
+		Desc_it = "Scatena un'onda d'urto solare a 360° che travolge tutte le Ombre vicine.",
+		Cost = 35000000,
+		ReqAlba = 4,
+		Damage = 95,
+		Is360Nova = true,
+		Knockback = 9.5,
+		Range = 36,
+		Cooldown = 0.40,
+		Color = Color3.fromRGB(255, 210, 65),
+	},
+	{
+		Id = "wep_zenith_reaver",
+		Order = 7,
+		Icon = "☀️",
+		Name = "Zenith Sun Scythe", Name_it = "Falce Zenith del Sole",
+		Tag = "160 DMG • Rebirth 5 • Supreme", Tag_it = "160 DANNI • Rinascita 5 • Suprema",
+		Desc = "Ultimate divine scythe: obliterates all Shadows in a massive 48-stud solar nova.",
+		Desc_it = "Falce divina definitiva: annienta tutte le Ombre in un'enorme nova di 48 stud.",
+		Cost = 180000000,
+		ReqAlba = 5,
+		Damage = 160,
+		Is360Nova = true,
+		SlowDuration = 3.5,
+		Knockback = 11.0,
+		Range = 48,
+		Cooldown = 0.35,
+		Color = Color3.fromRGB(255, 252, 200),
 	},
 }
 
@@ -265,7 +342,7 @@ GameConfig.Defenses = {
 		Desc_it = "Costruisce torrette sentinella (fino a 4). Dalla 2ª in poi richiedono anche Punti Alba.",
 		MaxLevel = 4,
 		LevelCosts = {
-			{ Points = 1200,    Alba = 0 },
+			{ Points = 300,     Alba = 0 }, -- Costo prima torretta abbassato
 			{ Points = 85000,   Alba = 1 },
 			{ Points = 750000,  Alba = 3 },
 			{ Points = 6500000, Alba = 6 },
@@ -340,29 +417,38 @@ GameConfig.Regno1 = {
 }
 
 -- =========================================================================
--- GROUND BUTTONS: BRAZIER UPGRADES
+-- GROUND BUTTONS: BRAZIER & CLICK UPGRADES
+-- (Posizionati per evitare sovrapposizioni con torrette a ±15, ±15)
 -- =========================================================================
 GameConfig.Altars = {
+	{
+		Id = "alt_click",
+		Name = "Kindling Touch", Name_it = "Mano Ardente",
+		BenefitTag = "+1/click", BenefitTag_it = "+1/click",
+		BaseCost = 15, CostMult = 1.48, MaxLevel = 25,
+		Pps = 0, ClickAdd = 1.0,
+		Color = Color3.fromRGB(255, 130, 40), Pos = Vector3.new(-11, 0.7, 31),
+	},
 	{
 		Id = "alt1",
 		Name = "Brazier Power", Name_it = "Potenza Braciere",
 		BaseCost = 25, CostMult = 1.35, MaxLevel = 25,
 		Pps = 3,
-		Color = Color3.fromRGB(255, 165, 55), Pos = Vector3.new(-16, 0.7, 14),
+		Color = Color3.fromRGB(255, 165, 55), Pos = Vector3.new(-11, 0.7, 22),
 	},
 	{
 		Id = "alt2",
 		Name = "Flame Multiplier", Name_it = "Moltiplicatore Fiamma",
 		BaseCost = 180, CostMult = 1.45, MaxLevel = 20,
 		Pps = 12, BrazierMult = 1.12,
-		Color = Color3.fromRGB(255, 215, 80), Pos = Vector3.new(16, 0.7, 14),
+		Color = Color3.fromRGB(255, 215, 80), Pos = Vector3.new(11, 0.7, 22),
 	},
 	{
 		Id = "alt3",
 		Name = "Brazier Size", Name_it = "Grandezza Braciere",
 		BaseCost = 850, CostMult = 1.55, MaxLevel = 15,
 		Pps = 45, RadiusBonus = 1,
-		Color = Color3.fromRGB(255, 115, 45), Pos = Vector3.new(-21, 0.7, -3),
+		Color = Color3.fromRGB(255, 115, 45), Pos = Vector3.new(-24, 0.7, 0),
 	},
 	{
 		Id = "alt4",
@@ -371,14 +457,14 @@ GameConfig.Altars = {
 		BenefitTag = "x2.0 Brazier & +500/s", BenefitTag_it = "x2.0 Braciere & +500/s",
 		Pps = 500, BrazierMult = 2.0,
 		BrazierColor = Color3.fromRGB(70, 210, 255),
-		Color = Color3.fromRGB(70, 210, 255), Pos = Vector3.new(21, 0.7, -3),
+		Color = Color3.fromRGB(70, 210, 255), Pos = Vector3.new(24, 0.7, 0),
 	},
 	{
 		Id = "alt5",
 		Name = "Incandescent Core", Name_it = "Nucleo Incandescente",
 		BaseCost = 14000, CostMult = 1.52, MaxLevel = 15,
 		Pps = 850, HeatBonus = 0.08,
-		Color = Color3.fromRGB(255, 240, 120), Pos = Vector3.new(0, 0.7, -20),
+		Color = Color3.fromRGB(255, 240, 120), Pos = Vector3.new(0, 0.7, -23),
 	},
 	{
 		Id = "alt6",
@@ -387,14 +473,14 @@ GameConfig.Altars = {
 		BenefitTag = "x3.0 Brazier & +18K/s", BenefitTag_it = "x3.0 Braciere & +18K/s",
 		Pps = 18000, BrazierMult = 3.0,
 		BrazierColor = Color3.fromRGB(205, 95, 255),
-		Color = Color3.fromRGB(205, 95, 255), Pos = Vector3.new(-28, 0.7, 22),
+		Color = Color3.fromRGB(205, 95, 255), Pos = Vector3.new(-25, 0.7, 25),
 	},
 	{
 		Id = "alt7",
 		Name = "Brazier Crown", Name_it = "Corona del Braciere",
 		BaseCost = 420000, CostMult = 1.58, MaxLevel = 15,
 		Pps = 28000, RadiusBonus = 1,
-		Color = Color3.fromRGB(70, 255, 180), Pos = Vector3.new(28, 0.7, 22),
+		Color = Color3.fromRGB(70, 255, 180), Pos = Vector3.new(25, 0.7, 25),
 	},
 	{
 		Id = "alt8",
@@ -403,7 +489,7 @@ GameConfig.Altars = {
 		BenefitTag = "x5.0 Brazier & +450K/s", BenefitTag_it = "x5.0 Braciere & +450K/s",
 		Pps = 450000, BrazierMult = 5.0,
 		BrazierColor = Color3.fromRGB(255, 250, 185),
-		Color = Color3.fromRGB(255, 235, 120), Pos = Vector3.new(0, 0.7, -34),
+		Color = Color3.fromRGB(255, 235, 120), Pos = Vector3.new(0, 0.7, -36),
 	},
 }
 
@@ -466,40 +552,52 @@ GameConfig.AlbaZones = {
 		Order = 1,
 		Icon = "🌋",
 		Name = "Zone 2: Crimson Sanctuary", Name_it = "Zona 2: Santuario Cremisi",
-		Desc = "Unlocks Zone 2 access and grants permanent +50% Light Points.",
-		Desc_it = "Sblocca l'accesso alla Zona 2 e dona +50% Punti Luce permanenti.",
+		Desc = "Builds the Crimson Sanctuary island and grants permanent +50% Light Points.",
+		Desc_it = "Costruisce l'isola del Santuario Cremisi e dona +50% Punti Luce permanenti.",
 		Cost = 1,
 		LightMult = 1.5,
+		AngleDeg = -54,
+		Color = Color3.fromRGB(255, 75, 95),
+		StoneColor = Color3.fromRGB(42, 22, 28),
 	},
 	{
 		Id = "az_3",
 		Order = 2,
 		Icon = "🌌",
 		Name = "Zone 3: Astral Observatory", Name_it = "Zona 3: Osservatorio Astrale",
-		Desc = "Unlocks Zone 3 access and permanently doubles (x2) Light Points.",
-		Desc_it = "Sblocca l'accesso alla Zona 3 e raddoppia (x2) i Punti Luce permanenti.",
+		Desc = "Builds the Astral Observatory island and permanently doubles (x2) Light Points.",
+		Desc_it = "Costruisce l'isola dell'Osservatorio Astrale e raddoppia (x2) i Punti Luce permanenti.",
 		Cost = 3,
 		LightMult = 2.0,
+		AngleDeg = -18,
+		Color = Color3.fromRGB(95, 195, 255),
+		StoneColor = Color3.fromRGB(24, 30, 52),
 	},
 	{
 		Id = "az_4",
 		Order = 3,
 		Icon = "☀️",
 		Name = "Zone 4: Solar Forge", Name_it = "Zona 4: Forgia Solare",
-		Desc = "Unlocks Zone 4 access and permanently triples (x3) Light Points.",
-		Desc_it = "Sblocca l'accesso alla Zona 4 e triplica (x3) i Punti Luce permanenti.",
+		Desc = "Builds the Solar Forge island and permanently triples (x3) Light Points.",
+		Desc_it = "Costruisce l'isola della Forgia Solare e triplica (x3) i Punti Luce permanenti.",
 		Cost = 6,
 		LightMult = 3.0,
+		AngleDeg = 18,
+		Color = Color3.fromRGB(255, 195, 65),
+		StoneColor = Color3.fromRGB(48, 36, 22),
 	},
 	{
 		Id = "az_5",
 		Order = 4,
 		Icon = "👑",
 		Name = "Zone 5: Primordial Throne", Name_it = "Zona 5: Trono Primordiale",
-		Desc = "Unlocks Zone 5 access and permanently multiplies Light Points by x5.",
-		Desc_it = "Sblocca l'accesso alla Zona 5 e moltiplica x5 i Punti Luce permanenti.",
+		Desc = "Builds the Primordial Throne island and permanently multiplies Light Points by x5.",
+		Desc_it = "Costruisce l'isola del Trono Primordiale e moltiplica x5 i Punti Luce permanenti.",
 		Cost = 12,
 		LightMult = 5.0,
+		AngleDeg = 54,
+		Color = Color3.fromRGB(235, 175, 255),
+		StoneColor = Color3.fromRGB(44, 38, 56),
 	},
 }
 
@@ -516,9 +614,9 @@ GameConfig.PromoCodes = {
 	["LIGHT100"] = { Points = 250, Msg = "+250 Light Points redeemed!", Msg_it = "+250 Punti Luce riscattati!" },
 	["LUCE100"] = { Points = 250, Msg = "+250 Punti Luce riscattati!", Msg_it = "+250 Punti Luce riscattati!" },
 	["FLAME"] = { Points = 1500, Msg = "+1,500 Light Points redeemed!", Msg_it = "+1.500 Punti Luce riscattati!" },
-	["FIAMMA"] = { Points = 1500, Msg = "+1,500 Light Points redeemed!", Msg_it = "+1.500 Punti Luce riscattati!" },
+	["FIAMMA"] = { Points = 1500, Msg = "+1,500 Punti Luce riscattati!", Msg_it = "+1.500 Punti Luce riscattati!" },
 	["DAWN2026"] = { Points = 10000, Msg = "+10,000 Light Points redeemed!", Msg_it = "+10.000 Punti Luce riscattati!" },
-	["ALBA2026"] = { Points = 10000, Msg = "+10,000 Light Points redeemed!", Msg_it = "+10.000 Punti Luce riscattati!" },
+	["ALBA2026"] = { Points = 10000, Msg = "+10.000 Punti Luce riscattati!", Msg_it = "+10.000 Punti Luce riscattati!" },
 }
 
 return GameConfig

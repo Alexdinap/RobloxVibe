@@ -19,6 +19,8 @@ local DefenseFxEvent = nil
 local ActiveShadows = {}
 local BuiltTurrets = {}
 local RaidAnnounceCooldown = {}
+local PlotGraceUntil = {}
+local PlotGraceInitial = {}
 
 local SHADOW_TYPES = {
 	{
@@ -28,7 +30,7 @@ local SHADOW_TYPES = {
 		MaxHP = 6,
 		Speed = 5.6,
 		Size = 3.4,
-		DrainPct = 0.08,    -- Danno aumentato al braciere
+		DrainPct = 0.08,
 		MinDrain = 55,
 		RewardMult = 18,
 		Color = Color3.fromRGB(32, 14, 58),
@@ -41,7 +43,7 @@ local SHADOW_TYPES = {
 		MaxHP = 2,
 		Speed = 9.0,
 		Size = 3.6,
-		DrainPct = 0.06,    -- Danno aumentato al braciere
+		DrainPct = 0.06,
 		MinDrain = 35,
 		RewardMult = 15,
 		Color = Color3.fromRGB(55, 12, 42),
@@ -54,7 +56,7 @@ local SHADOW_TYPES = {
 		MaxHP = 24,
 		Speed = 2.8,
 		Size = 5.8,
-		DrainPct = 0.15,    -- Danno pesante al braciere
+		DrainPct = 0.15,
 		MinDrain = 220,
 		RewardMult = 75,
 		Color = Color3.fromRGB(20, 8, 32),
@@ -68,7 +70,7 @@ local SHADOW_TYPES = {
 		Speed = 4.4,
 		Size = 4.0,
 		StopRange = 22,
-		DrainInterval = 1.6, -- Drena più frequentemente
+		DrainInterval = 1.6,
 		DrainPct = 0.045,
 		MinDrain = 40,
 		RewardMult = 42,
@@ -91,6 +93,31 @@ end
 local function isBrazierComplete(data)
 	if not data then return false end
 	return EconomyEngine.GetUpgradeCompletion(data) == true
+end
+
+function ShadowDefenseService.StartGracePeriod(plotIndex, duration, isInitial)
+	if not plotIndex then return end
+	PlotGraceUntil[plotIndex] = os.clock() + (duration or GameConfig.RebirthShadowGraceSeconds or 120)
+	PlotGraceInitial[plotIndex] = (isInitial == true)
+	ShadowDefenseService.ClearShadowsForPlot(plotIndex)
+end
+
+function ShadowDefenseService.GetGraceRemaining(plotIndex)
+	if not plotIndex then return 0 end
+	local untilTime = PlotGraceUntil[plotIndex]
+	if not untilTime then return 0 end
+	local rem = math.ceil(untilTime - os.clock())
+	if rem <= 0 then
+		PlotGraceUntil[plotIndex] = nil
+		PlotGraceInitial[plotIndex] = nil
+		return 0
+	end
+	return rem
+end
+
+function ShadowDefenseService.IsInitialGrace(plotIndex)
+	if not plotIndex then return false end
+	return ShadowDefenseService.GetGraceRemaining(plotIndex) > 0 and (PlotGraceInitial[plotIndex] == true)
 end
 
 local function makePart(props)
@@ -267,8 +294,8 @@ local function createWeaponTool(wepCfg, lang)
 
 	local light = Instance.new("PointLight")
 	light.Color = wepCfg.Color
-	light.Range = 14
-	light.Brightness = 1.6
+	light.Range = 16
+	light.Brightness = 1.8
 
 	if wepCfg.Id == "wep_torch" then
 		handle.Size = Vector3.new(0.45, 3.0, 0.45)
@@ -312,7 +339,68 @@ local function createWeaponTool(wepCfg, lang)
 		}, CFrame.new(0, -1.15, -0.35))
 		light.Parent = core
 
+	elseif wepCfg.Id == "wep_solstice_spear" then
+		handle.Size = Vector3.new(0.30, 4.6, 0.30)
+		handle.Color = Color3.fromRGB(70, 45, 28)
+		handle.Material = Enum.Material.Wood
+
+		local spearHead = weldAttachmentPart(handle, {
+			Name = "SpearHead",
+			Size = Vector3.new(0.24, 1.8, 0.72),
+			Color = wepCfg.Color,
+			Material = Enum.Material.Neon,
+		}, CFrame.new(0, 2.8, 0))
+		light.Parent = spearHead
+
+	elseif wepCfg.Id == "wep_astral_scepter" then
+		handle.Size = Vector3.new(0.32, 3.6, 0.32)
+		handle.Color = Color3.fromRGB(48, 36, 72)
+		handle.Material = Enum.Material.Marble
+
+		local orb = weldAttachmentPart(handle, {
+			Name = "AstralOrb",
+			Shape = Enum.PartType.Ball,
+			Size = Vector3.new(1.25, 1.25, 1.25),
+			Color = wepCfg.Color,
+			Material = Enum.Material.Neon,
+		}, CFrame.new(0, 2.2, 0))
+		light.Parent = orb
+
+	elseif wepCfg.Id == "wep_corona_greatsword" then
+		handle.Size = Vector3.new(0.42, 1.6, 0.42)
+		handle.Color = Color3.fromRGB(42, 35, 48)
+		handle.Material = Enum.Material.SmoothPlastic
+
+		weldAttachmentPart(handle, {
+			Name = "HeavyGuard",
+			Size = Vector3.new(1.85, 0.28, 0.55),
+			Color = Color3.fromRGB(255, 195, 65),
+			Material = Enum.Material.Metal,
+		}, CFrame.new(0, 0.9, 0))
+
+		local heavyBlade = weldAttachmentPart(handle, {
+			Name = "CoronaBlade",
+			Size = Vector3.new(0.24, 4.5, 0.85),
+			Color = wepCfg.Color,
+			Material = Enum.Material.Neon,
+		}, CFrame.new(0, 3.2, 0))
+		light.Parent = heavyBlade
+
+	elseif wepCfg.Id == "wep_zenith_reaver" then
+		handle.Size = Vector3.new(0.34, 4.8, 0.34)
+		handle.Color = Color3.fromRGB(245, 235, 200)
+		handle.Material = Enum.Material.Neon
+
+		local scytheArc = weldAttachmentPart(handle, {
+			Name = "ZenithBlade",
+			Size = Vector3.new(0.22, 0.85, 3.2),
+			Color = wepCfg.Color,
+			Material = Enum.Material.Neon,
+		}, CFrame.new(0, 2.3, -1.2))
+		light.Parent = scytheArc
+
 	else
+		-- Dawnblade (wep_dawnblade)
 		handle.Size = Vector3.new(0.35, 1.3, 0.35)
 		handle.Color = Color3.fromRGB(40, 35, 48)
 		handle.Material = Enum.Material.SmoothPlastic
@@ -354,7 +442,7 @@ local function createWeaponTool(wepCfg, lang)
 			lookDir = Vector3.new(0, 0, -1)
 		end
 
-		if wepCfg.Id == "wep_lantern" then
+		if wepCfg.ChainCount then
 			local candidates = {}
 			for _, sh in ipairs(ActiveShadows) do
 				if sh and sh.PlotIndex == plot.Index and sh.Part and sh.Part.Parent then
@@ -367,12 +455,15 @@ local function createWeaponTool(wepCfg, lang)
 			table.sort(candidates, function(a, b) return a.Dist < b.Dist end)
 
 			local prevPos = hrp.Position + Vector3.new(0, 1.2, 0)
-			local hits = math.min(3, #candidates)
+			local maxTargets = wepCfg.ChainCount or 3
+			local slowDur = wepCfg.SlowDuration or 2.5
+			local hits = math.min(maxTargets, #candidates)
+
 			for idx = 1, hits do
 				local targetSh = candidates[idx].Shadow
 				local targetPos = targetSh.Part.Position
-				local dmgMult = (idx == 1) and 1.0 or 0.65
-				ShadowDefenseService.DamageShadow(targetSh, wepCfg.Damage * dmgMult, plr, nil, 0, 2.5)
+				local dmgMult = (idx == 1) and 1.0 or 0.72
+				ShadowDefenseService.DamageShadow(targetSh, wepCfg.Damage * dmgMult, plr, nil, 0, slowDur)
 
 				if DefenseFxEvent then
 					DefenseFxEvent:FireClient(plr, {
@@ -389,14 +480,39 @@ local function createWeaponTool(wepCfg, lang)
 				DefenseFxEvent:FireClient(plr, {
 					Kind = "Pulse",
 					Pos = hrp.Position,
-					Radius = math.min(12, wepCfg.Range * 0.5),
+					Radius = math.min(14, wepCfg.Range * 0.5),
 					Color = wepCfg.Color,
 				})
 			end
+
+		elseif wepCfg.Is360Nova then
+			local kbForce = wepCfg.Knockback or 9.0
+			local slowDur = wepCfg.SlowDuration or 0
+			for i = #ActiveShadows, 1, -1 do
+				local sh = ActiveShadows[i]
+				if sh and sh.PlotIndex == plot.Index and sh.Part and sh.Part.Parent then
+					local offset = sh.Part.Position - hrp.Position
+					local d = offset.Magnitude
+					if d <= wepCfg.Range then
+						local dir = d > 0.01 and offset.Unit or lookDir
+						ShadowDefenseService.DamageShadow(sh, wepCfg.Damage, plr, dir, kbForce, slowDur)
+					end
+				end
+			end
+
+			if DefenseFxEvent then
+				DefenseFxEvent:FireClient(plr, {
+					Kind = "Pulse",
+					Pos = hrp.Position,
+					Radius = wepCfg.Range,
+					Color = wepCfg.Color,
+				})
+			end
+
 		else
-			local isSword = (wepCfg.Id ~= "wep_torch")
-			local minDot = isSword and -0.25 or 0.15
-			local kbForce = isSword and 5.5 or 3.5
+			local isTorch = (wepCfg.Id == "wep_torch")
+			local minDot = isTorch and 0.15 or -0.25
+			local kbForce = wepCfg.Knockback or (isTorch and 3.5 or 5.5)
 
 			for i = #ActiveShadows, 1, -1 do
 				local sh = ActiveShadows[i]
@@ -405,7 +521,7 @@ local function createWeaponTool(wepCfg, lang)
 					local d = offset.Magnitude
 					if d <= wepCfg.Range then
 						local dir = d > 0.01 and offset.Unit or lookDir
-						if dir:Dot(lookDir) >= minDot or d <= 5.5 then
+						if dir:Dot(lookDir) >= minDot or d <= 6.0 then
 							ShadowDefenseService.DamageShadow(sh, wepCfg.Damage, plr, dir, kbForce, 0)
 						end
 					end
@@ -464,30 +580,34 @@ local function pickShadowType(data)
 
 	if alba >= 2 then
 		if roll <= 16 then
-			return SHADOW_TYPES[3] -- Colosso d'Ombra (16%)
+			return SHADOW_TYPES[3]
 		elseif roll <= 36 then
-			return SHADOW_TYPES[4] -- Sifone d'Ombra (20%)
+			return SHADOW_TYPES[4]
 		elseif roll <= 80 then
-			return SHADOW_TYPES[2] -- Ombra Predatrice (44%)
+			return SHADOW_TYPES[2]
 		end
-		return SHADOW_TYPES[1]     -- Ombra Errante (20%)
+		return SHADOW_TYPES[1]
 	elseif alba >= 1 then
 		if roll <= 24 then
-			return SHADOW_TYPES[4] -- Sifone d'Ombra (24%)
+			return SHADOW_TYPES[4]
 		elseif roll <= 76 then
-			return SHADOW_TYPES[2] -- Ombra Predatrice (52%)
+			return SHADOW_TYPES[2]
 		end
-		return SHADOW_TYPES[1]     -- Ombra Errante (24%)
+		return SHADOW_TYPES[1]
 	else
 		if roll <= 68 then
-			return SHADOW_TYPES[2] -- Ombra Predatrice (68%)
+			return SHADOW_TYPES[2]
 		end
-		return SHADOW_TYPES[1]     -- Ombra Errante (32%)
+		return SHADOW_TYPES[1]
 	end
 end
 
 function ShadowDefenseService.SpawnShadowForPlot(plot, data)
 	if not plot or not plot.Owner or not WorldRef then return end
+
+	if ShadowDefenseService.GetGraceRemaining(plot.Index) > 0 then
+		return
+	end
 
 	if isBrazierComplete(data) then
 		ShadowDefenseService.ClearShadowsForPlot(plot.Index)
@@ -500,7 +620,6 @@ function ShadowDefenseService.SpawnShadowForPlot(plot, data)
 			countOnPlot += 1
 		end
 	end
-	-- Limite aumentato a 8 ombre contemporanee sull'isola
 	if countOnPlot >= 8 then return end
 
 	local sType = pickShadowType(data)
@@ -604,10 +723,9 @@ function ShadowDefenseService.Init(world, remotesFolder, plots, playerData, play
 
 	task.spawn(function()
 		while true do
-			-- Spawn quasi raddoppiato (ogni 7.5 secondi) + probabilità di doppia unità
 			task.wait(7.5)
 			for _, plot in ipairs(PlotsRef) do
-				if plot.Owner then
+				if plot.Owner and ShadowDefenseService.GetGraceRemaining(plot.Index) <= 0 then
 					local data = PlayerDataRef[plot.Owner.UserId]
 					if data and not isBrazierComplete(data) then
 						ShadowDefenseService.SpawnShadowForPlot(plot, data)
@@ -631,7 +749,7 @@ function ShadowDefenseService.Tick(dt, clickHeatTable)
 		local owner = plot and plot.Owner
 		local data = owner and PlayerDataRef[owner.UserId]
 
-		if not sh or not sh.Part or not sh.Part.Parent or not plot or not owner or isBrazierComplete(data) then
+		if not sh or not sh.Part or not sh.Part.Parent or not plot or not owner or isBrazierComplete(data) or ShadowDefenseService.GetGraceRemaining(sh.PlotIndex) > 0 then
 			if sh then destroyShadowEntry(sh) end
 		else
 			local targetPos = Vector3.new(plot.Origin.X, sh.Part.Position.Y, plot.Origin.Z)
@@ -745,6 +863,8 @@ function ShadowDefenseService.ClearShadowsForPlot(plotIndex)
 end
 
 function ShadowDefenseService.ClearPlot(plotIndex)
+	PlotGraceUntil[plotIndex] = nil
+	PlotGraceInitial[plotIndex] = nil
 	ShadowDefenseService.ClearShadowsForPlot(plotIndex)
 	BuiltTurrets[plotIndex] = nil
 end

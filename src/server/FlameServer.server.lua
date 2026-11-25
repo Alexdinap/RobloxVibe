@@ -132,7 +132,6 @@ local function updatePlotBrazierVisuals(plot, stats)
 	plot.FlameCore.Position = plot.BaseFlamePos + Vector3.new(0, (scaleFactor - 1.0) * plot.BaseFlameSize.Y * 0.42, 0)
 	plot.FlameCore.Color = col
 
-	-- Luce principale potenziata al massimo raggio consentito da Roblox (60 stud) + alta luminosità
 	for _, desc in ipairs(plot.FlameCore:GetChildren()) do
 		if desc:IsA("PointLight") then
 			desc.Color = col
@@ -143,7 +142,6 @@ local function updatePlotBrazierVisuals(plot, stats)
 		end
 	end
 
-	-- Seconda luce rialzata per illuminare ampiamente tutta l'isola intorno al braciere
 	local skyAtt = plot.FlameCore:FindFirstChild("BrazierWideLightAtt")
 	if not skyAtt then
 		skyAtt = Instance.new("Attachment")
@@ -223,6 +221,65 @@ local function updatePlotGroundButtons(plot, data)
 	end
 end
 
+local function updatePlotAlbaZones(plot, data)
+	if not plot or not plot.AlbaZoneRefs then return end
+	local unlockedZones = (data and data.UnlockedAlbaZones) or {}
+	local lang = getLang(data)
+
+	for _, z in ipairs(GameConfig.AlbaZones) do
+		local zRef = plot.AlbaZoneRefs[z.Id]
+		if zRef then
+			local isUnlocked = unlockedZones[z.Id] == true
+			local zName = Localization.Pick(lang, z.Name, z.Name_it)
+
+			zRef.Bridge.Transparency = isUnlocked and 0 or 0.65
+			zRef.Bridge.CanCollide = isUnlocked
+			zRef.BridgeTrim.Transparency = isUnlocked and 0.15 or 0.80
+
+			zRef.GateBarrier.Transparency = isUnlocked and 1 or 0.35
+			zRef.GateBarrier.CanCollide = not isUnlocked
+			zRef.GatePad.Transparency = isUnlocked and 0.78 or 0.20
+
+			if zRef.GateLabel then
+				if isUnlocked then
+					zRef.GateLabel.Text = Localization.T(lang, "ZONE_GATE_UNLOCKED_FMT", zName, z.LightMult or 1.0)
+				else
+					zRef.GateLabel.Text = Localization.T(lang, "ZONE_GATE_LOCKED_FMT", zName, z.Cost)
+				end
+			end
+
+			zRef.IslandBase.Transparency = isUnlocked and 0 or 0.55
+			zRef.IslandBase.CanCollide = isUnlocked
+			zRef.IslandRim.Transparency = isUnlocked and 0.10 or 0.70
+			zRef.IslandRim.CanCollide = isUnlocked
+			zRef.IslandInner.Transparency = isUnlocked and 0 or 0.55
+			zRef.IslandInner.CanCollide = isUnlocked
+
+			for _, pil in ipairs(zRef.Pillars) do
+				pil.Transparency = isUnlocked and 0 or 0.55
+				pil.CanCollide = isUnlocked
+			end
+
+			zRef.MonumentPedestal.Transparency = isUnlocked and 0 or 0.55
+			zRef.MonumentPedestal.CanCollide = isUnlocked
+
+			zRef.Crystal.Transparency = isUnlocked and 0.08 or 0.70
+			zRef.Crystal.CanCollide = isUnlocked
+			if zRef.CrystalLight then
+				zRef.CrystalLight.Enabled = isUnlocked
+			end
+
+			if zRef.ZoneTitle then
+				if isUnlocked then
+					zRef.ZoneTitle.Text = string.format("%s %s (x%.1f)", z.Icon, zName, z.LightMult or 1.0)
+				else
+					zRef.ZoneTitle.Text = string.format("🔒 %s (x%.1f)", zName, z.LightMult or 1.0)
+				end
+			end
+		end
+	end
+end
+
 local function assignPlotToPlayer(player, lang)
 	for _, plot in ipairs(plots) do
 		if plot.Owner == nil then
@@ -255,6 +312,7 @@ local function releasePlotFromPlayer(player)
 	updatePlotSign(plot, nil, nil, "en")
 	updatePlotBrazierVisuals(plot, nil)
 	updatePlotGroundButtons(plot, nil)
+	updatePlotAlbaZones(plot, nil)
 end
 
 local function syncPlayer(player, extra)
@@ -298,6 +356,8 @@ local function syncPlayer(player, extra)
 		Language = lang,
 		PlotIndex = plot and plot.Index or 1,
 		PlotOrigin = plot and plot.Origin or Vector3.zero,
+		ShadowGraceRemaining = plot and ShadowDefenseService.GetGraceRemaining(plot.Index) or 0,
+		ShadowGraceIsInitial = plot and ShadowDefenseService.IsInitialGrace(plot.Index) or false,
 		Points = math.floor(data.Points),
 		TotalPoints = math.floor(data.TotalPoints),
 		TotalClicks = data.TotalClicks,
@@ -314,6 +374,7 @@ local function syncPlayer(player, extra)
 		CompletedUpgradesCount = stats.CompletedUpgradesCount,
 		TotalUpgradesCount = stats.TotalUpgradesCount,
 		ClickPower = stats.ClickPower,
+		ClickCooldown = stats.ClickCooldown,
 		PointsPerSec = stats.PointsPerSec,
 		WalkSpeed = stats.WalkSpeed,
 		Heat = stats.Heat,
@@ -354,6 +415,7 @@ SetLanguage.OnServerEvent:Connect(function(player, lang)
 	local plot = PlayerPlotMap[player.UserId]
 	if plot then
 		updatePlotGroundButtons(plot, data)
+		updatePlotAlbaZones(plot, data)
 	end
 	ShadowDefenseService.SyncPlayerTools(player, data)
 	Regno1Service.SyncPlayer(player)
@@ -401,17 +463,20 @@ local function handleFlameClick(player)
 		return
 	end
 
+	local curHeat = getCurrentHeat(player.UserId)
+	local buffMult = Regno1Service.GetActiveBuff(player.UserId)
+	local preStats = EconomyEngine.CalculateStats(data, curHeat, buffMult, data.HasDoubleLight)
+
 	local now = os.clock()
-	if LastClickTime[player.UserId] and (now - LastClickTime[player.UserId] < 0.06) then
+	local requiredCooldown = math.max(0.045, (preStats.ClickCooldown or 0.50) - 0.015)
+	if LastClickTime[player.UserId] and (now - LastClickTime[player.UserId] < requiredCooldown) then
 		return
 	end
 	LastClickTime[player.UserId] = now
 
-	local curHeat = getCurrentHeat(player.UserId)
 	local newHeat = math.min(1.0, curHeat + 0.08)
 	ClickHeat[player.UserId] = { Heat = newHeat, LastClick = now }
 
-	local buffMult = Regno1Service.GetActiveBuff(player.UserId)
 	local stats = EconomyEngine.CalculateStats(data, newHeat, buffMult, data.HasDoubleLight)
 	local isCrit = math.random() < stats.CritChance
 	local gained = stats.ClickPower * (isCrit and stats.CritMult or 1)
@@ -433,6 +498,7 @@ ClickFlameEvent.OnServerEvent:Connect(handleFlameClick)
 local TouchingByPlot = {}
 local ColorNotifyCooldown = {}
 local VictoryCooldown = {}
+local ZonePadCooldown = {}
 
 for _, plot in ipairs(plots) do
 	if plot.FlameHitbox then
@@ -480,6 +546,42 @@ for _, plot in ipairs(plots) do
 		end
 	end
 
+	-- Pedane davanti ai portali delle Zone Extra (sblocco anche calpestandole)
+	for _, z in ipairs(GameConfig.AlbaZones) do
+		local zRef = plot.AlbaZoneRefs and plot.AlbaZoneRefs[z.Id]
+		if zRef and zRef.GatePad then
+			zRef.GatePad.Touched:Connect(function(hit)
+				local plr = Players:GetPlayerFromCharacter(hit.Parent)
+				if not plr or plot.Owner ~= plr then return end
+				local data = PlayerData[plr.UserId]
+				if not data or data.UnlockedAlbaZones[z.Id] == true then return end
+
+				local now = os.clock()
+				local key = plr.UserId .. "_" .. z.Id
+				if ZonePadCooldown[key] and (now - ZonePadCooldown[key] < 1.5) then
+					return
+				end
+				ZonePadCooldown[key] = now
+
+				local lang = getLang(data)
+				if (data.AlbaPoints or 0) >= z.Cost then
+					data.AlbaPoints -= z.Cost
+					data.UnlockedAlbaZones[z.Id] = true
+					updatePlotAlbaZones(plot, data)
+					syncPlayer(plr, {
+						SoundCue = "Prestige",
+						Shockwave = true,
+						PopupText = Localization.T(lang, "POP_ZONE_UNLOCK", Localization.Pick(lang, z.Name, z.Name_it)),
+					})
+				else
+					syncPlayer(plr, {
+						PopupText = Localization.T(lang, "POP_NEED_DAWN_PTS", z.Cost),
+					})
+				end
+			end)
+		end
+	end
+
 	if plot.VictoryPad then
 		plot.VictoryPad.Touched:Connect(function(hit)
 			local plr = Players:GetPlayerFromCharacter(hit.Parent)
@@ -514,12 +616,15 @@ for _, plot in ipairs(plots) do
 
 			local startLvl = EconomyEngine.GetLevel(data.AlbaPerks, "ap_start")
 			data.Points = startLvl > 0 and (10000 * startLvl) or 0
-			data.Altars = {}
-			data.Upgrades = startLvl > 0 and { u_click_add = 5 * startLvl, u_unlock_alba = 1 } or { u_unlock_alba = 1 }
+			data.Altars = startLvl > 0 and { alt_click = 5 * startLvl } or {}
+			data.Upgrades = { u_unlock_alba = 1 }
 
 			-- Elimina torrette e armi dopo la rinascita: andranno ricomprate
 			data.OwnedWeapons = {}
 			data.Defenses = {}
+
+			-- Avvia 2 minuti (120 secondi) di tregua prima che ricomincino a spawnare le ombre
+			ShadowDefenseService.StartGracePeriod(plot.Index, GameConfig.RebirthShadowGraceSeconds or 120, false)
 
 			for _, alt in ipairs(GameConfig.Altars) do
 				TouchingByPlot[plot.Index][alt.Id] = false
@@ -528,6 +633,7 @@ for _, plot in ipairs(plots) do
 			local freshStats = EconomyEngine.CalculateStats(data, 0, 1, data.HasDoubleLight)
 			updatePlotBrazierVisuals(plot, freshStats)
 			updatePlotGroundButtons(plot, data)
+			updatePlotAlbaZones(plot, data)
 			ShadowDefenseService.RebuildPlotDefenses(plot, data)
 			ShadowDefenseService.SyncPlayerTools(plr, data)
 			Regno1Service.SyncPlayer(plr)
@@ -678,8 +784,8 @@ BuyWeapon.OnServerEvent:Connect(function(player, wepId)
 
 	if target.ReqAlba and albaCount < target.ReqAlba then
 		local reqMsg = lang == "it"
-			and string.format("Serve almeno %d Rinascita dell'Alba!", target.ReqAlba)
-			or string.format("Requires at least %d Dawn Rebirth!", target.ReqAlba)
+			and string.format("Serve almeno Rinascita %d dell'Alba!", target.ReqAlba)
+			or string.format("Requires at least Dawn Rebirth %d!", target.ReqAlba)
 		syncPlayer(player, { PopupText = reqMsg })
 		return
 	end
@@ -807,10 +913,19 @@ UnlockAlbaZone.OnServerEvent:Connect(function(player, zoneId)
 		data.AlbaPoints -= target.Cost
 		data.UnlockedAlbaZones[target.Id] = true
 
+		local plot = PlayerPlotMap[player.UserId]
+		if plot then
+			updatePlotAlbaZones(plot, data)
+		end
+
 		syncPlayer(player, {
 			SoundCue = "Prestige",
 			Shockwave = true,
 			PopupText = Localization.T(lang, "POP_ZONE_UNLOCK", Localization.Pick(lang, target.Name, target.Name_it)),
+		})
+	else
+		syncPlayer(player, {
+			PopupText = Localization.T(lang, "POP_NEED_DAWN_PTS", target.Cost),
 		})
 	end
 end)
@@ -1038,6 +1153,10 @@ Players.PlayerAdded:Connect(function(player)
 	PlayerData[player.UserId] = data
 
 	local assignedPlot = assignPlotToPlayer(player, getLang(data))
+	if assignedPlot then
+		-- 3 minuti (180s) di tregua iniziale prima che arrivino le Ombre
+		ShadowDefenseService.StartGracePeriod(assignedPlot.Index, GameConfig.InitialShadowGraceSeconds or 180, true)
+	end
 
 	player.CharacterAdded:Connect(function()
 		task.wait(0.2)
@@ -1054,6 +1173,7 @@ Players.PlayerAdded:Connect(function(player)
 		local initStats = EconomyEngine.CalculateStats(data, 0, 1, data.HasDoubleLight)
 		updatePlotBrazierVisuals(assignedPlot, initStats)
 		updatePlotGroundButtons(assignedPlot, data)
+		updatePlotAlbaZones(assignedPlot, data)
 		ShadowDefenseService.RebuildPlotDefenses(assignedPlot, data)
 		ShadowDefenseService.SyncPlayerTools(player, data)
 		teleportPlayerToPlot(player, assignedPlot)
