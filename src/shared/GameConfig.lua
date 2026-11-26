@@ -503,7 +503,6 @@ GameConfig.AlbaZones = {
 		FanAngle = -42,
 		Distance = 88,
 		Color = Color3.fromRGB(255, 200, 85),
-		CatalogAssetId = 1522,
 		MonumentType = "Fountain",
 	},
 	{
@@ -518,7 +517,6 @@ GameConfig.AlbaZones = {
 		FanAngle = -14,
 		Distance = 96,
 		Color = Color3.fromRGB(90, 225, 255),
-		CatalogAssetId = 384227221,
 		MonumentType = "Obelisk",
 	},
 	{
@@ -533,7 +531,6 @@ GameConfig.AlbaZones = {
 		FanAngle = 14,
 		Distance = 96,
 		Color = Color3.fromRGB(205, 125, 255),
-		CatalogAssetId = 118095201795774,
 		MonumentType = "Temple",
 	},
 	{
@@ -548,7 +545,6 @@ GameConfig.AlbaZones = {
 		FanAngle = 42,
 		Distance = 88,
 		Color = Color3.fromRGB(255, 240, 150),
-		CatalogAssetId = 118095201795774,
 		MonumentType = "Phoenix",
 	},
 }

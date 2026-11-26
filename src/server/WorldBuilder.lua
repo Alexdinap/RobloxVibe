@@ -1,6 +1,4 @@
 local Workspace = game:GetService("Workspace")
-local Players = game:GetService("Players")
-local Lighting = game:GetService("Lighting")
 local InsertService = game:GetService("InsertService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -10,7 +8,6 @@ local Localization = require(ReplicatedStorage:WaitForChild("Localization"))
 local WorldBuilder = {}
 
 local catalogTemplateCache = {}
-local activeSpeedBoosts = {}
 
 local function getCatalogMonumentTemplate(assetId)
 	if not assetId or assetId <= 0 then
@@ -82,65 +79,6 @@ local function makeUprightCylinder(parent, name, height, diameter, pos, color, m
 	return makePart(parent, name, Vector3.new(height, diameter, diameter), cf, color, material, transparency, canCollide, Enum.PartType.Cylinder)
 end
 
-local function neutralizeBaseplateOverlap()
-	for _, child in ipairs(Workspace:GetChildren()) do
-		if child:IsA("BasePart") and child.Name ~= "LastFlameWorld" then
-			local topY = child.Position.Y + (child.Size.Y * 0.5)
-			if math.abs(topY) < 0.25 and (child.Size.X >= 80 or child.Size.Z >= 80) then
-				child.Transparency = 1
-				child.CanCollide = false
-				child.CanQuery = false
-				child.Position = Vector3.new(child.Position.X, child.Position.Y - 40, child.Position.Z)
-			end
-		end
-	end
-end
-
-local function bindSpeedPad(padPart, boostSpeed, duration)
-	padPart.CanTouch = true
-	padPart.Touched:Connect(function(hit)
-		local character = hit and hit.Parent
-		if not character then
-			return
-		end
-		local humanoid = character:FindFirstChildOfClass("Humanoid")
-		if not humanoid or humanoid.Health <= 0 then
-			return
-		end
-
-		local info = activeSpeedBoosts[humanoid]
-		if not info then
-			local base = humanoid.WalkSpeed
-			if base <= 0 then
-				base = 16
-			end
-			info = {
-				baseSpeed = base,
-				expireAt = os.clock() + duration,
-				running = false,
-			}
-			activeSpeedBoosts[humanoid] = info
-		else
-			info.expireAt = os.clock() + duration
-		end
-
-		humanoid.WalkSpeed = math.max(info.baseSpeed * 1.85, boostSpeed)
-
-		if not info.running then
-			info.running = true
-			task.spawn(function()
-				while humanoid.Parent and humanoid.Health > 0 and os.clock() < info.expireAt do
-					task.wait(0.1)
-				end
-				if humanoid.Parent then
-					humanoid.WalkSpeed = info.baseSpeed
-				end
-				activeSpeedBoosts[humanoid] = nil
-			end)
-		end
-	end)
-end
-
 local function buildFallbackMonument(parent, zCfg, pedestalTopPos, dir)
 	local parts = {}
 	local lights = {}
@@ -163,16 +101,13 @@ local function buildFallbackMonument(parent, zCfg, pedestalTopPos, dir)
 		local b2 = makeUprightCylinder(parent, "FountainBasin2", 1.1, 6.4, pedestalTopPos + Vector3.new(0, 4.3, 0), marble, Enum.Material.Marble, 0, false)
 		local w2 = makeUprightCylinder(parent, "FountainWater2", 1.2, 5.2, pedestalTopPos + Vector3.new(0, 4.35, 0), accent, Enum.Material.Neon, 0.12, false)
 		local apex = addPart("FountainSpire", Vector3.new(1.5, 3.2, 1.5), CFrame.new(0, 6.2, 0), gold, Enum.Material.Neon, 0.05, Enum.PartType.Ball)
-		table.insert(parts, b1)
-		table.insert(parts, w1)
-		table.insert(parts, col1)
-		table.insert(parts, b2)
-		table.insert(parts, w2)
+		table.insert(parts, b1); table.insert(parts, w1); table.insert(parts, col1)
+		table.insert(parts, b2); table.insert(parts, w2)
 
 		local pl = Instance.new("PointLight", apex)
 		pl.Color = accent
-		pl.Range = 20
-		pl.Brightness = 1.8
+		pl.Range = 26
+		pl.Brightness = 2.4
 		table.insert(lights, pl)
 
 	elseif mType == "Temple" then
@@ -194,8 +129,8 @@ local function buildFallbackMonument(parent, zCfg, pedestalTopPos, dir)
 
 		local pl = Instance.new("PointLight", statueBody)
 		pl.Color = accent
-		pl.Range = 22
-		pl.Brightness = 1.9
+		pl.Range = 28
+		pl.Brightness = 2.6
 		table.insert(lights, pl)
 
 	elseif mType == "Phoenix" then
@@ -209,8 +144,8 @@ local function buildFallbackMonument(parent, zCfg, pedestalTopPos, dir)
 
 		local pl = Instance.new("PointLight", crown)
 		pl.Color = accent
-		pl.Range = 24
-		pl.Brightness = 2.0
+		pl.Range = 32
+		pl.Brightness = 3.0
 		table.insert(lights, pl)
 
 	else
@@ -222,8 +157,8 @@ local function buildFallbackMonument(parent, zCfg, pedestalTopPos, dir)
 
 		local pl = Instance.new("PointLight", apex)
 		pl.Color = accent
-		pl.Range = 22
-		pl.Brightness = 1.9
+		pl.Range = 28
+		pl.Brightness = 2.6
 		table.insert(lights, pl)
 	end
 
@@ -275,8 +210,8 @@ local function placeMonumentOnIsland(islandFolder, zCfg, pedestalTopPos, dir)
 		)
 		local pl = Instance.new("PointLight", glowAnchor)
 		pl.Color = accent
-		pl.Range = 22
-		pl.Brightness = 1.9
+		pl.Range = 28
+		pl.Brightness = 2.5
 		table.insert(lights, pl)
 
 		return parts, lights
@@ -288,177 +223,77 @@ end
 local function createPadBillboard(pad, titleText, descText, costText, accentColor)
 	local bbg = Instance.new("BillboardGui")
 	bbg.Name = "PadGui"
-	bbg.Size = UDim2.fromOffset(172, 56)
-	bbg.StudsOffset = Vector3.new(0, 3.2, 0)
-	bbg.MaxDistance = 42
+	bbg.Size = UDim2.fromOffset(230, 76)
+	bbg.StudsOffset = Vector3.new(0, 4.4, 0)
+	bbg.MaxDistance = 65
 	bbg.AlwaysOnTop = false
-	bbg.Active = false
 	bbg.Parent = pad
 
 	local bg = Instance.new("Frame", bbg)
 	bg.Size = UDim2.fromScale(1, 1)
 	bg.BackgroundColor3 = Color3.fromRGB(14, 16, 26)
-	bg.BackgroundTransparency = 0.28
-	bg.Active = false
-	Instance.new("UICorner", bg).CornerRadius = UDim.new(0, 8)
+	bg.BackgroundTransparency = 0.22
+	Instance.new("UICorner", bg).CornerRadius = UDim.new(0, 10)
 
 	local stroke = Instance.new("UIStroke", bg)
 	stroke.Color = accentColor or Color3.fromRGB(255, 200, 75)
-	stroke.Thickness = 1.2
+	stroke.Thickness = 1.4
 
 	local titleLbl = Instance.new("TextLabel", bg)
 	titleLbl.Name = "TitleLabel"
-	titleLbl.Position = UDim2.fromOffset(5, 2)
-	titleLbl.Size = UDim2.new(1, -10, 0, 15)
+	titleLbl.Position = UDim2.fromOffset(6, 3)
+	titleLbl.Size = UDim2.new(1, -12, 0, 20)
 	titleLbl.BackgroundTransparency = 1
 	titleLbl.Text = titleText
 	titleLbl.TextColor3 = Color3.fromRGB(255, 248, 225)
 	titleLbl.Font = Enum.Font.GothamBlack
-	titleLbl.TextSize = 11
+	titleLbl.TextSize = 13
 	titleLbl.TextScaled = false
 	titleLbl.TextTruncate = Enum.TextTruncate.AtEnd
-	titleLbl.Active = false
 
 	local descLbl = Instance.new("TextLabel", bg)
 	descLbl.Name = "DescLabel"
-	descLbl.Position = UDim2.fromOffset(6, 17)
-	descLbl.Size = UDim2.new(1, -12, 0, 22)
+	descLbl.Position = UDim2.fromOffset(8, 23)
+	descLbl.Size = UDim2.new(1, -16, 0, 30)
 	descLbl.BackgroundTransparency = 1
 	descLbl.Text = descText or ""
 	descLbl.TextColor3 = Color3.fromRGB(195, 210, 235)
 	descLbl.Font = Enum.Font.Gotham
-	descLbl.TextSize = 9
+	descLbl.TextSize = 10
 	descLbl.TextWrapped = true
-	descLbl.Active = false
 
 	local costLbl = Instance.new("TextLabel", bg)
 	costLbl.Name = "CostLabel"
-	costLbl.Position = UDim2.fromOffset(5, 39)
-	costLbl.Size = UDim2.new(1, -10, 0, 15)
+	costLbl.Position = UDim2.fromOffset(6, 54)
+	costLbl.Size = UDim2.new(1, -12, 0, 19)
 	costLbl.BackgroundTransparency = 1
 	costLbl.Text = costText
 	costLbl.TextColor3 = accentColor or Color3.fromRGB(255, 215, 80)
 	costLbl.Font = Enum.Font.GothamBold
-	costLbl.TextSize = 10
-	costLbl.Active = false
+	costLbl.TextSize = 12
 
-	return bbg, titleLbl, descLbl, costLbl
+	return titleLbl, descLbl, costLbl
 end
 
 function WorldBuilder.Build()
-	while Workspace:FindFirstChild("LastFlameWorld") do
-		Workspace:FindFirstChild("LastFlameWorld"):Destroy()
+	local existing = Workspace:FindFirstChild("LastFlameWorld")
+	if existing then
+		existing:Destroy()
 	end
-	neutralizeBaseplateOverlap()
 
 	local world = Instance.new("Folder")
 	world.Name = "LastFlameWorld"
 	world.Parent = Workspace
 
-	local plotClaimedEvent = Instance.new("BindableEvent")
-	plotClaimedEvent.Name = "PlotClaimedEvent"
-	plotClaimedEvent.Parent = world
-
-	local brazierLights = {}
-	local auxiliaryLights = {}
-	local isBrazierOnlyDark = false
-
-	local function applyDarknessMode(brazierOnly)
-		isBrazierOnlyDark = brazierOnly
-		world:SetAttribute("BrazierOnlyDark", brazierOnly)
-
-		Lighting.ClockTime = 0
-		Lighting.GlobalShadows = true
-		Lighting.ShadowSoftness = 0.35
-
-		if brazierOnly then
-			Lighting.Brightness = 0
-			Lighting.Ambient = Color3.fromRGB(0, 0, 0)
-			Lighting.OutdoorAmbient = Color3.fromRGB(0, 0, 0)
-			Lighting.EnvironmentDiffuseScale = 0
-			Lighting.EnvironmentSpecularScale = 0
-			Lighting.FogColor = Color3.fromRGB(2, 3, 6)
-			Lighting.FogStart = 40
-			Lighting.FogEnd = 420
-
-			for _, aux in ipairs(auxiliaryLights) do
-				if aux.light and aux.light.Parent then
-					aux.light.Enabled = aux.keepFaint or false
-					if aux.keepFaint then
-						aux.light.Brightness = 0.35
-						aux.light.Range = 16
-					end
-				end
-			end
-
-			for _, bInfo in ipairs(brazierLights) do
-				if bInfo.light and bInfo.light.Parent then
-					bInfo.light.Enabled = true
-					bInfo.light.Range = bInfo.claimed and 80 or 50
-					bInfo.light.Brightness = bInfo.claimed and 5.2 or 3.0
-				end
-			end
-		else
-			Lighting.Brightness = 0.05
-			Lighting.Ambient = Color3.fromRGB(4, 5, 10)
-			Lighting.OutdoorAmbient = Color3.fromRGB(6, 8, 14)
-			Lighting.EnvironmentDiffuseScale = 0.05
-			Lighting.EnvironmentSpecularScale = 0.05
-			Lighting.FogColor = Color3.fromRGB(4, 5, 11)
-			Lighting.FogStart = 65
-			Lighting.FogEnd = 520
-
-			for _, aux in ipairs(auxiliaryLights) do
-				if aux.light and aux.light.Parent then
-					aux.light.Enabled = true
-					aux.light.Brightness = aux.baseBrightness
-					aux.light.Range = aux.baseRange
-				end
-			end
-
-			for _, bInfo in ipairs(brazierLights) do
-				if bInfo.light and bInfo.light.Parent then
-					bInfo.light.Enabled = true
-					bInfo.light.Range = 60
-					bInfo.light.Brightness = 4.0
-				end
-			end
-		end
-
-		local atm = Lighting:FindFirstChildOfClass("Atmosphere")
-		if atm then
-			atm.Color = Color3.fromRGB(4, 5, 10)
-			atm.Decay = Color3.fromRGB(2, 2, 5)
-			atm.Glare = 0
-			atm.Haze = brazierOnly and 0.15 or 0.3
-		end
-	end
-
-	local hubFolder = Instance.new("Folder")
-	hubFolder.Name = "CentralHub"
-	hubFolder.Parent = world
-
-	makeUprightCylinder(hubFolder, "CentralHubFloor", 2, 110, Vector3.new(0, -1, 0), Color3.fromRGB(26, 32, 50), Enum.Material.Slate, 0, true)
-	makeUprightCylinder(hubFolder, "CentralHubTrim", 1.8, 113.5, Vector3.new(0, -1.15, 0), Color3.fromRGB(255, 195, 70), Enum.Material.Neon, 0.22, false)
-
-	makeUprightCylinder(hubFolder, "HubCrimsonRing", 0.06, 86, Vector3.new(0, 0.03, 0), Color3.fromRGB(76, 32, 54), Enum.Material.Marble, 0, false)
-	makeUprightCylinder(hubFolder, "HubGoldRing", 0.06, 88, Vector3.new(0, 0.035, 0), Color3.fromRGB(255, 185, 60), Enum.Material.Neon, 0.25, false)
-	makeUprightCylinder(hubFolder, "HubTealDisc", 0.08, 58, Vector3.new(0, 0.07, 0), Color3.fromRGB(24, 56, 78), Enum.Material.Marble, 0, false)
-	makeUprightCylinder(hubFolder, "HubCyanRuneRing", 0.08, 60, Vector3.new(0, 0.075, 0), Color3.fromRGB(70, 215, 230), Enum.Material.Neon, 0.28, false)
-	makeUprightCylinder(hubFolder, "HubCenterDais", 0.12, 25, Vector3.new(0, 0.11, 0), Color3.fromRGB(54, 42, 36), Enum.Material.Marble, 0, false)
-	makeUprightCylinder(hubFolder, "HubCenterGoldTrim", 0.12, 26.4, Vector3.new(0, 0.115, 0), Color3.fromRGB(255, 205, 80), Enum.Material.Neon, 0.15, false)
-
-	local hubLightAnchor = makePart(hubFolder, "HubLightAnchor", Vector3.new(1, 1, 1), CFrame.new(0, 14, 0), Color3.fromRGB(255, 195, 75), Enum.Material.SmoothPlastic, 1, false)
-	hubLightAnchor.CanQuery = false
-	hubLightAnchor.CanTouch = false
-	local hubLight = Instance.new("PointLight", hubLightAnchor)
-	hubLight.Color = Color3.fromRGB(255, 195, 75)
-	hubLight.Range = 45
-	hubLight.Brightness = 2.0
-	table.insert(auxiliaryLights, { light = hubLight, baseBrightness = 2.0, baseRange = 45, keepFaint = true })
+	local hubFloor = makeUprightCylinder(world, "CentralHubFloor", 2, 110, Vector3.new(0, -1, 0), Color3.fromRGB(26, 30, 44), Enum.Material.Slate, 0, true)
+	local hubRing = makeUprightCylinder(world, "CentralHubTrim", 2.2, 114, Vector3.new(0, -1.05, 0), Color3.fromRGB(255, 195, 70), Enum.Material.Neon, 0.25, false)
+	local hubBeacon = makeUprightCylinder(world, "CentralBeacon", 16, 6, Vector3.new(0, 8, 0), Color3.fromRGB(255, 210, 95), Enum.Material.Neon, 0.15, true)
+	local hubLight = Instance.new("PointLight", hubBeacon)
+	hubLight.Color = Color3.fromRGB(255, 200, 80)
+	hubLight.Range = 60
+	hubLight.Brightness = 3.0
 
 	local plots = {}
-	local claimedByUserId = {}
 	local plotCount = GameConfig.PlotCount or 10
 	local ringRadius = GameConfig.PlotRingRadius or 245
 	local halfSize = GameConfig.PlotHalfSize or 42
@@ -470,120 +305,30 @@ function WorldBuilder.Build()
 		local inwardDir = -outwardDir
 		local origin = outwardDir * ringRadius
 
-		local pathLen = 39
-		local pathMid = outwardDir * (13.5 + pathLen * 0.5)
-		makePart(
-			hubFolder,
-			"HubRadialPath_" .. i,
-			Vector3.new(4.2, 0.04, pathLen),
-			CFrame.lookAt(pathMid, pathMid + outwardDir) * CFrame.new(0, 0.13, 0),
-			Color3.fromRGB(255, 185, 65),
-			Enum.Material.Neon,
-			0.38,
-			false
-		)
-
-		for sideIdx, sideSign in ipairs({ -1, 1 }) do
-			local pillarPos = outwardDir * 51 + rightDir * (sideSign * 6.8)
-			local pil = makeUprightCylinder(hubFolder, "HubPillar_" .. i .. "_" .. sideIdx, 5.2, 1.4, pillarPos + Vector3.new(0, 2.6, 0), Color3.fromRGB(46, 52, 74), Enum.Material.Marble, 0, false)
-			pil.CanQuery = false
-			local orb = makePart(
-				hubFolder,
-				"HubLanternOrb_" .. i .. "_" .. sideIdx,
-				Vector3.new(1.5, 1.5, 1.5),
-				CFrame.new(pillarPos + Vector3.new(0, 5.8, 0)),
-				Color3.fromRGB(255, 175, 55),
-				Enum.Material.Neon,
-				0.1,
-				false,
-				Enum.PartType.Ball
-			)
-			orb.CanQuery = false
-			local lanternLight = Instance.new("PointLight", orb)
-			lanternLight.Color = Color3.fromRGB(255, 175, 55)
-			lanternLight.Range = 16
-			lanternLight.Brightness = 1.2
-			table.insert(auxiliaryLights, { light = lanternLight, baseBrightness = 1.2, baseRange = 16, keepFaint = false })
-		end
-
 		local plotModel = Instance.new("Model")
 		plotModel.Name = "Plot_" .. tostring(i)
-		plotModel:SetAttribute("PlotIndex", i)
-		plotModel:SetAttribute("Claimed", false)
 		plotModel.Parent = world
 
 		local plotLook = CFrame.lookAt(origin, origin + outwardDir)
-		local floorSize = halfSize * 2
 
-		makePart(plotModel, "PlotFloor", Vector3.new(floorSize, 2, floorSize), plotLook * CFrame.new(0, -1, 0), Color3.fromRGB(24, 28, 42), Enum.Material.Slate, 0, true)
+		makePart(plotModel, "PlotFloor", Vector3.new(halfSize * 2, 2, halfSize * 2), plotLook * CFrame.new(0, -1, 0), Color3.fromRGB(24, 28, 42), Enum.Material.Slate, 0, true)
+		makePart(plotModel, "PlotBorder", Vector3.new(halfSize * 2 + 2.4, 1.6, halfSize * 2 + 2.4), plotLook * CFrame.new(0, -1.1, 0), Color3.fromRGB(70, 145, 210), Enum.Material.Neon, 0.45, false)
 
-		local borderThick = 1.1
-		local borderHeight = 1.6
-		local borderY = -1.15
-		local borderColor = Color3.fromRGB(70, 145, 210)
-		local borderParts = {
-			makePart(plotModel, "PlotBorder_Front", Vector3.new(floorSize + borderThick * 2, borderHeight, borderThick), plotLook * CFrame.new(0, borderY, halfSize + borderThick * 0.5), borderColor, Enum.Material.Neon, 0.35, false),
-			makePart(plotModel, "PlotBorder_Back", Vector3.new(floorSize + borderThick * 2, borderHeight, borderThick), plotLook * CFrame.new(0, borderY, -(halfSize + borderThick * 0.5)), borderColor, Enum.Material.Neon, 0.35, false),
-			makePart(plotModel, "PlotBorder_Left", Vector3.new(borderThick, borderHeight, floorSize), plotLook * CFrame.new(-(halfSize + borderThick * 0.5), borderY, 0), borderColor, Enum.Material.Neon, 0.35, false),
-			makePart(plotModel, "PlotBorder_Right", Vector3.new(borderThick, borderHeight, floorSize), plotLook * CFrame.new(halfSize + borderThick * 0.5, borderY, 0), borderColor, Enum.Material.Neon, 0.35, false),
-		}
-
-		local speedPads = {}
-		local bridgeStartDist = 55.05
-		local bridgeEndDist = ringRadius - halfSize - 0.05
-		local hubBridgeLen = bridgeEndDist - bridgeStartDist
+		local hubBridgeLen = ringRadius - 54 - halfSize
 		if hubBridgeLen > 10 then
-			local bridgeMid = outwardDir * (bridgeStartDist + hubBridgeLen * 0.5)
-			local bridgeCF = CFrame.lookAt(bridgeMid, bridgeMid + outwardDir)
-			makePart(plotModel, "HubBridge", Vector3.new(8, 1.2, hubBridgeLen), bridgeCF * CFrame.new(0, -0.75, 0), Color3.fromRGB(30, 35, 52), Enum.Material.SmoothPlastic, 0, true)
-			makePart(plotModel, "HubBridgeRail_L", Vector3.new(0.45, 0.5, hubBridgeLen), bridgeCF * CFrame.new(-4.25, -0.9, 0), Color3.fromRGB(65, 185, 235), Enum.Material.Neon, 0.45, false)
-			makePart(plotModel, "HubBridgeRail_R", Vector3.new(0.45, 0.5, hubBridgeLen), bridgeCF * CFrame.new(4.25, -0.9, 0), Color3.fromRGB(65, 185, 235), Enum.Material.Neon, 0.45, false)
-
-			local padFractions = { 0.18, 0.50, 0.82 }
-			for pIdx, frac in ipairs(padFractions) do
-				local distFromHub = bridgeStartDist + hubBridgeLen * frac
-				local spPos = outwardDir * distFromHub + Vector3.new(0, -0.02, 0)
-				local spCF = CFrame.lookAt(spPos, spPos + outwardDir)
-
-				local spPad = makePart(
-					plotModel,
-					"SpeedPad_" .. pIdx,
-					Vector3.new(5.6, 0.28, 8.5),
-					spCF,
-					Color3.fromRGB(55, 225, 255),
-					Enum.Material.Neon,
-					0.15,
-					false
-				)
-				makePart(
-					spPad,
-					"SpeedChevron",
-					Vector3.new(2.2, 0.06, 6.2),
-					spCF * CFrame.new(0, 0.17, 0),
-					Color3.fromRGB(255, 215, 85),
-					Enum.Material.Neon,
-					0.1,
-					false
-				)
-				bindSpeedPad(spPad, 38, 2.2)
-				table.insert(speedPads, spPad)
-			end
+			local bridgeMid = outwardDir * (54 + hubBridgeLen * 0.5)
+			makePart(plotModel, "HubBridge", Vector3.new(8, 1.2, hubBridgeLen), CFrame.lookAt(bridgeMid, bridgeMid + outwardDir) * CFrame.new(0, -0.8, 0), Color3.fromRGB(30, 35, 52), Enum.Material.SmoothPlastic, 0, true)
 		end
 
-		local signPos = origin + inwardDir * (halfSize - 2.5) + rightDir * 10.5 + Vector3.new(0, 4.2, 0)
-		local signBoard = makePart(plotModel, "SignBoard", Vector3.new(10.5, 4.4, 0.6), CFrame.lookAt(signPos, signPos + inwardDir), Color3.fromRGB(18, 22, 34), Enum.Material.SmoothPlastic, 0, false)
-		signBoard.CanQuery = false
-		signBoard.CanTouch = false
+		local signPos = origin + inwardDir * (halfSize - 3) + Vector3.new(0, 5.5, 0)
+		local signBoard = makePart(plotModel, "SignBoard", Vector3.new(12, 5.2, 0.8), CFrame.lookAt(signPos, signPos + inwardDir), Color3.fromRGB(18, 22, 34), Enum.Material.SmoothPlastic, 0, true)
 
-		local signOwnerTitles = {}
-		local signOwnerSubs = {}
 		for _, faceInfo in ipairs({ { "SignGui", Enum.NormalId.Front }, { "SignGuiFront", Enum.NormalId.Back } }) do
 			local sg = Instance.new("SurfaceGui", signBoard)
 			sg.Name = faceInfo[1]
 			sg.Face = faceInfo[2]
 			sg.SizingMode = Enum.SurfaceGuiSizingMode.PixelsPerStud
 			sg.PixelsPerStud = 35
-			sg.Active = false
 
 			local ot = Instance.new("TextLabel", sg)
 			ot.Name = "OwnerTitle"
@@ -594,8 +339,6 @@ function WorldBuilder.Build()
 			ot.TextColor3 = Color3.fromRGB(255, 215, 85)
 			ot.Font = Enum.Font.GothamBlack
 			ot.TextScaled = true
-			ot.Active = false
-			table.insert(signOwnerTitles, ot)
 
 			local os = Instance.new("TextLabel", sg)
 			os.Name = "OwnerSub"
@@ -606,70 +349,32 @@ function WorldBuilder.Build()
 			os.TextColor3 = Color3.fromRGB(185, 200, 225)
 			os.Font = Enum.Font.GothamBold
 			os.TextScaled = true
-			os.Active = false
-			table.insert(signOwnerSubs, os)
 		end
-
-		-- Pedana di claim singolo (scompare completamente dopo aver svolto la sua funzione)
-		local claimPos = origin + inwardDir * 33.5 + Vector3.new(0, 0.22, 0)
-		local claimPad = makePart(
-			plotModel,
-			"ClaimPad",
-			Vector3.new(5.4, 0.42, 3.8),
-			CFrame.lookAt(claimPos, claimPos + inwardDir),
-			Color3.fromRGB(255, 195, 65),
-			Enum.Material.Neon,
-			0.18,
-			false
-		)
-		claimPad.CanTouch = true
-
-		local cBbg, cTitleLbl, _, cStatusLbl = createPadBillboard(
-			claimPad,
-			"CLAIM SLOT #" .. tostring(i),
-			"Reclama questo braciere",
-			"Disponibile (1x)",
-			Color3.fromRGB(255, 205, 75)
-		)
-
-		local claimPrompt = Instance.new("ProximityPrompt")
-		claimPrompt.Name = "ClaimPrompt"
-		claimPrompt.ActionText = "Reclama Slot #" .. tostring(i)
-		claimPrompt.ObjectText = "Braciere #" .. tostring(i)
-		claimPrompt.HoldDuration = 0
-		claimPrompt.MaxActivationDistance = 10
-		claimPrompt.Parent = claimPad
 
 		local brazierModel = Instance.new("Model")
 		brazierModel.Name = "Brazier"
 		brazierModel.Parent = plotModel
 
 		makeUprightCylinder(brazierModel, "BrazierPedestal", 2.2, 13.5, origin + Vector3.new(0, 1.1, 0), Color3.fromRGB(36, 40, 56), Enum.Material.Basalt, 0, true)
-		makeUprightCylinder(brazierModel, "BrazierBowl", 1.8, 10.5, origin + Vector3.new(0, 2.8, 0), Color3.fromRGB(48, 52, 70), Enum.Material.Metal, 0, true)
+		local bowl = makeUprightCylinder(brazierModel, "BrazierBowl", 1.8, 10.5, origin + Vector3.new(0, 2.8, 0), Color3.fromRGB(48, 52, 70), Enum.Material.Metal, 0, true)
 		local emberRing = makeUprightCylinder(brazierModel, "EmberRing", 0.5, 11.4, origin + Vector3.new(0, 3.6, 0), Color3.fromRGB(255, 150, 45), Enum.Material.Neon, 0.1, false)
 
 		local baseFlameSize = Vector3.new(5.2, 6.2, 5.2)
 		local baseFlamePos = origin + Vector3.new(0, 6.4, 0)
 		local flameCore = makePart(brazierModel, "FlameCore", baseFlameSize, CFrame.new(baseFlamePos), Color3.fromRGB(255, 145, 45), Enum.Material.Neon, 0.12, false, Enum.PartType.Ball)
-		flameCore.CanQuery = true
 
 		local flameLight = Instance.new("PointLight", flameCore)
 		flameLight.Color = Color3.fromRGB(255, 155, 55)
-		flameLight.Range = 60
-		flameLight.Brightness = 4.0
-		local brazierLightEntry = { light = flameLight, claimed = false }
-		table.insert(brazierLights, brazierLightEntry)
+		flameLight.Range = 55
+		flameLight.Brightness = 3.8
 
-		local flameHitbox = makePart(brazierModel, "FlameHitbox", Vector3.new(15, 13, 15), CFrame.new(origin + Vector3.new(0, 6.5, 0)), Color3.fromRGB(255, 200, 80), Enum.Material.SmoothPlastic, 1, false)
-		flameHitbox.CanTouch = true
-		flameHitbox.CanQuery = true
+		local flameHitbox = makePart(brazierModel, "FlameHitbox", Vector3.new(11, 11, 11), CFrame.new(origin + Vector3.new(0, 6.0, 0)), Color3.fromRGB(255, 200, 80), Enum.Material.SmoothPlastic, 1, false)
 
 		local titleBbg = Instance.new("BillboardGui", flameCore)
 		titleBbg.Name = "BrazierTitleGui"
-		titleBbg.Size = UDim2.fromOffset(200, 30)
-		titleBbg.StudsOffset = Vector3.new(0, 5.8, 0)
-		titleBbg.MaxDistance = 80
-		titleBbg.Active = false
+		titleBbg.Size = UDim2.fromOffset(220, 34)
+		titleBbg.StudsOffset = Vector3.new(0, 6.2, 0)
+		titleBbg.MaxDistance = 85
 
 		local flameTitle = Instance.new("TextLabel", titleBbg)
 		flameTitle.Size = UDim2.fromScale(1, 1)
@@ -678,10 +383,8 @@ function WorldBuilder.Build()
 		flameTitle.TextColor3 = Color3.fromRGB(255, 225, 110)
 		flameTitle.TextStrokeTransparency = 0.2
 		flameTitle.Font = Enum.Font.GothamBlack
-		flameTitle.TextSize = 15
-		flameTitle.Active = false
+		flameTitle.TextSize = 16
 
-		-- Altari a terra
 		local altarsFolder = Instance.new("Folder")
 		altarsFolder.Name = "Altars"
 		altarsFolder.Parent = plotModel
@@ -700,15 +403,15 @@ function WorldBuilder.Build()
 		for idx, alt in ipairs(coreAltars) do
 			local deg = arcAngles[idx] or ((idx - 3) * 34)
 			local dirPad = (CFrame.fromAxisAngle(Vector3.yAxis, math.rad(deg)) * inwardDir).Unit
-			local padPos = origin + dirPad * 16.0 + Vector3.new(0, 0.22, 0)
+			local padPos = origin + dirPad * 16.5 + Vector3.new(0, 0.35, 0)
 			local pad = makePart(
 				altarsFolder,
 				alt.Id,
-				Vector3.new(4.1, 0.42, 4.1),
+				Vector3.new(5.6, 0.6, 5.6),
 				CFrame.lookAt(padPos, padPos + inwardDir),
 				alt.Color or Color3.fromRGB(255, 175, 55),
 				Enum.Material.Neon,
-				0.2,
+				0.18,
 				false
 			)
 			createPadBillboard(
@@ -728,15 +431,15 @@ function WorldBuilder.Build()
 		}
 		for idx, alt in ipairs(colorAltars) do
 			local off = colorOffsets[idx] or (rightDir * (20 + idx * 4))
-			local padPos = origin + off + Vector3.new(0, 0.22, 0)
+			local padPos = origin + off + Vector3.new(0, 0.35, 0)
 			local pad = makePart(
 				altarsFolder,
 				alt.Id,
-				Vector3.new(3.9, 0.42, 3.9),
+				Vector3.new(5.4, 0.6, 5.4),
 				CFrame.lookAt(padPos, padPos + inwardDir),
 				alt.Color or Color3.fromRGB(255, 200, 80),
 				Enum.Material.Neon,
-				0.2,
+				0.18,
 				false
 			)
 			createPadBillboard(
@@ -748,43 +451,20 @@ function WorldBuilder.Build()
 			)
 		end
 
-		-- Piedistalli prova Regno 1
-		local ritualFolder = Instance.new("Folder")
-		ritualFolder.Name = "Regno1Ritual"
-		ritualFolder.Parent = plotModel
-
-		if GameConfig.Regno1 and GameConfig.Regno1.Braziers then
-			for _, b in ipairs(GameConfig.Regno1.Braziers) do
-				local bPos = origin + rightDir * b.Offset.X + outwardDir * b.Offset.Z + Vector3.new(0, b.PedestalHeight * 0.5, 0)
-				local ped = makeUprightCylinder(
-					ritualFolder,
-					"Brazier_" .. tostring(b.Index),
-					b.PedestalHeight,
-					3.0,
-					bPos,
-					Color3.fromRGB(38, 44, 62),
-					Enum.Material.Marble,
-					0,
-					true
-				)
-				ped.CanTouch = true
-			end
-		end
-
-		local victoryPos = origin + outwardDir * 21.5 + Vector3.new(0, 0.25, 0)
+		local victoryPos = origin + outwardDir * 21.5 + Vector3.new(0, 0.4, 0)
 		local victoryPad = makePart(
 			plotModel,
 			"VictoryPad",
-			Vector3.new(6.2, 0.48, 4.6),
+			Vector3.new(8.6, 0.7, 6.4),
 			CFrame.lookAt(victoryPos, victoryPos + inwardDir),
 			Color3.fromRGB(255, 215, 75),
 			Enum.Material.Neon,
-			0.16,
+			0.14,
 			false
 		)
-		local _, vTitleLbl, vDescLbl, vStatusLbl = createPadBillboard(
+		local vTitleLbl, vDescLbl, vStatusLbl = createPadBillboard(
 			victoryPad,
-			"👑 " .. GameConfig.VictoryButton.Name,
+			"🌅 " .. GameConfig.VictoryButton.Name,
 			GameConfig.VictoryButton.Desc or "",
 			"Cost: 25B Light • +1 Dawn Pts",
 			Color3.fromRGB(255, 220, 90)
@@ -806,69 +486,64 @@ function WorldBuilder.Build()
 			local islandCenter = origin + zDir * zDist
 
 			local edgeDist = halfSize / math.max(math.abs(math.cos(fanRad)), math.abs(math.sin(fanRad)))
-			local bridgeStartDist = edgeDist + 0.08
-			local bridgeEndDist = zDist - 13.8
+			local bridgeStartDist = edgeDist - 0.5
+			local bridgeEndDist = zDist - 12.5
 			local bridgeLen = math.max(10, bridgeEndDist - bridgeStartDist)
 			local bridgeMid = origin + zDir * (bridgeStartDist + bridgeLen * 0.5)
 			local bridgeCF = CFrame.lookAt(bridgeMid, bridgeMid + zDir)
 
-			local bridge = makePart(zFolder, "Bridge", Vector3.new(5.6, 1.0, bridgeLen), bridgeCF * CFrame.new(0, -0.56, 0), Color3.fromRGB(36, 42, 60), Enum.Material.Marble, 0.65, false)
-			local bridgeTrim = makePart(zFolder, "BridgeTrim", Vector3.new(6.2, 0.6, bridgeLen), bridgeCF * CFrame.new(0, -0.72, 0), z.Color, Enum.Material.Neon, 0.80, false)
+			local bridge = makePart(zFolder, "Bridge", Vector3.new(5.6, 1.0, bridgeLen), bridgeCF * CFrame.new(0, -0.5, 0), Color3.fromRGB(36, 42, 60), Enum.Material.Marble, 0.65, false)
+			local bridgeTrim = makePart(zFolder, "BridgeTrim", Vector3.new(6.2, 0.6, bridgeLen), bridgeCF * CFrame.new(0, -0.65, 0), z.Color, Enum.Material.Neon, 0.80, false)
 
-			local gatePos = origin + zDir * (edgeDist - 2.4)
+			local gatePos = origin + zDir * (edgeDist - 1.8)
 			local gateCF = CFrame.lookAt(gatePos, gatePos + zDir)
-			local gatePad = makePart(zFolder, "GatePad", Vector3.new(4.6, 0.38, 3.4), gateCF * CFrame.new(0, 0.2, 0), z.Color, Enum.Material.Neon, 0.22, false)
+			local gatePad = makePart(zFolder, "GatePad", Vector3.new(5.8, 0.45, 4.2), gateCF * CFrame.new(0, 0.25, 0), z.Color, Enum.Material.Neon, 0.20, false)
 			local gateBarrier = makePart(zFolder, "GateBarrier", Vector3.new(6.4, 7.2, 0.9), gateCF * CFrame.new(0, 3.6, 0), z.Color, Enum.Material.ForceField, 0.35, true)
 
 			local gateBbg = Instance.new("BillboardGui", gateBarrier)
-			gateBbg.Size = UDim2.fromOffset(180, 34)
-			gateBbg.StudsOffset = Vector3.new(0, 3.8, 0)
-			gateBbg.MaxDistance = 52
-			gateBbg.Active = false
+			gateBbg.Size = UDim2.fromOffset(220, 42)
+			gateBbg.StudsOffset = Vector3.new(0, 4.2, 0)
+			gateBbg.MaxDistance = 70
 
 			local gateLabel = Instance.new("TextLabel", gateBbg)
 			gateLabel.Size = UDim2.fromScale(1, 1)
 			gateLabel.BackgroundColor3 = Color3.fromRGB(16, 18, 28)
-			gateLabel.BackgroundTransparency = 0.25
+			gateLabel.BackgroundTransparency = 0.2
 			gateLabel.Text = Localization.T("en", "ZONE_GATE_LOCKED_FMT", z.Name, z.Cost)
 			gateLabel.TextColor3 = z.Color
 			gateLabel.Font = Enum.Font.GothamBlack
-			gateLabel.TextSize = 11
-			gateLabel.Active = false
-			Instance.new("UICorner", gateLabel).CornerRadius = UDim.new(0, 7)
+			gateLabel.TextSize = 12
+			Instance.new("UICorner", gateLabel).CornerRadius = UDim.new(0, 8)
 
 			local islandBase = makeUprightCylinder(zFolder, "IslandBase", 2.4, 28, islandCenter + Vector3.new(0, -1.2, 0), Color3.fromRGB(32, 36, 52), Enum.Material.Slate, 0.55, false)
-			local islandRim = makeUprightCylinder(zFolder, "IslandRim", 1.8, 29.4, islandCenter + Vector3.new(0, -1.35, 0), z.Color, Enum.Material.Neon, 0.70, false)
-			local islandInner = makeUprightCylinder(zFolder, "IslandInner", 0.4, 21.5, islandCenter + Vector3.new(0, 0.21, 0), Color3.fromRGB(220, 224, 236), Enum.Material.Marble, 0.55, false)
+			local islandRim = makeUprightCylinder(zFolder, "IslandRim", 2.0, 29.4, islandCenter + Vector3.new(0, -1.35, 0), z.Color, Enum.Material.Neon, 0.70, false)
+			local islandInner = makeUprightCylinder(zFolder, "IslandInner", 0.6, 21.5, islandCenter + Vector3.new(0, 0.2, 0), Color3.fromRGB(220, 224, 236), Enum.Material.Marble, 0.55, false)
 
 			local pillars = {}
 			for _, pDeg in ipairs({ -125, -45, 45, 125 }) do
 				local pDir = (CFrame.fromAxisAngle(Vector3.yAxis, math.rad(pDeg)) * zDir).Unit
-				local pPos = islandCenter + pDir * 11.8 + Vector3.new(0, 4.3, 0)
+				local pPos = islandCenter + pDir * 11.8 + Vector3.new(0, 4.2, 0)
 				local pil = makeUprightCylinder(zFolder, "IslandPillar", 7.8, 1.4, pPos, Color3.fromRGB(225, 228, 240), Enum.Material.Marble, 0.55, false)
 				table.insert(pillars, pil)
 			end
 
-			local pedestal = makeUprightCylinder(zFolder, "MonumentPedestal", 1.8, 8.2, islandCenter + Vector3.new(0, 1.3, 0), Color3.fromRGB(46, 52, 72), Enum.Material.Marble, 0.55, false)
-			local pedestalTopPos = islandCenter + Vector3.new(0, 2.2, 0)
+			local pedestal = makeUprightCylinder(zFolder, "MonumentPedestal", 1.8, 8.2, islandCenter + Vector3.new(0, 1.2, 0), Color3.fromRGB(46, 52, 72), Enum.Material.Marble, 0.55, false)
+			local pedestalTopPos = islandCenter + Vector3.new(0, 2.1, 0)
 			local monumentParts, monumentLights = placeMonumentOnIsland(zFolder, z, pedestalTopPos, zDir)
 
 			local zTitleAnchor = makePart(zFolder, "ZoneTitleAnchor", Vector3.new(1, 1, 1), CFrame.new(islandCenter + Vector3.new(0, 15.5, 0)), z.Color, Enum.Material.SmoothPlastic, 1, false)
-			zTitleAnchor.CanQuery = false
 			local zBbg = Instance.new("BillboardGui", zTitleAnchor)
-			zBbg.Size = UDim2.fromOffset(220, 32)
-			zBbg.MaxDistance = 100
-			zBbg.Active = false
+			zBbg.Size = UDim2.fromOffset(250, 38)
+			zBbg.MaxDistance = 120
 
 			local zoneTitle = Instance.new("TextLabel", zBbg)
 			zoneTitle.Size = UDim2.fromScale(1, 1)
 			zoneTitle.BackgroundTransparency = 1
-			zoneTitle.Text = string.format("🏛️ %s (x%.2f)", z.Name, z.LightMult or 1.0)
+			zoneTitle.Text = string.format("🔒 %s (x%.2f)", z.Name, z.LightMult or 1.0)
 			zoneTitle.TextColor3 = z.Color
 			zoneTitle.TextStrokeTransparency = 0.2
 			zoneTitle.Font = Enum.Font.GothamBlack
-			zoneTitle.TextSize = 13
-			zoneTitle.Active = false
+			zoneTitle.TextSize = 14
 
 			albaZoneRefs[z.Id] = {
 				Bridge = bridge,
@@ -891,161 +566,35 @@ function WorldBuilder.Build()
 		defensesFolder.Name = "Defenses"
 		defensesFolder.Parent = plotModel
 
-		local spawnPos = origin + inwardDir * 28 + Vector3.new(0, 4.2, 0)
+		local spawnPos = origin + inwardDir * 29 + Vector3.new(0, 4.2, 0)
 
-		local plotEntry = {
+		table.insert(plots, {
 			Index = i,
 			Origin = origin,
 			OutwardDir = outwardDir,
 			RightDir = rightDir,
 			SpawnPos = spawnPos,
 			Owner = nil,
-			Claimed = false,
-			ClaimPad = claimPad,
-			ClaimPrompt = claimPrompt,
-			ClaimBillboard = cBbg,
-			ClaimStatusLabel = cStatusLbl,
-			SpeedPads = speedPads,
 			SignBoard = signBoard,
 			FlameCore = flameCore,
 			BaseFlameSize = baseFlameSize,
 			BaseFlamePos = baseFlamePos,
 			FlameHitbox = flameHitbox,
-			FlameLight = flameLight,
 			FlameTitle = flameTitle,
 			EmberRing = emberRing,
 			AltarsFolder = altarsFolder,
-			RitualFolder = ritualFolder,
 			VictoryPad = victoryPad,
 			VictoryTitleLabel = vTitleLbl,
 			VictoryDescLabel = vDescLbl,
 			VictoryStatusLabel = vStatusLbl,
 			AlbaZoneRefs = albaZoneRefs,
 			DefensesFolder = defensesFolder,
-			OnManualClaimRequest = nil, -- collegato da FlameServer
-		}
-
-		local function setClaimPadVisible(visible)
-			claimPad.Transparency = visible and 0.18 or 1
-			claimPad.CanTouch = visible
-			claimPad.CanQuery = visible
-			claimPad.CanCollide = false
-			claimPrompt.Enabled = visible
-			if cBbg then
-				cBbg.Enabled = visible
-			end
-		end
-
-		plotEntry.ResetClaimVisuals = function()
-			plotEntry.Claimed = false
-			brazierLightEntry.claimed = false
-			plotModel:SetAttribute("Claimed", false)
-			plotModel:SetAttribute("OwnerUserId", nil)
-			claimPad.Color = Color3.fromRGB(255, 195, 65)
-			cTitleLbl.Text = "CLAIM SLOT #" .. tostring(i)
-			cStatusLbl.Text = "Disponibile (1x)"
-			cStatusLbl.TextColor3 = Color3.fromRGB(255, 205, 75)
-			setClaimPadVisible(true)
-			for _, bp in ipairs(borderParts) do
-				bp.Color = borderColor
-			end
-		end
-
-		local claimCooldownByUser = {}
-
-		local function triggerServerBrazierClaim(player)
-			if plotEntry.Claimed or plotEntry.Owner ~= nil then
-				return
-			end
-			if not player or not player:IsA("Player") then
-				return
-			end
-			local now = os.clock()
-			if claimCooldownByUser[player.UserId] and now - claimCooldownByUser[player.UserId] < 0.8 then
-				return
-			end
-			claimCooldownByUser[player.UserId] = now
-
-			if plotEntry.OnManualClaimRequest then
-				plotEntry.OnManualClaimRequest(player, plotEntry)
-			else
-				plotEntry.Owner = player
-			end
-
-			local character = player.Character
-			local hrp = character and character:FindFirstChild("HumanoidRootPart")
-			if hrp then
-				local targetPos = origin + inwardDir * 8.0 + Vector3.new(0, 5.2, 0)
-				hrp.CFrame = CFrame.lookAt(targetPos, origin + Vector3.new(0, 5.2, 0))
-			end
-		end
-
-		claimPad.Touched:Connect(function(hit)
-			local character = hit and hit.Parent
-			local player = character and Players:GetPlayerFromCharacter(character)
-			if player then
-				triggerServerBrazierClaim(player)
-			end
-		end)
-
-		claimPrompt.Triggered:Connect(function(player)
-			triggerServerBrazierClaim(player)
-		end)
-
-		task.spawn(function()
-			while world.Parent do
-				if not plotEntry.Claimed and plotEntry.Owner ~= nil then
-					local owner = plotEntry.Owner
-					plotEntry.Claimed = true
-					brazierLightEntry.claimed = true
-
-					-- Fa scomparire il tasto di claim subito dopo l'assegnazione dello slot
-					setClaimPadVisible(false)
-
-					if typeof(owner) == "Instance" and owner:IsA("Player") then
-						claimedByUserId[owner.UserId] = i
-						plotModel:SetAttribute("OwnerUserId", owner.UserId)
-						flameTitle.Text = owner.DisplayName .. "'s Flame"
-						for _, ot in ipairs(signOwnerTitles) do
-							ot.Text = owner.DisplayName
-						end
-					end
-
-					for _, osLbl in ipairs(signOwnerSubs) do
-						osLbl.Text = "Slot #" .. tostring(i) .. " • Reclamato"
-					end
-
-					plotModel:SetAttribute("Claimed", true)
-
-					for _, bp in ipairs(borderParts) do
-						bp.Color = Color3.fromRGB(255, 175, 65)
-					end
-
-					if not isBrazierOnlyDark then
-						applyDarknessMode(true)
-					else
-						flameLight.Range = 80
-						flameLight.Brightness = 5.2
-					end
-
-					plotClaimedEvent:Fire(i, owner)
-				elseif plotEntry.Claimed and plotEntry.Owner == nil then
-					plotEntry.ResetClaimVisuals()
-				end
-				task.wait(0.1)
-			end
-		end)
-
-		table.insert(plots, plotEntry)
+		})
 	end
-
-	applyDarknessMode(false)
 
 	return {
 		World = world,
 		Plots = plots,
-		PlotClaimedEvent = plotClaimedEvent,
-		SetDarknessMode = applyDarknessMode,
 	}
 end
 

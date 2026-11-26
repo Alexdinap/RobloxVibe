@@ -353,12 +353,7 @@ function TutorialUI.Build(parentGui, remotes)
 			if st.Language == "en" or st.Language == "it" then
 				currentLang = st.Language
 			end
-			tutorialCompleted = (st.TutorialCompleted == true)
-
-			if not hasAutoOpened and not tutorialCompleted then
-				hasAutoOpened = true
-				openTutorial(1)
-			elseif isOpen then
+			if isOpen then
 				renderSlide()
 			end
 		end,
