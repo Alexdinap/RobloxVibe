@@ -18,10 +18,23 @@ function ClientWorldVisuals.GetMyPlotModel()
 	local world = Workspace:FindFirstChild("LastFlameWorld")
 	if not world then return nil end
 
-	local plotIndex = Players.LocalPlayer:GetAttribute("PlotIndex") or 1
-	local plotName = "Plot_" .. tostring(plotIndex)
+	local plotIndex = Players.LocalPlayer:GetAttribute("PlotIndex")
+	if not plotIndex then
+		for i = 1, (GameConfig.PlotCount or 10) do
+			local candidate = world:FindFirstChild("Plot_" .. tostring(i))
+			if candidate and candidate:GetAttribute("OwnerUserId") == Players.LocalPlayer.UserId then
+				plotIndex = i
+				break
+			end
+		end
+	end
+	if not plotIndex then return nil end
+
 	local plotsFolder = world:FindFirstChild("Plots")
-	return (plotsFolder and plotsFolder:FindFirstChild(plotName)) or world:FindFirstChild(plotName)
+	if plotsFolder then
+		return plotsFolder:FindFirstChild("Plot_" .. tostring(plotIndex))
+	end
+	return world:FindFirstChild("Plot_" .. tostring(plotIndex))
 end
 
 function ClientWorldVisuals.GetMyFlameCore()
@@ -109,6 +122,7 @@ function ClientWorldVisuals.Update(st)
 	local lang = st.Language or "en"
 	local lightUnit = Localization.T(lang, "LIGHT_UNIT")
 	local points = st.Points or 0
+	local albaCount = st.AlbaCount or 0
 	local altars = st.Altars or {}
 	local altarsFolder = plotModel:FindFirstChild("Altars")
 
@@ -119,7 +133,7 @@ function ClientWorldVisuals.Update(st)
 				local maxLvl = alt.MaxLevel or 1
 				local lvl = altars[alt.Id] or 0
 				local maxed = lvl >= maxLvl
-				local cost = GameConfig.GetAltarCost(alt, lvl, st.AlbaCount or 0)
+				local cost = GameConfig.GetAltarCost(alt, lvl, albaCount)
 				local canAfford = (not maxed) and (points >= cost)
 				local altName = Localization.Pick(lang, alt.Name, alt.Name_it)
 				local benefit = Localization.Pick(lang, alt.BenefitTag, alt.BenefitTag_it)
@@ -166,14 +180,20 @@ function ClientWorldVisuals.Update(st)
 
 	local vPad = plotModel:FindFirstChild("VictoryPad")
 	if vPad and vPad:IsA("BasePart") then
-		local readyToRebirth = (st.AllUpgradesCompleted == true)
-		local vCost = GameConfig.GetVictoryCost(st.AlbaCount or 0)
-		if readyToRebirth and points >= vCost then
-			vPad.Color = Color3.fromRGB(70, 245, 145)
-		elseif readyToRebirth then
-			vPad.Color = Color3.fromRGB(255, 215, 75)
-		else
-			vPad.Color = Color3.fromRGB(140, 120, 60)
+		local showVictory = (st.AllUpgradesCompleted == true)
+		local vCost = GameConfig.GetVictoryCost(albaCount)
+		vPad.Transparency = showVictory and 0.16 or 1
+
+		local bbg = vPad:FindFirstChildOfClass("BillboardGui")
+		if bbg then
+			bbg.Enabled = showVictory
+		end
+		if showVictory then
+			if points >= vCost then
+				vPad.Color = Color3.fromRGB(70, 245, 145)
+			else
+				vPad.Color = Color3.fromRGB(255, 215, 75)
+			end
 		end
 	end
 end
@@ -206,7 +226,6 @@ function ClientWorldVisuals.UpdateRegno1(r1State)
 				local bbg = Instance.new("BillboardGui", orb)
 				bbg.Size = UDim2.fromOffset(80, 24)
 				bbg.StudsOffset = Vector3.new(0, 2.6, 0)
-				bbg.Active = false
 				local lbl = Instance.new("TextLabel", bbg)
 				lbl.Size = UDim2.fromScale(1, 1)
 				lbl.BackgroundTransparency = 1
@@ -215,7 +234,6 @@ function ClientWorldVisuals.UpdateRegno1(r1State)
 				lbl.TextStrokeTransparency = 0.25
 				lbl.Font = Enum.Font.GothamBlack
 				lbl.TextSize = 13
-				lbl.Active = false
 
 				entry = { Orb = orb, Light = light, Billboard = bbg }
 				ritualOrbCache[b.Index] = entry

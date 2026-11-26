@@ -17,7 +17,7 @@ local CalculateStatsFn = nil
 local DefenseFxEvent = nil
 
 local ActiveShadows = {}
-local BuiltTurrets = {}
+local PlotDefensesState = {}
 local RaidAnnounceCooldown = {}
 local PlotGraceUntil = {}
 local PlotGraceInitial = {}
@@ -27,7 +27,7 @@ local SHADOW_TYPES = {
 		Id = "wisp",
 		Name_en = "Void Wisp",
 		Name_it = "Ombra Errante",
-		MaxHP = 6,
+		MaxHP = 18,
 		Speed = 5.6,
 		Size = 3.4,
 		DrainPct = 0.08,
@@ -40,7 +40,7 @@ local SHADOW_TYPES = {
 		Id = "stalker",
 		Name_en = "Dusk Stalker",
 		Name_it = "Ombra Predatrice",
-		MaxHP = 2,
+		MaxHP = 10,
 		Speed = 9.0,
 		Size = 3.6,
 		DrainPct = 0.06,
@@ -53,7 +53,7 @@ local SHADOW_TYPES = {
 		Id = "brute",
 		Name_en = "Abyssal Brute",
 		Name_it = "Colosso d'Ombra",
-		MaxHP = 24,
+		MaxHP = 95,
 		Speed = 2.8,
 		Size = 5.8,
 		DrainPct = 0.15,
@@ -66,7 +66,7 @@ local SHADOW_TYPES = {
 		Id = "siphon",
 		Name_en = "Void Siphon",
 		Name_it = "Sifone d'Ombra",
-		MaxHP = 9,
+		MaxHP = 34,
 		Speed = 4.4,
 		Size = 4.0,
 		StopRange = 22,
@@ -84,6 +84,14 @@ local TURRET_SLOTS = {
 	Vector3.new(-15, 0, 15),
 	Vector3.new(15, 0, -15),
 	Vector3.new(-15, 0, -15),
+}
+
+local PRISM_SLOTS = {
+	Vector3.new(21, 0, 0),
+	Vector3.new(-21, 0, 0),
+	Vector3.new(0, 0, 21),
+	Vector3.new(0, 0, -21),
+	Vector3.new(0, 0, -26),
 }
 
 local function getLang(data)
@@ -149,62 +157,130 @@ local function weldAttachmentPart(handle, props, offsetCFrame)
 	return p
 end
 
-function ShadowDefenseService.GetTurretStats(data)
-	local defenses = (data and data.Defenses) or {}
-	local dmgLvl = EconomyEngine.GetLevel(defenses, "def_turret_dmg")
-	local spdLvl = EconomyEngine.GetLevel(defenses, "def_turret_spd")
-
-	local damage = 0.55 + (dmgLvl * 0.85)
-	local cooldown = math.max(0.45, 2.8 * (0.85 ^ spdLvl))
-	local range = 28 + (spdLvl * 1.5)
-
-	return damage, cooldown, range, dmgLvl, spdLvl
-end
-
 function ShadowDefenseService.RebuildPlotDefenses(plot, data)
 	if not plot or not plot.DefensesFolder then return end
 	plot.DefensesFolder:ClearAllChildren()
-	BuiltTurrets[plot.Index] = {}
+	PlotDefensesState[plot.Index] = {
+		Turrets = {},
+		Ward = nil,
+		Prisms = {},
+	}
 
 	if not data or type(data.Defenses) ~= "table" then return end
 
-	local turretCount = EconomyEngine.GetLevel(data.Defenses, "def_turrets")
-	local dmg, cooldown, range, dmgLvl, spdLvl = ShadowDefenseService.GetTurretStats(data)
+	local state = PlotDefensesState[plot.Index]
 
-	for i = 1, math.min(turretCount, #TURRET_SLOTS) do
-		local basePos = plot.Origin + TURRET_SLOTS[i]
-		local ped = makePart({
-			Name = "TurretPedestal_" .. i,
-			Size = Vector3.new(2.6, 3.6, 2.6),
-			Position = basePos + Vector3.new(0, 1.8, 0),
-			Color = Color3.fromRGB(36, 40, 54),
-			Material = Enum.Material.Marble,
-			Parent = plot.DefensesFolder,
-		})
-		ped.CanCollide = false
+	-- 1. Sunfire Turrets (def_pylon_1, MaxLevel = 8)
+	local pylonLvl = EconomyEngine.GetLevel(data.Defenses, "def_pylon_1")
+	if pylonLvl > 0 then
+		local activeCount = math.min(#TURRET_SLOTS, pylonLvl)
+		local dmg = 14 * (1 + (pylonLvl - 1) * 0.45)
+		local interval = math.max(0.38, 1.1 * (0.90 ^ (pylonLvl - 1)))
+		local range = 36 + (pylonLvl * 1.5)
 
-		local scaleBonus = 1 + math.min(0.45, dmgLvl * 0.05)
-		local crystalColor = spdLvl > 0 and Color3.fromRGB(255, 235, 110) or Color3.fromRGB(255, 195, 65)
+		for i = 1, activeCount do
+			local basePos = plot.Origin + TURRET_SLOTS[i]
+			makePart({
+				Name = "SunfirePedestal_" .. i,
+				Size = Vector3.new(2.6, 3.8, 2.6),
+				Position = basePos + Vector3.new(0, 1.9, 0),
+				Color = Color3.fromRGB(36, 40, 54),
+				Material = Enum.Material.Marble,
+				CanCollide = false,
+				Parent = plot.DefensesFolder,
+			})
 
-		local crystal = makePart({
-			Name = "TurretCrystal_" .. i,
-			Shape = Enum.PartType.Ball,
-			Size = Vector3.new(1.5, 2.0, 1.5) * scaleBonus,
-			Position = basePos + Vector3.new(0, 4.5, 0),
-			Color = crystalColor,
+			local scaleBonus = 1 + math.min(0.45, pylonLvl * 0.05)
+			local crystal = makePart({
+				Name = "SunfireCrystal_" .. i,
+				Shape = Enum.PartType.Ball,
+				Size = Vector3.new(1.5, 2.0, 1.5) * scaleBonus,
+				Position = basePos + Vector3.new(0, 4.7, 0),
+				Color = Color3.fromRGB(255, 200, 65),
+				Material = Enum.Material.Neon,
+				CanCollide = false,
+				Parent = plot.DefensesFolder,
+			})
+
+			table.insert(state.Turrets, {
+				Pos = crystal.Position,
+				Cooldown = (i - 1) * 0.25,
+				Damage = dmg,
+				AttackInterval = interval,
+				Range = range,
+				Color = Color3.fromRGB(255, 215, 75),
+			})
+		end
+	end
+
+	-- 2. Radiant Ward (def_ward_ring, MaxLevel = 6)
+	local wardLvl = EconomyEngine.GetLevel(data.Defenses, "def_ward_ring")
+	if wardLvl > 0 then
+		local radius = 26 + (wardLvl - 1) * 2.0
+		local wardRing = makePart({
+			Name = "RadiantWardRing",
+			Shape = Enum.PartType.Cylinder,
+			Size = Vector3.new(0.18, radius * 2, radius * 2),
+			CFrame = CFrame.new(plot.Origin + Vector3.new(0, 0.14, 0)) * CFrame.Angles(0, 0, math.rad(90)),
+			Color = Color3.fromRGB(80, 225, 255),
 			Material = Enum.Material.Neon,
+			Transparency = 0.72,
 			CanCollide = false,
+			CanQuery = false,
 			Parent = plot.DefensesFolder,
 		})
+		wardRing.CanTouch = false
 
-		table.insert(BuiltTurrets[plot.Index], {
-			Crystal = crystal,
-			Pos = crystal.Position,
-			Cooldown = (i - 1) * 0.35,
-			Damage = dmg,
-			AttackInterval = cooldown,
-			Range = range,
-		})
+		state.Ward = {
+			Radius = radius,
+			Damage = 10 * (1 + (wardLvl - 1) * 0.55),
+			TickInterval = 0.8,
+			Timer = 0,
+			SlowDuration = 1.4 + wardLvl * 0.2,
+		}
+	end
+
+	-- 3. Zenith Prism Tower (def_obelisk_beam, MaxLevel = 5)
+	local prismLvl = EconomyEngine.GetLevel(data.Defenses, "def_obelisk_beam")
+	if prismLvl > 0 then
+		local prismCount = math.min(#PRISM_SLOTS, prismLvl)
+		local dmg = 65 * (1 + (prismLvl - 1) * 0.65)
+		local interval = math.max(0.65, 1.4 * (0.92 ^ (prismLvl - 1)))
+		local range = 46 + (prismLvl * 2)
+
+		for i = 1, prismCount do
+			local basePos = plot.Origin + PRISM_SLOTS[i]
+			makePart({
+				Name = "PrismObelisk_" .. i,
+				Size = Vector3.new(2.2, 6.4, 2.2),
+				Position = basePos + Vector3.new(0, 3.2, 0),
+				Color = Color3.fromRGB(26, 32, 48),
+				Material = Enum.Material.Marble,
+				CanCollide = false,
+				Parent = plot.DefensesFolder,
+			})
+
+			local orb = makePart({
+				Name = "PrismCore_" .. i,
+				Shape = Enum.PartType.Ball,
+				Size = Vector3.new(2.1, 2.1, 2.1),
+				Position = basePos + Vector3.new(0, 7.6, 0),
+				Color = Color3.fromRGB(205, 125, 255),
+				Material = Enum.Material.Neon,
+				CanCollide = false,
+				Parent = plot.DefensesFolder,
+			})
+
+			table.insert(state.Prisms, {
+				Pos = orb.Position,
+				Cooldown = (i - 1) * 0.35,
+				Damage = dmg,
+				AttackInterval = interval,
+				Range = range,
+				BonusDawnChance = 0.12 * prismLvl,
+				Color = Color3.fromRGB(210, 125, 255),
+			})
+		end
 	end
 end
 
@@ -228,7 +304,7 @@ local function destroyShadowEntry(sh)
 	end
 end
 
-function ShadowDefenseService.DamageShadow(sh, dmg, attackerPlayer, knockbackDir, knockbackForce, slowDuration)
+function ShadowDefenseService.DamageShadow(sh, dmg, attackerPlayer, knockbackDir, knockbackForce, slowDuration, bonusDawnChance)
 	if not sh or not sh.Part or not sh.Part.Parent then return false end
 
 	if slowDuration and slowDuration > 0 then
@@ -257,6 +333,7 @@ function ShadowDefenseService.DamageShadow(sh, dmg, attackerPlayer, knockbackDir
 		local plot = PlotsRef[sh.PlotIndex]
 		local owner = attackerPlayer or (plot and plot.Owner)
 		local rewardMult = sh.RewardMult
+		local isBrute = (sh.Type and sh.Type.Id == "brute")
 		destroyShadowEntry(sh)
 
 		if owner and PlayerDataRef[owner.UserId] then
@@ -265,10 +342,21 @@ function ShadowDefenseService.DamageShadow(sh, dmg, attackerPlayer, knockbackDir
 			local reward = math.max(15, math.floor(stats.ClickPower * rewardMult))
 			data.Points += reward
 			data.TotalPoints += reward
+
+			local extraDawn = 0
+			if isBrute and bonusDawnChance and bonusDawnChance > 0 and math.random() < bonusDawnChance then
+				extraDawn = 1
+				data.AlbaPoints = (data.AlbaPoints or 0) + 1
+			end
+
 			if SyncPlayerFn then
+				local pop = Localization.T(getLang(data), "POP_SHADOW_KILL", NumberFormat.Format(reward))
+				if extraDawn > 0 then
+					pop = pop .. " (+1 🌅)"
+				end
 				SyncPlayerFn(owner, {
 					SoundCue = "Upgrade",
-					PopupText = Localization.T(getLang(data), "POP_SHADOW_KILL", NumberFormat.Format(reward)),
+					PopupText = pop,
 				})
 			end
 		end
@@ -318,55 +406,20 @@ local function createWeaponTool(wepCfg, lang)
 		}, CFrame.new(0, 1.95, 0))
 		light.Parent = tip
 
-	elseif wepCfg.Id == "wep_lantern" then
-		handle.Size = Vector3.new(0.35, 0.9, 0.35)
-		handle.Color = Color3.fromRGB(45, 42, 52)
-		handle.Material = Enum.Material.Metal
-
-		weldAttachmentPart(handle, {
-			Name = "LanternCap",
-			Size = Vector3.new(1.25, 0.25, 1.25),
-			Color = Color3.fromRGB(210, 175, 80),
-			Material = Enum.Material.Metal,
-		}, CFrame.new(0, -0.55, -0.35))
-
-		local core = weldAttachmentPart(handle, {
-			Name = "LanternCore",
-			Shape = Enum.PartType.Ball,
-			Size = Vector3.new(0.95, 1.25, 0.95),
-			Color = wepCfg.Color,
-			Material = Enum.Material.Neon,
-		}, CFrame.new(0, -1.15, -0.35))
-		light.Parent = core
-
-	elseif wepCfg.Id == "wep_solstice_spear" then
+	elseif wepCfg.Id == "wep_aether_spear" then
 		handle.Size = Vector3.new(0.30, 4.6, 0.30)
 		handle.Color = Color3.fromRGB(70, 45, 28)
 		handle.Material = Enum.Material.Wood
 
 		local spearHead = weldAttachmentPart(handle, {
 			Name = "SpearHead",
-			Size = Vector3.new(0.24, 1.8, 0.72),
+			Size = Vector3.new(0.24, 1.9, 0.72),
 			Color = wepCfg.Color,
 			Material = Enum.Material.Neon,
-		}, CFrame.new(0, 2.8, 0))
+		}, CFrame.new(0, 2.85, 0))
 		light.Parent = spearHead
 
-	elseif wepCfg.Id == "wep_astral_scepter" then
-		handle.Size = Vector3.new(0.32, 3.6, 0.32)
-		handle.Color = Color3.fromRGB(48, 36, 72)
-		handle.Material = Enum.Material.Marble
-
-		local orb = weldAttachmentPart(handle, {
-			Name = "AstralOrb",
-			Shape = Enum.PartType.Ball,
-			Size = Vector3.new(1.25, 1.25, 1.25),
-			Color = wepCfg.Color,
-			Material = Enum.Material.Neon,
-		}, CFrame.new(0, 2.2, 0))
-		light.Parent = orb
-
-	elseif wepCfg.Id == "wep_corona_greatsword" then
+	elseif wepCfg.Id == "wep_sunblade" then
 		handle.Size = Vector3.new(0.42, 1.6, 0.42)
 		handle.Color = Color3.fromRGB(42, 35, 48)
 		handle.Material = Enum.Material.SmoothPlastic
@@ -379,38 +432,30 @@ local function createWeaponTool(wepCfg, lang)
 		}, CFrame.new(0, 0.9, 0))
 
 		local heavyBlade = weldAttachmentPart(handle, {
-			Name = "CoronaBlade",
-			Size = Vector3.new(0.24, 4.5, 0.85),
+			Name = "SolarBlade",
+			Size = Vector3.new(0.24, 4.4, 0.85),
 			Color = wepCfg.Color,
 			Material = Enum.Material.Neon,
-		}, CFrame.new(0, 3.2, 0))
+		}, CFrame.new(0, 3.15, 0))
 		light.Parent = heavyBlade
 
-	elseif wepCfg.Id == "wep_zenith_reaver" then
+	elseif wepCfg.Id == "wep_zenith_scythe" then
 		handle.Size = Vector3.new(0.34, 4.8, 0.34)
 		handle.Color = Color3.fromRGB(245, 235, 200)
 		handle.Material = Enum.Material.Neon
 
 		local scytheArc = weldAttachmentPart(handle, {
 			Name = "ZenithBlade",
-			Size = Vector3.new(0.22, 0.85, 3.2),
+			Size = Vector3.new(0.22, 0.85, 3.3),
 			Color = wepCfg.Color,
 			Material = Enum.Material.Neon,
 		}, CFrame.new(0, 2.3, -1.2))
 		light.Parent = scytheArc
 
 	else
-		-- Dawnblade (wep_dawnblade)
 		handle.Size = Vector3.new(0.35, 1.3, 0.35)
 		handle.Color = Color3.fromRGB(40, 35, 48)
 		handle.Material = Enum.Material.SmoothPlastic
-
-		weldAttachmentPart(handle, {
-			Name = "CrossGuard",
-			Size = Vector3.new(1.35, 0.22, 0.45),
-			Color = Color3.fromRGB(235, 190, 75),
-			Material = Enum.Material.Metal,
-		}, CFrame.new(0, 0.72, 0))
 
 		local blade = weldAttachmentPart(handle, {
 			Name = "LightBlade",
@@ -442,100 +487,33 @@ local function createWeaponTool(wepCfg, lang)
 			lookDir = Vector3.new(0, 0, -1)
 		end
 
-		if wepCfg.ChainCount then
-			local candidates = {}
-			for _, sh in ipairs(ActiveShadows) do
-				if sh and sh.PlotIndex == plot.Index and sh.Part and sh.Part.Parent then
-					local d = (sh.Part.Position - hrp.Position).Magnitude
-					if d <= wepCfg.Range then
-						table.insert(candidates, { Shadow = sh, Dist = d })
+		local isCosmicArc = (wepCfg.Id == "wep_zenith_scythe")
+		local isCleave = (wepCfg.Id == "wep_sunblade")
+		local minDot = isCosmicArc and -1.0 or (isCleave and -0.35 or 0.1)
+		local kbForce = isCosmicArc and 11.0 or (isCleave and 7.0 or 4.5)
+
+		for i = #ActiveShadows, 1, -1 do
+			local sh = ActiveShadows[i]
+			if sh and sh.PlotIndex == plot.Index and sh.Part and sh.Part.Parent then
+				local offset = sh.Part.Position - hrp.Position
+				local d = offset.Magnitude
+				if d <= wepCfg.Range then
+					local dir = d > 0.01 and offset.Unit or lookDir
+					if dir:Dot(lookDir) >= minDot or d <= 6.5 then
+						ShadowDefenseService.DamageShadow(sh, wepCfg.Damage, plr, dir, kbForce, 0)
 					end
 				end
 			end
-			table.sort(candidates, function(a, b) return a.Dist < b.Dist end)
+		end
 
-			local prevPos = hrp.Position + Vector3.new(0, 1.2, 0)
-			local maxTargets = wepCfg.ChainCount or 3
-			local slowDur = wepCfg.SlowDuration or 2.5
-			local hits = math.min(maxTargets, #candidates)
-
-			for idx = 1, hits do
-				local targetSh = candidates[idx].Shadow
-				local targetPos = targetSh.Part.Position
-				local dmgMult = (idx == 1) and 1.0 or 0.72
-				ShadowDefenseService.DamageShadow(targetSh, wepCfg.Damage * dmgMult, plr, nil, 0, slowDur)
-
-				if DefenseFxEvent then
-					DefenseFxEvent:FireClient(plr, {
-						Kind = "Beam",
-						From = prevPos,
-						To = targetPos,
-						Color = wepCfg.Color,
-					})
-				end
-				prevPos = targetPos
-			end
-
-			if hits == 0 and DefenseFxEvent then
-				DefenseFxEvent:FireClient(plr, {
-					Kind = "Pulse",
-					Pos = hrp.Position,
-					Radius = math.min(14, wepCfg.Range * 0.5),
-					Color = wepCfg.Color,
-				})
-			end
-
-		elseif wepCfg.Is360Nova then
-			local kbForce = wepCfg.Knockback or 9.0
-			local slowDur = wepCfg.SlowDuration or 0
-			for i = #ActiveShadows, 1, -1 do
-				local sh = ActiveShadows[i]
-				if sh and sh.PlotIndex == plot.Index and sh.Part and sh.Part.Parent then
-					local offset = sh.Part.Position - hrp.Position
-					local d = offset.Magnitude
-					if d <= wepCfg.Range then
-						local dir = d > 0.01 and offset.Unit or lookDir
-						ShadowDefenseService.DamageShadow(sh, wepCfg.Damage, plr, dir, kbForce, slowDur)
-					end
-				end
-			end
-
-			if DefenseFxEvent then
-				DefenseFxEvent:FireClient(plr, {
-					Kind = "Pulse",
-					Pos = hrp.Position,
-					Radius = wepCfg.Range,
-					Color = wepCfg.Color,
-				})
-			end
-
-		else
-			local isTorch = (wepCfg.Id == "wep_torch")
-			local minDot = isTorch and 0.15 or -0.25
-			local kbForce = wepCfg.Knockback or (isTorch and 3.5 or 5.5)
-
-			for i = #ActiveShadows, 1, -1 do
-				local sh = ActiveShadows[i]
-				if sh and sh.PlotIndex == plot.Index and sh.Part and sh.Part.Parent then
-					local offset = sh.Part.Position - hrp.Position
-					local d = offset.Magnitude
-					if d <= wepCfg.Range then
-						local dir = d > 0.01 and offset.Unit or lookDir
-						if dir:Dot(lookDir) >= minDot or d <= 6.0 then
-							ShadowDefenseService.DamageShadow(sh, wepCfg.Damage, plr, dir, kbForce, 0)
-						end
-					end
-				end
-			end
-
-			if DefenseFxEvent then
-				DefenseFxEvent:FireClient(plr, {
-					Kind = "Pulse",
-					Pos = hrp.Position + lookDir * (wepCfg.Range * 0.35),
-					Radius = wepCfg.Range,
-					Color = wepCfg.Color,
-				})
-			end
+		if DefenseFxEvent then
+			local fxPos = isCosmicArc and hrp.Position or (hrp.Position + lookDir * (wepCfg.Range * 0.35))
+			DefenseFxEvent:FireClient(plr, {
+				Kind = "Pulse",
+				Pos = fxPos,
+				Radius = wepCfg.Range,
+				Color = wepCfg.Color,
+			})
 		end
 	end)
 
@@ -637,7 +615,7 @@ function ShadowDefenseService.SpawnShadowForPlot(plot, data)
 	local scaledRewardMult = sType.RewardMult * rewardScale
 
 	local ang = math.random() * math.pi * 2
-	local spawnPos = plot.Origin + Vector3.new(math.cos(ang) * 54, sType.Size * 0.5 + 0.8, math.sin(ang) * 54)
+	local spawnPos = plot.Origin + Vector3.new(math.cos(ang) * 40, sType.Size * 0.5 + 0.8, math.sin(ang) * 40)
 
 	local part = makePart({
 		Name = "InvadingShadow",
@@ -692,7 +670,7 @@ function ShadowDefenseService.SpawnShadowForPlot(plot, data)
 	cd.MaxActivationDistance = 55
 	cd.MouseClick:Connect(function(plr)
 		if plot.Owner == plr then
-			ShadowDefenseService.DamageShadow(entry, 1, plr)
+			ShadowDefenseService.DamageShadow(entry, 5, plr)
 		end
 	end)
 
@@ -814,15 +792,16 @@ function ShadowDefenseService.Tick(dt, clickHeatTable)
 		end
 	end
 
-	for plotIndex, turrets in pairs(BuiltTurrets) do
+	for plotIndex, defState in pairs(PlotDefensesState) do
 		local plot = PlotsRef[plotIndex]
 		local owner = plot and plot.Owner
-		if owner and #turrets > 0 then
-			for _, t in ipairs(turrets) do
+		if owner and defState then
+			-- 1. Sunfire Turrets
+			for _, t in ipairs(defState.Turrets) do
 				t.Cooldown -= dt
 				if t.Cooldown <= 0 then
 					local targetSh = nil
-					local bestDist = t.Range or 28
+					local bestDist = t.Range
 					for _, sh in ipairs(ActiveShadows) do
 						if sh.PlotIndex == plotIndex and sh.Part and sh.Part.Parent then
 							local d = (sh.Part.Position - t.Pos).Magnitude
@@ -834,19 +813,74 @@ function ShadowDefenseService.Tick(dt, clickHeatTable)
 					end
 
 					if targetSh then
-						t.Cooldown = t.AttackInterval or 2.8
+						t.Cooldown = t.AttackInterval
 						local hitPos = targetSh.Part.Position
-						ShadowDefenseService.DamageShadow(targetSh, t.Damage or 0.55, owner)
+						ShadowDefenseService.DamageShadow(targetSh, t.Damage, owner)
 						if DefenseFxEvent then
 							DefenseFxEvent:FireClient(owner, {
 								Kind = "Beam",
 								From = t.Pos,
 								To = hitPos,
-								Color = Color3.fromRGB(255, 220, 75),
+								Color = t.Color,
 							})
 						end
 					else
-						t.Cooldown = 0.35
+						t.Cooldown = 0.25
+					end
+				end
+			end
+
+			-- 2. Radiant Ward (rallenta e brucia nel perimetro)
+			if defState.Ward then
+				local w = defState.Ward
+				w.Timer += dt
+				if w.Timer >= w.TickInterval then
+					w.Timer = 0
+					for i = #ActiveShadows, 1, -1 do
+						local sh = ActiveShadows[i]
+						if sh and sh.PlotIndex == plotIndex and sh.Part and sh.Part.Parent then
+							local d = (Vector3.new(sh.Part.Position.X, plot.Origin.Y, sh.Part.Position.Z) - plot.Origin).Magnitude
+							if d <= w.Radius then
+								ShadowDefenseService.DamageShadow(sh, w.Damage, owner, nil, 0, w.SlowDuration)
+							end
+						end
+					end
+				end
+			end
+
+			-- 3. Zenith Prism Towers (priorità ai Colossi d'Ombra + Punti Alba bonus)
+			for _, p in ipairs(defState.Prisms) do
+				p.Cooldown -= dt
+				if p.Cooldown <= 0 then
+					local targetSh = nil
+					local bestScore = -1
+					for _, sh in ipairs(ActiveShadows) do
+						if sh.PlotIndex == plotIndex and sh.Part and sh.Part.Parent then
+							local d = (sh.Part.Position - p.Pos).Magnitude
+							if d <= p.Range then
+								local score = (sh.Type.Id == "brute" and 1000 or 0) + (p.Range - d)
+								if score > bestScore then
+									bestScore = score
+									targetSh = sh
+								end
+							end
+						end
+					end
+
+					if targetSh then
+						p.Cooldown = p.AttackInterval
+						local hitPos = targetSh.Part.Position
+						ShadowDefenseService.DamageShadow(targetSh, p.Damage, owner, nil, 0, 0, p.BonusDawnChance)
+						if DefenseFxEvent then
+							DefenseFxEvent:FireClient(owner, {
+								Kind = "Beam",
+								From = p.Pos,
+								To = hitPos,
+								Color = p.Color,
+							})
+						end
+					else
+						p.Cooldown = 0.3
 					end
 				end
 			end
@@ -866,7 +900,7 @@ function ShadowDefenseService.ClearPlot(plotIndex)
 	PlotGraceUntil[plotIndex] = nil
 	PlotGraceInitial[plotIndex] = nil
 	ShadowDefenseService.ClearShadowsForPlot(plotIndex)
-	BuiltTurrets[plotIndex] = nil
+	PlotDefensesState[plotIndex] = nil
 end
 
 return ShadowDefenseService

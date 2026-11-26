@@ -342,7 +342,7 @@ local function createPadBillboard(pad, titleText, descText, costText, accentColo
 	costLbl.TextSize = 10
 	costLbl.Active = false
 
-	return titleLbl, descLbl, costLbl
+	return bbg, titleLbl, descLbl, costLbl
 end
 
 function WorldBuilder.Build()
@@ -434,7 +434,6 @@ function WorldBuilder.Build()
 		end
 	end
 
-	-- === PEDANA CENTRALE COLORATA (senza colonna centrale per non bodybloccare i player) ===
 	local hubFolder = Instance.new("Folder")
 	hubFolder.Name = "CentralHub"
 	hubFolder.Parent = world
@@ -449,7 +448,6 @@ function WorldBuilder.Build()
 	makeUprightCylinder(hubFolder, "HubCenterDais", 0.12, 25, Vector3.new(0, 0.11, 0), Color3.fromRGB(54, 42, 36), Enum.Material.Marble, 0, false)
 	makeUprightCylinder(hubFolder, "HubCenterGoldTrim", 0.12, 26.4, Vector3.new(0, 0.115, 0), Color3.fromRGB(255, 205, 80), Enum.Material.Neon, 0.15, false)
 
-	-- Punto luce centrale alto e invisibile (zero collisioni al centro della mappa)
 	local hubLightAnchor = makePart(hubFolder, "HubLightAnchor", Vector3.new(1, 1, 1), CFrame.new(0, 14, 0), Color3.fromRGB(255, 195, 75), Enum.Material.SmoothPlastic, 1, false)
 	hubLightAnchor.CanQuery = false
 	hubLightAnchor.CanTouch = false
@@ -572,7 +570,6 @@ function WorldBuilder.Build()
 			end
 		end
 
-		-- Targhetta proprietario spostata a lato dell'ingresso e senza collisioni per non bodybloccare i player
 		local signPos = origin + inwardDir * (halfSize - 2.5) + rightDir * 10.5 + Vector3.new(0, 4.2, 0)
 		local signBoard = makePart(plotModel, "SignBoard", Vector3.new(10.5, 4.4, 0.6), CFrame.lookAt(signPos, signPos + inwardDir), Color3.fromRGB(18, 22, 34), Enum.Material.SmoothPlastic, 0, false)
 		signBoard.CanQuery = false
@@ -613,7 +610,7 @@ function WorldBuilder.Build()
 			table.insert(signOwnerSubs, os)
 		end
 
-		-- Pedana di claim singolo
+		-- Pedana di claim singolo (scompare completamente dopo aver svolto la sua funzione)
 		local claimPos = origin + inwardDir * 33.5 + Vector3.new(0, 0.22, 0)
 		local claimPad = makePart(
 			plotModel,
@@ -627,7 +624,7 @@ function WorldBuilder.Build()
 		)
 		claimPad.CanTouch = true
 
-		local cTitleLbl, _, cStatusLbl = createPadBillboard(
+		local cBbg, cTitleLbl, _, cStatusLbl = createPadBillboard(
 			claimPad,
 			"CLAIM SLOT #" .. tostring(i),
 			"Reclama questo braciere",
@@ -667,16 +664,6 @@ function WorldBuilder.Build()
 		flameHitbox.CanTouch = true
 		flameHitbox.CanQuery = true
 
-		-- Assicura che il braciere sia cliccabile anche se lo script server non aggiunge un proprio ClickDetector
-		task.delay(0.4, function()
-			if flameHitbox.Parent and not brazierModel:FindFirstChildWhichIsA("ClickDetector", true) then
-				local cd = Instance.new("ClickDetector")
-				cd.Name = "FlameClickDetector"
-				cd.MaxActivationDistance = 50
-				cd.Parent = flameHitbox
-			end
-		end)
-
 		local titleBbg = Instance.new("BillboardGui", flameCore)
 		titleBbg.Name = "BrazierTitleGui"
 		titleBbg.Size = UDim2.fromOffset(200, 30)
@@ -694,6 +681,7 @@ function WorldBuilder.Build()
 		flameTitle.TextSize = 15
 		flameTitle.Active = false
 
+		-- Altari a terra
 		local altarsFolder = Instance.new("Folder")
 		altarsFolder.Name = "Altars"
 		altarsFolder.Parent = plotModel
@@ -760,6 +748,29 @@ function WorldBuilder.Build()
 			)
 		end
 
+		-- Piedistalli prova Regno 1
+		local ritualFolder = Instance.new("Folder")
+		ritualFolder.Name = "Regno1Ritual"
+		ritualFolder.Parent = plotModel
+
+		if GameConfig.Regno1 and GameConfig.Regno1.Braziers then
+			for _, b in ipairs(GameConfig.Regno1.Braziers) do
+				local bPos = origin + rightDir * b.Offset.X + outwardDir * b.Offset.Z + Vector3.new(0, b.PedestalHeight * 0.5, 0)
+				local ped = makeUprightCylinder(
+					ritualFolder,
+					"Brazier_" .. tostring(b.Index),
+					b.PedestalHeight,
+					3.0,
+					bPos,
+					Color3.fromRGB(38, 44, 62),
+					Enum.Material.Marble,
+					0,
+					true
+				)
+				ped.CanTouch = true
+			end
+		end
+
 		local victoryPos = origin + outwardDir * 21.5 + Vector3.new(0, 0.25, 0)
 		local victoryPad = makePart(
 			plotModel,
@@ -771,7 +782,7 @@ function WorldBuilder.Build()
 			0.16,
 			false
 		)
-		local vTitleLbl, vDescLbl, vStatusLbl = createPadBillboard(
+		local _, vTitleLbl, vDescLbl, vStatusLbl = createPadBillboard(
 			victoryPad,
 			"👑 " .. GameConfig.VictoryButton.Name,
 			GameConfig.VictoryButton.Desc or "",
@@ -880,7 +891,7 @@ function WorldBuilder.Build()
 		defensesFolder.Name = "Defenses"
 		defensesFolder.Parent = plotModel
 
-		local spawnPos = origin + inwardDir * 29 + Vector3.new(0, 4.2, 0)
+		local spawnPos = origin + inwardDir * 28 + Vector3.new(0, 4.2, 0)
 
 		local plotEntry = {
 			Index = i,
@@ -891,6 +902,8 @@ function WorldBuilder.Build()
 			Owner = nil,
 			Claimed = false,
 			ClaimPad = claimPad,
+			ClaimPrompt = claimPrompt,
+			ClaimBillboard = cBbg,
 			ClaimStatusLabel = cStatusLbl,
 			SpeedPads = speedPads,
 			SignBoard = signBoard,
@@ -902,13 +915,41 @@ function WorldBuilder.Build()
 			FlameTitle = flameTitle,
 			EmberRing = emberRing,
 			AltarsFolder = altarsFolder,
+			RitualFolder = ritualFolder,
 			VictoryPad = victoryPad,
 			VictoryTitleLabel = vTitleLbl,
 			VictoryDescLabel = vDescLbl,
 			VictoryStatusLabel = vStatusLbl,
 			AlbaZoneRefs = albaZoneRefs,
 			DefensesFolder = defensesFolder,
+			OnManualClaimRequest = nil, -- collegato da FlameServer
 		}
+
+		local function setClaimPadVisible(visible)
+			claimPad.Transparency = visible and 0.18 or 1
+			claimPad.CanTouch = visible
+			claimPad.CanQuery = visible
+			claimPad.CanCollide = false
+			claimPrompt.Enabled = visible
+			if cBbg then
+				cBbg.Enabled = visible
+			end
+		end
+
+		plotEntry.ResetClaimVisuals = function()
+			plotEntry.Claimed = false
+			brazierLightEntry.claimed = false
+			plotModel:SetAttribute("Claimed", false)
+			plotModel:SetAttribute("OwnerUserId", nil)
+			claimPad.Color = Color3.fromRGB(255, 195, 65)
+			cTitleLbl.Text = "CLAIM SLOT #" .. tostring(i)
+			cStatusLbl.Text = "Disponibile (1x)"
+			cStatusLbl.TextColor3 = Color3.fromRGB(255, 205, 75)
+			setClaimPadVisible(true)
+			for _, bp in ipairs(borderParts) do
+				bp.Color = borderColor
+			end
+		end
 
 		local claimCooldownByUser = {}
 
@@ -919,19 +960,22 @@ function WorldBuilder.Build()
 			if not player or not player:IsA("Player") then
 				return
 			end
-			if claimedByUserId[player.UserId] ~= nil then
-				return
-			end
 			local now = os.clock()
 			if claimCooldownByUser[player.UserId] and now - claimCooldownByUser[player.UserId] < 0.8 then
 				return
 			end
 			claimCooldownByUser[player.UserId] = now
 
+			if plotEntry.OnManualClaimRequest then
+				plotEntry.OnManualClaimRequest(player, plotEntry)
+			else
+				plotEntry.Owner = player
+			end
+
 			local character = player.Character
 			local hrp = character and character:FindFirstChild("HumanoidRootPart")
 			if hrp then
-				local targetPos = origin + inwardDir * 6.0 + Vector3.new(0, 5.2, 0)
+				local targetPos = origin + inwardDir * 8.0 + Vector3.new(0, 5.2, 0)
 				hrp.CFrame = CFrame.lookAt(targetPos, origin + Vector3.new(0, 5.2, 0))
 			end
 		end
@@ -955,16 +999,16 @@ function WorldBuilder.Build()
 					plotEntry.Claimed = true
 					brazierLightEntry.claimed = true
 
+					-- Fa scomparire il tasto di claim subito dopo l'assegnazione dello slot
+					setClaimPadVisible(false)
+
 					if typeof(owner) == "Instance" and owner:IsA("Player") then
 						claimedByUserId[owner.UserId] = i
 						plotModel:SetAttribute("OwnerUserId", owner.UserId)
-						cStatusLbl.Text = owner.DisplayName
 						flameTitle.Text = owner.DisplayName .. "'s Flame"
 						for _, ot in ipairs(signOwnerTitles) do
 							ot.Text = owner.DisplayName
 						end
-					else
-						cStatusLbl.Text = "Reclamato"
 					end
 
 					for _, osLbl in ipairs(signOwnerSubs) do
@@ -972,10 +1016,6 @@ function WorldBuilder.Build()
 					end
 
 					plotModel:SetAttribute("Claimed", true)
-					claimPad.Color = Color3.fromRGB(65, 220, 125)
-					claimPrompt.Enabled = false
-					cTitleLbl.Text = "SLOT #" .. tostring(i) .. " RECLAMATO"
-					cStatusLbl.TextColor3 = Color3.fromRGB(115, 255, 165)
 
 					for _, bp in ipairs(borderParts) do
 						bp.Color = Color3.fromRGB(255, 175, 65)
@@ -989,8 +1029,10 @@ function WorldBuilder.Build()
 					end
 
 					plotClaimedEvent:Fire(i, owner)
+				elseif plotEntry.Claimed and plotEntry.Owner == nil then
+					plotEntry.ResetClaimVisuals()
 				end
-				task.wait(0.15)
+				task.wait(0.1)
 			end
 		end)
 

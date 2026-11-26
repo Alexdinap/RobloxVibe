@@ -122,6 +122,14 @@ local STRINGS = {
 		POP_FORGE_OK = "🌟 Forged Radiant %s!",
 		POP_EMBER = "🔥 Wandering Ember! +%s Light",
 
+		POP_SHADOW_KILL = "⚔️ Shadow vanquished! +%s Light",
+		POP_SHADOW_RAID = "🌑 Shadows are invading your zone! Defend the Brazier!",
+		POP_SHADOW_HIT = "💀 Shadows drained -%s Light from your Brazier!",
+
+		R1_START = "⛩️ Realm 1 Trial started! Touch Brazier II!",
+		R1_STEP_FMT = "🔥 Brazier %s lit (+%ds)! Next: %s",
+		R1_WIN_FMT = "🌟 REALM 1 COMPLETE! Blessing x%.2f Light active!",
+		R1_FAIL = "⏳ Realm 1 Trial expired! Step on Brazier I to retry.",
 		R1_BANNER_ACTIVE = "⛩️ REALM 1 TRIAL • Brazier %d/%d • %ds left",
 		R1_BANNER_BUFF = "⚡ REALM 1 BLESSING • x%.2f Light (%ds)",
 	},
@@ -247,6 +255,14 @@ local STRINGS = {
 		POP_FORGE_OK = "🌟 Forgiato %s Radioso!",
 		POP_EMBER = "🔥 Brace Vagante! +%s Luce",
 
+		POP_SHADOW_KILL = "⚔️ Ombra sconfitta! +%s Luce",
+		POP_SHADOW_RAID = "🌑 Le Ombre stanno invadendo la tua zona! Difendi il Braciere!",
+		POP_SHADOW_HIT = "💀 Le Ombre hanno drenato -%s Luce dal Braciere!",
+
+		R1_START = "⛩️ Prova Regno 1 avviata! Tocca il Braciere II!",
+		R1_STEP_FMT = "🔥 Braciere %s acceso (+%ds)! Prossimo: %s",
+		R1_WIN_FMT = "🌟 REGNO 1 COMPLETATO! Benedizione x%.2f Luce attiva!",
+		R1_FAIL = "⏳ Tempo scaduto per Regno 1! Tocca il Braciere I per riprovare.",
 		R1_BANNER_ACTIVE = "⛩️ PROVA REGNO 1 • Braciere %d/%d • %ds rimasti",
 		R1_BANNER_BUFF = "⚡ BENEDIZIONE REGNO 1 • x%.2f Luce (%ds)",
 	},

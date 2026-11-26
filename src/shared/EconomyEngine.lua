@@ -11,6 +11,7 @@ end
 function EconomyEngine.DefaultData()
 	return {
 		Language = "en",
+		TutorialCompleted = false,
 		Points = 0,
 		TotalPoints = 0,
 		TotalClicks = 0,
@@ -50,7 +51,8 @@ end
 function EconomyEngine.GetRank(lightPercent)
 	local best = GameConfig.Ranks[1]
 	for _, r in ipairs(GameConfig.Ranks) do
-		if lightPercent >= r.MinLight then
+		local minVal = r.MinPercent or r.MinLight or 0
+		if lightPercent >= minVal then
 			best = r
 		end
 	end
@@ -60,8 +62,13 @@ end
 function EconomyEngine.GetAlbaRewardPerRebirth(data)
 	local albaPerks = (data and data.AlbaPerks) or {}
 	local bonusLvl = EconomyEngine.GetLevel(albaPerks, "ap_alba_gain")
-	local base = (GameConfig.VictoryButton and GameConfig.VictoryButton.BaseAlbaReward) or 1
-	return base + bonusLvl
+	return 1 + bonusLvl
+end
+
+function EconomyEngine.GetCostDiscountMult(data)
+	local albaPerks = (data and data.AlbaPerks) or {}
+	local discLvl = EconomyEngine.GetLevel(albaPerks, "ap_discount")
+	return math.max(0.30, 1.0 - (discLvl * 0.08))
 end
 
 function EconomyEngine.GetUpgradeCompletion(data)
@@ -90,107 +97,125 @@ function EconomyEngine.CalculateStats(data, heat, regno1BuffMult, hasDoubleLight
 	local albaPerks = data.AlbaPerks or {}
 	local unlockedZones = data.UnlockedAlbaZones or {}
 
-	-- 1. Character Stats
+	-- 1. Character Upgrades
 	local baseClick = 1.0
 	local charClickMult = 1.0
+	local charPassiveAdd = 0.0
+	local charPassiveMult = 1.0
+	local charAllMult = 1.0
 	local critChance = 0.05
 	local critMult = 5.0
-	local autoClickRate = 0.0
 	local walkSpeed = 16.0
 	local extraWispSlots = 0
 	local lightPct = 4.0
-	local baseClickCooldown = GameConfig.BaseClickCooldown or 0.50
-	local minClickCooldown = GameConfig.MinClickCooldown or 0.06
+	local baseClickCooldown = 0.50
+	local minClickCooldown = 0.08
 	local cooldownReduction = 0.0
 
 	for _, u in ipairs(GameConfig.Upgrades) do
 		local lvl = EconomyEngine.GetLevel(upgrades, u.Id)
 		if lvl > 0 then
-			lightPct += (u.LightPct or 0) * lvl
-			if u.Effect == "ClickAdd" then
-				baseClick += (u.Value or 0) * lvl
-			elseif u.Effect == "ClickCooldown" then
-				cooldownReduction += (u.Value or 0) * lvl
-			elseif u.Effect == "ClickPowerMult" or u.Effect == "ClickMult" then
-				charClickMult *= ((u.Value or 1) ^ lvl)
-			elseif u.Effect == "CritChance" then
-				critChance += (u.Value or 0) * lvl
-			elseif u.Effect == "CritMult" then
-				critMult += (u.Value or 0) * lvl
-			elseif u.Effect == "AutoClick" then
-				autoClickRate += (u.Value or 0) * lvl
-			elseif u.Effect == "WalkSpeed" then
-				walkSpeed += (u.Value or 0) * lvl
-			elseif u.Effect == "ExtraWisp" then
-				extraWispSlots += (u.Value or 0) * lvl
+			lightPct += (u.LightPct or 2.0) * lvl
+			if u.CooldownReduce then
+				cooldownReduction += u.CooldownReduce * lvl
+			end
+			if u.PassiveAdd then
+				charPassiveAdd += u.PassiveAdd * lvl
+			end
+			if u.WalkSpeedAdd then
+				walkSpeed += u.WalkSpeedAdd * lvl
+			end
+			if u.CritChanceAdd then
+				critChance += u.CritChanceAdd * lvl
+			end
+			if u.CritMultAdd then
+				critMult += u.CritMultAdd * lvl
+			end
+			if u.ClickMult then
+				charClickMult *= (u.ClickMult ^ lvl)
+			end
+			if u.PassiveMult then
+				charPassiveMult *= (u.PassiveMult ^ lvl)
+			end
+			if u.AllMult then
+				charAllMult *= (u.AllMult ^ lvl)
+			end
+			if u.WispSlotAdd then
+				extraWispSlots += u.WispSlotAdd * lvl
 			end
 		end
 	end
 
 	local clickCooldown = math.max(minClickCooldown, baseClickCooldown - cooldownReduction)
 
-	-- 2. Ground Buttons & Brazier Stats
+	-- 2. Ground Pads & Brazier Stats
 	local brazierPps = 0.0
-	local brazierMult = 1.0
+	local brazierAllMult = 1.0
+	local colorLightBonus = 0.0
 	local radiusLevel = 1
 	local heatBonusMax = 0.0
 	local brazierColor = Color3.fromRGB(255, 145, 45)
 	local highestColorTier = 0
 	local totalBrazierLevels = 0
 
-	for _, alt in ipairs(GameConfig.Altars) do
+	for idx, alt in ipairs(GameConfig.Altars) do
 		local lvl = EconomyEngine.GetLevel(altars, alt.Id)
 		if lvl > 0 then
 			totalBrazierLevels += lvl
-			if alt.ClickAdd then
-				baseClick += alt.ClickAdd * lvl
+			if alt.ClickBonus then
+				baseClick += alt.ClickBonus * lvl
 			end
-			brazierPps += (alt.Pps or 0) * lvl
-			if alt.BrazierMult then
-				brazierMult *= (alt.BrazierMult ^ lvl)
+			if alt.PassiveBonus then
+				brazierPps += alt.PassiveBonus * lvl
+			end
+			if alt.MultBonus then
+				brazierAllMult *= ((1 + alt.MultBonus) ^ lvl)
 			end
 			if alt.RadiusBonus then
 				radiusLevel += alt.RadiusBonus * lvl
 			end
-			if alt.HeatBonus then
-				heatBonusMax += alt.HeatBonus * lvl
+			if alt.HeatCapBonus then
+				heatBonusMax += alt.HeatCapBonus * lvl
 			end
-			if alt.BrazierColor and (alt.ColorTier or 1) >= highestColorTier then
-				highestColorTier = alt.ColorTier or 1
+			if alt.AllLightBonus then
+				colorLightBonus += alt.AllLightBonus * lvl
+			end
+			if alt.BrazierColor and idx >= highestColorTier then
+				highestColorTier = idx
 				brazierColor = alt.BrazierColor
 			end
 		end
 	end
 
-	lightPct += math.min(50, totalBrazierLevels * 0.45)
+	local colorMult = 1.0 + colorLightBonus
+	lightPct += math.min(55, totalBrazierLevels * 0.45)
 
 	-- 3. Equipped Light Wisps
-	local maxWispSlots = GameConfig.BaseEquippedWisps + extraWispSlots
+	local baseWispSlots = GameConfig.BaseEquippedWisps or 3
+	local maxWispSlots = baseWispSlots + extraWispSlots
 	local allWisps = {}
 	for _, rawId in ipairs(data.Wisps or {}) do
 		local cfg, isRad = EconomyEngine.ParseWispId(rawId)
 		if cfg then
-			local mult = cfg.ClickMult * (isRad and 2.5 or 1.0)
-			table.insert(allWisps, { RawId = rawId, Config = cfg, Mult = mult })
+			local cMult = cfg.ClickMult * (isRad and 2.5 or 1.0)
+			local pMult = (cfg.PassiveMult or cfg.ClickMult) * (isRad and 2.5 or 1.0)
+			table.insert(allWisps, { RawId = rawId, Config = cfg, ClickMult = cMult, PassiveMult = pMult })
 		end
 	end
-	table.sort(allWisps, function(a, b) return a.Mult > b.Mult end)
+	table.sort(allWisps, function(a, b) return a.ClickMult > b.ClickMult end)
 
 	local equippedWisps = {}
-	local wispMult = 1.0
+	local wispClickMult = 1.0
+	local wispPassiveMult = 1.0
 	for i = 1, math.min(#allWisps, maxWispSlots) do
 		table.insert(equippedWisps, allWisps[i])
-		wispMult *= allWisps[i].Mult
+		wispClickMult *= allWisps[i].ClickMult
+		wispPassiveMult *= allWisps[i].PassiveMult
 	end
 
-	-- 4. Dawn Perks & Unlocked Zones
-	local albaPowerLvl = EconomyEngine.GetLevel(albaPerks, "ap_power")
-	local albaMult = (albaPowerLvl > 0) and (2.5 ^ albaPowerLvl) or 1.0
-
-	local albaCritLvl = EconomyEngine.GetLevel(albaPerks, "ap_crit")
-	if albaCritLvl > 0 then
-		critMult *= (2 ^ albaCritLvl)
-	end
+	-- 4. Dawn Perks & Unlocked Monument Zones
+	local albaMultLvl = EconomyEngine.GetLevel(albaPerks, "ap_mult")
+	local albaMult = 1.0 + (albaMultLvl * 0.50)
 
 	local zonesMult = 1.0
 	local unlockedZonesCount = 1
@@ -201,16 +226,17 @@ function EconomyEngine.CalculateStats(data, heat, regno1BuffMult, hasDoubleLight
 		end
 	end
 
-	local regno1PermMult = (data.Regno1 and data.Regno1.Completed) and (GameConfig.Regno1.PermanentBlessingMult or 1.35) or 1.0
+	local r1Cfg = GameConfig.Regno1 or {}
+	local regno1PermMult = (data.Regno1 and data.Regno1.Completed) and (r1Cfg.PermanentBlessingMult or 1.35) or 1.0
 	local activeBuff = regno1BuffMult or 1.0
 	local passMult = (hasDoubleLight or data.HasDoubleLight) and 2.0 or 1.0
 
 	local clampedHeat = math.clamp(heat or 0, 0, 1)
 	local heatMult = 1.0 + clampedHeat * (0.5 + heatBonusMax)
 
-	local sharedMult = wispMult * albaMult * zonesMult * regno1PermMult * activeBuff * passMult * heatMult
-	local clickPower = baseClick * charClickMult * sharedMult
-	local pointsPerSec = (brazierPps * brazierMult * sharedMult) + (autoClickRate * clickPower)
+	local globalMult = charAllMult * brazierAllMult * colorMult * albaMult * zonesMult * regno1PermMult * activeBuff * passMult * heatMult
+	local clickPower = baseClick * charClickMult * wispClickMult * globalMult
+	local pointsPerSec = (brazierPps + charPassiveAdd) * charPassiveMult * wispPassiveMult * globalMult
 
 	local allCompleted, completedCount, totalCount = EconomyEngine.GetUpgradeCompletion(data)
 
@@ -229,7 +255,7 @@ function EconomyEngine.CalculateStats(data, heat, regno1BuffMult, hasDoubleLight
 		CritChance = math.min(0.75, critChance),
 		CritMult = critMult,
 		WispsUnlocked = EconomyEngine.GetLevel(upgrades, "u_unlock_wisps") > 0,
-		AlbaUnlocked = (EconomyEngine.GetLevel(upgrades, "u_unlock_alba") > 0) or ((data.AlbaCount or 0) > 0) or ((data.AlbaPoints or 0) > 0),
+		AlbaUnlocked = (allCompleted == true) or ((data.AlbaCount or 0) > 0) or ((data.AlbaPoints or 0) > 0),
 		HasDoubleLight = (hasDoubleLight == true or data.HasDoubleLight == true),
 		AllUpgradesCompleted = allCompleted,
 		CompletedUpgradesCount = completedCount,

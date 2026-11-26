@@ -7,6 +7,10 @@ GameConfig.PlotHalfSize = 42
 GameConfig.InitialShadowGraceSeconds = 180 -- 3 minuti all'ingresso
 GameConfig.RebirthShadowGraceSeconds = 120 -- 2 minuti dopo ogni Rinascita
 
+GameConfig.BaseClickCooldown = 0.50
+GameConfig.MinClickCooldown = 0.06
+GameConfig.BaseEquippedWisps = 3
+
 GameConfig.RobuxPasses = {
 	DoubleLight = {
 		GamePassId = 0, -- Inserisci qui il tuo GamePass ID Roblox
@@ -14,7 +18,24 @@ GameConfig.RobuxPasses = {
 	},
 }
 
--- Bottoni a terra attorno al Braciere (con descrizioni EN/IT e costi progressivi)
+GameConfig.Regno1 = {
+	UnlockUpgradeId = "u_braziers",
+	BaseTime = 35,
+	BonusTimePerBrazier = 8,
+	RetryCooldown = 10,
+	PermanentBlessingMult = 1.35,
+	BuffMinMult = 1.50,
+	BuffMaxMult = 2.50,
+	BuffDuration = 90,
+	Braziers = {
+		{ Index = 1, Numeral = "I",   Offset = Vector3.new(-26, 0, -24), PedestalHeight = 3.2 },
+		{ Index = 2, Numeral = "II",  Offset = Vector3.new(26, 0, -24),  PedestalHeight = 3.6 },
+		{ Index = 3, Numeral = "III", Offset = Vector3.new(28, 0, 12),   PedestalHeight = 4.0 },
+		{ Index = 4, Numeral = "IV",  Offset = Vector3.new(-28, 0, 12),  PedestalHeight = 4.4 },
+		{ Index = 5, Numeral = "V",   Offset = Vector3.new(0, 0, -31),   PedestalHeight = 5.0 },
+	},
+}
+
 GameConfig.Altars = {
 	{
 		Id = "alt_click",
@@ -97,7 +118,7 @@ GameConfig.Altars = {
 		Color = Color3.fromRGB(215, 130, 255),
 	},
 
-	-- Bottoni Colore Fiamma (sblocco unico con bonus permanenti fino alla Rinascita)
+	-- Bottoni Colore Fiamma
 	{
 		Id = "alt_col_amber",
 		Name = "Amber Flame",
@@ -110,6 +131,7 @@ GameConfig.Altars = {
 		CostMult = 1,
 		MaxLevel = 1,
 		IsColorButton = true,
+		ColorTier = 1,
 		BrazierColor = Color3.fromRGB(255, 175, 45),
 		AllLightBonus = 0.15,
 		Color = Color3.fromRGB(255, 175, 45),
@@ -126,6 +148,7 @@ GameConfig.Altars = {
 		CostMult = 1,
 		MaxLevel = 1,
 		IsColorButton = true,
+		ColorTier = 2,
 		BrazierColor = Color3.fromRGB(70, 225, 255),
 		AllLightBonus = 0.35,
 		Color = Color3.fromRGB(70, 225, 255),
@@ -142,6 +165,7 @@ GameConfig.Altars = {
 		CostMult = 1,
 		MaxLevel = 1,
 		IsColorButton = true,
+		ColorTier = 3,
 		BrazierColor = Color3.fromRGB(195, 100, 255),
 		AllLightBonus = 0.75,
 		Color = Color3.fromRGB(195, 100, 255),
@@ -158,13 +182,13 @@ GameConfig.Altars = {
 		CostMult = 1,
 		MaxLevel = 1,
 		IsColorButton = true,
+		ColorTier = 4,
 		BrazierColor = Color3.fromRGB(245, 250, 255),
 		AllLightBonus = 1.50,
 		Color = Color3.fromRGB(245, 250, 255),
 	},
 }
 
--- Potenziamenti nel Menu Personaggio (primi livelli accessibili, moltiplicatori e livelli alti molto costosi)
 GameConfig.Upgrades = {
 	{
 		Id = "u_click_cooldown",
@@ -182,6 +206,7 @@ GameConfig.Upgrades = {
 		SteepFactor = 0.25,
 		MaxLevel = 10,
 		CooldownReduce = 0.04,
+		LightPct = 2,
 	},
 	{
 		Id = "u_auto_1",
@@ -199,6 +224,7 @@ GameConfig.Upgrades = {
 		SteepFactor = 0.20,
 		MaxLevel = 25,
 		PassiveAdd = 5,
+		LightPct = 1,
 	},
 	{
 		Id = "u_walkspeed",
@@ -216,6 +242,7 @@ GameConfig.Upgrades = {
 		SteepFactor = 0.22,
 		MaxLevel = 10,
 		WalkSpeedAdd = 2,
+		LightPct = 1,
 	},
 	{
 		Id = "u_crit_chance",
@@ -233,6 +260,7 @@ GameConfig.Upgrades = {
 		SteepFactor = 0.25,
 		MaxLevel = 12,
 		CritChanceAdd = 0.03,
+		LightPct = 1.5,
 		ReqId = "u_click_cooldown",
 		ReqLvl = 1,
 	},
@@ -249,6 +277,7 @@ GameConfig.Upgrades = {
 		BaseCost = 650,
 		CostMult = 1,
 		MaxLevel = 1,
+		LightPct = 3,
 		ReqId = "u_walkspeed",
 		ReqLvl = 1,
 	},
@@ -268,6 +297,7 @@ GameConfig.Upgrades = {
 		SteepFactor = 0.30,
 		MaxLevel = 15,
 		ClickMult = 1.35,
+		LightPct = 1.5,
 		ReqId = "u_crit_chance",
 		ReqLvl = 1,
 	},
@@ -284,6 +314,7 @@ GameConfig.Upgrades = {
 		BaseCost = 2500,
 		CostMult = 1,
 		MaxLevel = 1,
+		LightPct = 4,
 		ReqId = "u_auto_1",
 		ReqLvl = 2,
 	},
@@ -303,6 +334,7 @@ GameConfig.Upgrades = {
 		SteepFactor = 0.28,
 		MaxLevel = 12,
 		CritMultAdd = 0.6,
+		LightPct = 1.5,
 		ReqId = "u_crit_chance",
 		ReqLvl = 2,
 	},
@@ -322,6 +354,7 @@ GameConfig.Upgrades = {
 		SteepFactor = 0.32,
 		MaxLevel = 15,
 		PassiveMult = 1.40,
+		LightPct = 1.5,
 		ReqId = "u_auto_1",
 		ReqLvl = 4,
 	},
@@ -341,6 +374,7 @@ GameConfig.Upgrades = {
 		SteepFactor = 0.35,
 		MaxLevel = 5,
 		WispSlotAdd = 1,
+		LightPct = 2,
 		ReqId = "u_unlock_wisps",
 		ReqLvl = 1,
 	},
@@ -357,6 +391,7 @@ GameConfig.Upgrades = {
 		BaseCost = 45000,
 		CostMult = 1,
 		MaxLevel = 1,
+		LightPct = 5,
 		ReqId = "u_mult_click_1",
 		ReqLvl = 2,
 	},
@@ -376,6 +411,7 @@ GameConfig.Upgrades = {
 		SteepFactor = 0.38,
 		MaxLevel = 15,
 		AllMult = 1.45,
+		LightPct = 2,
 		ReqId = "u_mult_passive_1",
 		ReqLvl = 2,
 	},
@@ -395,6 +431,7 @@ GameConfig.Upgrades = {
 		SteepFactor = 0.45,
 		MaxLevel = 12,
 		AllMult = 1.75,
+		LightPct = 2.5,
 		ReqId = "u_mult_all_1",
 		ReqLvl = 3,
 	},
@@ -407,6 +444,7 @@ GameConfig.VictoryButton = {
 	Desc_it = "Richiede TUTTI i potenziamenti e bottoni al MAX. Azzera la Luce per Punti Alba!",
 	BaseCost = 25000000000,
 	CostMult = 3.5,
+	BaseAlbaReward = 1,
 }
 
 GameConfig.AlbaPerks = {
@@ -452,8 +490,6 @@ GameConfig.AlbaPerks = {
 	},
 }
 
--- 4 Zone Extra acquistabili con Punti Alba: disposte a ventaglio ben distanziate all'esterno del plot
--- CatalogAssetId: ID reali del Creator Store Roblox (con fallback architettonico automatico se Third-Party Assets è disattivato)
 GameConfig.AlbaZones = {
 	{
 		Id = "az_2",
@@ -464,10 +500,10 @@ GameConfig.AlbaZones = {
 		Desc_it = "Terrazza di marmo con la Fontana dell'Alba. Dona x1.50 Luce totale.",
 		Cost = 1,
 		LightMult = 1.50,
-		FanAngle = -42, -- gradi rispetto all'asse esterno del plot
-		Distance = 88,  -- distanza dal centro del plot
+		FanAngle = -42,
+		Distance = 88,
 		Color = Color3.fromRGB(255, 200, 85),
-		CatalogAssetId = 1522, -- Classic Roblox Fountain
+		CatalogAssetId = 1522,
 		MonumentType = "Fountain",
 	},
 	{
@@ -482,7 +518,7 @@ GameConfig.AlbaZones = {
 		FanAngle = -14,
 		Distance = 96,
 		Color = Color3.fromRGB(90, 225, 255),
-		CatalogAssetId = 384227221, -- Roblox Catalog Statue
+		CatalogAssetId = 384227221,
 		MonumentType = "Obelisk",
 	},
 	{
@@ -497,7 +533,7 @@ GameConfig.AlbaZones = {
 		FanAngle = 14,
 		Distance = 96,
 		Color = Color3.fromRGB(205, 125, 255),
-		CatalogAssetId = 118095201795774, -- Roman Greek Statue Sculpture Marble Ancient
+		CatalogAssetId = 118095201795774,
 		MonumentType = "Temple",
 	},
 	{
@@ -671,16 +707,18 @@ local function computeSteepCurve(baseCost, costMult, lvl, steepAfter, steepFacto
 	return cost
 end
 
-function GameConfig.GetAltarCost(alt, lvl, albaCount)
+function GameConfig.GetAltarCost(alt, lvl, albaCount, discountLvl)
 	local rebirthScale = 1 + (albaCount or 0) * 0.35
+	local discountMult = math.max(0.25, 1 - (discountLvl or 0) * 0.08)
 	local raw = computeSteepCurve(alt.BaseCost, alt.CostMult or 1.5, lvl, alt.SteepAfterLevel, alt.SteepFactor)
-	return math.max(1, math.floor(raw * rebirthScale))
+	return math.max(1, math.floor(raw * rebirthScale * discountMult))
 end
 
-function GameConfig.GetUpgradeCost(upg, lvl, albaCount)
+function GameConfig.GetUpgradeCost(upg, lvl, albaCount, discountLvl)
 	local rebirthScale = 1 + (albaCount or 0) * 0.35
+	local discountMult = math.max(0.25, 1 - (discountLvl or 0) * 0.08)
 	local raw = computeSteepCurve(upg.BaseCost, upg.CostMult or 1.8, lvl, upg.SteepAfterLevel, upg.SteepFactor)
-	return math.max(1, math.floor(raw * rebirthScale))
+	return math.max(1, math.floor(raw * rebirthScale * discountMult))
 end
 
 function GameConfig.GetVictoryCost(albaCount)
