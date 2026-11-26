@@ -544,9 +544,14 @@ local ZonePadCooldown = {}
 
 for _, plot in ipairs(plots) do
 	if plot.FlameHitbox then
-		local cd = Instance.new("ClickDetector")
+		local cd = plot.FlameHitbox:FindFirstChildOfClass("ClickDetector") or Instance.new("ClickDetector")
 		cd.MaxActivationDistance = 75
 		cd.Parent = plot.FlameHitbox
+		cd.MouseClick:Connect(function(plr)
+			if plot.Owner == plr then
+				handleFlameClick(plr)
+			end
+		end)
 	end
 
 	TouchingByPlot[plot.Index] = {}

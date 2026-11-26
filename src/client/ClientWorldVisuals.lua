@@ -16,11 +16,12 @@ local ritualOrbCache = {}
 
 function ClientWorldVisuals.GetMyPlotModel()
 	local world = Workspace:FindFirstChild("LastFlameWorld")
-	local plotsFolder = world and world:FindFirstChild("Plots")
-	if not plotsFolder then return nil end
+	if not world then return nil end
 
 	local plotIndex = Players.LocalPlayer:GetAttribute("PlotIndex") or 1
-	return plotsFolder:FindFirstChild("Plot_" .. tostring(plotIndex))
+	local plotName = "Plot_" .. tostring(plotIndex)
+	local plotsFolder = world:FindFirstChild("Plots")
+	return (plotsFolder and plotsFolder:FindFirstChild(plotName)) or world:FindFirstChild(plotName)
 end
 
 function ClientWorldVisuals.GetMyFlameCore()
@@ -118,7 +119,7 @@ function ClientWorldVisuals.Update(st)
 				local maxLvl = alt.MaxLevel or 1
 				local lvl = altars[alt.Id] or 0
 				local maxed = lvl >= maxLvl
-				local cost = math.floor(alt.BaseCost * (alt.CostMult ^ lvl))
+				local cost = GameConfig.GetAltarCost(alt, lvl, st.AlbaCount or 0)
 				local canAfford = (not maxed) and (points >= cost)
 				local altName = Localization.Pick(lang, alt.Name, alt.Name_it)
 				local benefit = Localization.Pick(lang, alt.BenefitTag, alt.BenefitTag_it)
@@ -135,9 +136,10 @@ function ClientWorldVisuals.Update(st)
 				end
 
 				local bbg = pad:FindFirstChildOfClass("BillboardGui")
-				if bbg then
-					local t1 = bbg:FindFirstChild("TitleLabel")
-					local t2 = bbg:FindFirstChild("CostLabel")
+				local container = bbg and (bbg:FindFirstChildOfClass("Frame") or bbg)
+				if container then
+					local t1 = container:FindFirstChild("TitleLabel")
+					local t2 = container:FindFirstChild("CostLabel")
 					if t1 then
 						if alt.IsColorButton then
 							t1.Text = maxed and ("✅ " .. altName) or ("🎨 " .. altName)
@@ -162,30 +164,16 @@ function ClientWorldVisuals.Update(st)
 		end
 	end
 
-	local vModel = plotModel:FindFirstChild("VictoryButtonPedestal")
-	if vModel then
-		local showVictory = (st.AllUpgradesCompleted == true)
-		local vCost = (GameConfig.VictoryButton and GameConfig.VictoryButton.Cost) or 5e8
-
-		for _, child in ipairs(vModel:GetChildren()) do
-			if child:IsA("BasePart") then
-				child.Transparency = showVictory and 0 or 1
-			end
-		end
-
-		local vPad = vModel:FindFirstChild("VictoryPad")
-		if vPad then
-			local bbg = vPad:FindFirstChild("VictoryBillboard")
-			if bbg then
-				bbg.Enabled = showVictory
-			end
-			if showVictory then
-				if points >= vCost then
-					vPad.Color = Color3.fromRGB(70, 245, 145)
-				else
-					vPad.Color = Color3.fromRGB(255, 215, 75)
-				end
-			end
+	local vPad = plotModel:FindFirstChild("VictoryPad")
+	if vPad and vPad:IsA("BasePart") then
+		local readyToRebirth = (st.AllUpgradesCompleted == true)
+		local vCost = GameConfig.GetVictoryCost(st.AlbaCount or 0)
+		if readyToRebirth and points >= vCost then
+			vPad.Color = Color3.fromRGB(70, 245, 145)
+		elseif readyToRebirth then
+			vPad.Color = Color3.fromRGB(255, 215, 75)
+		else
+			vPad.Color = Color3.fromRGB(140, 120, 60)
 		end
 	end
 end
@@ -218,6 +206,7 @@ function ClientWorldVisuals.UpdateRegno1(r1State)
 				local bbg = Instance.new("BillboardGui", orb)
 				bbg.Size = UDim2.fromOffset(80, 24)
 				bbg.StudsOffset = Vector3.new(0, 2.6, 0)
+				bbg.Active = false
 				local lbl = Instance.new("TextLabel", bbg)
 				lbl.Size = UDim2.fromScale(1, 1)
 				lbl.BackgroundTransparency = 1
@@ -226,6 +215,7 @@ function ClientWorldVisuals.UpdateRegno1(r1State)
 				lbl.TextStrokeTransparency = 0.25
 				lbl.Font = Enum.Font.GothamBlack
 				lbl.TextSize = 13
+				lbl.Active = false
 
 				entry = { Orb = orb, Light = light, Billboard = bbg }
 				ritualOrbCache[b.Index] = entry
