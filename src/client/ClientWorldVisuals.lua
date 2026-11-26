@@ -163,10 +163,10 @@ function ClientWorldVisuals.Update(st)
 					end
 					if t2 then
 						if maxed then
-							t2.Text = alt.IsColorButton and (Localization.T(lang, "ACTIVE_GROUND_PAD") .. " (" .. (benefit or "") .. ")") or Localization.T(lang, "MAX_GROUND_PAD")
+							t2.Text = alt.IsColorButton and Localization.T(lang, "ACTIVE_GROUND_PAD") or Localization.T(lang, "MAX_GROUND_PAD")
 							t2.TextColor3 = Color3.fromRGB(95, 245, 155)
 						elseif alt.IsColorButton then
-							t2.Text = NumberFormat.Format(cost) .. " " .. lightUnit .. " • " .. (benefit or "")
+							t2.Text = (canAfford and "✅ " or "") .. NumberFormat.Format(cost) .. " " .. lightUnit
 							t2.TextColor3 = canAfford and Color3.fromRGB(95, 255, 155) or Color3.fromRGB(225, 230, 242)
 						else
 							t2.Text = (canAfford and "✅ " or "") .. NumberFormat.Format(cost) .. " " .. lightUnit

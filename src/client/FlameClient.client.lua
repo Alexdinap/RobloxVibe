@@ -254,10 +254,9 @@ mouse.Button1Down:Connect(function()
 	local target = mouse.Target
 	if not target then return end
 	local myPlot = ClientWorldVisuals.GetMyPlotModel()
-	if myPlot and target:IsDescendantOf(myPlot) then
-		if target.Name == "FlameHitbox" or target.Name == "FlameCore" or target.Name == "BrazierBowl" or target.Name == "EmberRing" then
-			tryClickMyFlame()
-		end
+	local brazier = myPlot and myPlot:FindFirstChild("Brazier")
+	if brazier and target:IsDescendantOf(brazier) then
+		tryClickMyFlame()
 	end
 end)
 

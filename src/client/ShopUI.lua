@@ -92,29 +92,97 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 	graceLabel.TextSize = 13
 	graceLabel.ZIndex = 17
 
-	local bottomBar = Instance.new("Frame", parentGui)
-	bottomBar.Name = "BigMenuLaunchBar"
-	bottomBar.AnchorPoint = Vector2.new(0.5, 1)
-	bottomBar.Position = UDim2.new(0.5, 0, 1, -14)
-	bottomBar.Size = UDim2.fromOffset(620, 52)
-	bottomBar.BackgroundTransparency = 1
-	bottomBar.ZIndex = 15
+	-- === DOCK LATERALE SINISTRA (Menù Principale + La Mia Zona) ===
+	local leftDock = Instance.new("Frame", parentGui)
+	leftDock.Name = "LeftSideActionBar"
+	leftDock.AnchorPoint = Vector2.new(0, 0.5)
+	leftDock.Position = UDim2.new(0, 14, 0.52, 0)
+	leftDock.Size = UDim2.fromOffset(172, 98)
+	leftDock.BackgroundTransparency = 1
+	leftDock.ZIndex = 15
 
-	local homeBtn = Instance.new("TextButton", bottomBar)
+	local leftLayout = Instance.new("UIListLayout", leftDock)
+	leftLayout.Padding = UDim.new(0, 8)
+	leftLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+	local toggleBtn = Instance.new("TextButton", leftDock)
+	toggleBtn.Name = "BigOpenMenuButton"
+	toggleBtn.LayoutOrder = 1
+	toggleBtn.Size = UDim2.new(1, 0, 0, 48)
+	toggleBtn.BackgroundColor3 = Color3.fromRGB(20, 22, 34)
+	toggleBtn.BackgroundTransparency = 0.06
+	toggleBtn.Text = ""
+	toggleBtn.AutoButtonColor = true
+	toggleBtn.ZIndex = 15
+	Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(0, 12)
+
+	local toggleStroke = Instance.new("UIStroke", toggleBtn)
+	toggleStroke.Color = THEME.Gold
+	toggleStroke.Thickness = 1.6
+
+	local toggleIconBg = Instance.new("TextLabel", toggleBtn)
+	toggleIconBg.Size = UDim2.fromOffset(30, 30)
+	toggleIconBg.Position = UDim2.fromOffset(8, 9)
+	toggleIconBg.BackgroundColor3 = Color3.fromRGB(44, 34, 18)
+	toggleIconBg.Text = "🧙"
+	toggleIconBg.TextSize = 15
+	toggleIconBg.ZIndex = 16
+	Instance.new("UICorner", toggleIconBg).CornerRadius = UDim.new(0, 8)
+
+	local toggleLabel = Instance.new("TextLabel", toggleBtn)
+	toggleLabel.Size = UDim2.new(1, -46, 0, 17)
+	toggleLabel.Position = UDim2.fromOffset(44, 7)
+	toggleLabel.BackgroundTransparency = 1
+	toggleLabel.Text = Localization.T("en", "CHAR_BTN_TITLE")
+	toggleLabel.TextColor3 = THEME.TextMain
+	toggleLabel.TextXAlignment = Enum.TextXAlignment.Left
+	toggleLabel.TextTruncate = Enum.TextTruncate.AtEnd
+	toggleLabel.Font = Enum.Font.GothamBlack
+	toggleLabel.TextSize = 11
+	toggleLabel.ZIndex = 16
+
+	local toggleSub = Instance.new("TextLabel", toggleBtn)
+	toggleSub.Size = UDim2.new(1, -46, 0, 14)
+	toggleSub.Position = UDim2.fromOffset(44, 25)
+	toggleSub.BackgroundTransparency = 1
+	toggleSub.Text = Localization.T("en", "CHAR_BTN_SUB")
+	toggleSub.TextColor3 = Color3.fromRGB(150, 164, 192)
+	toggleSub.TextXAlignment = Enum.TextXAlignment.Left
+	toggleSub.TextTruncate = Enum.TextTruncate.AtEnd
+	toggleSub.Font = Enum.Font.Gotham
+	toggleSub.TextSize = 9
+	toggleSub.ZIndex = 16
+
+	local readyBadge = Instance.new("TextLabel", toggleBtn)
+	readyBadge.Name = "ReadyBadge"
+	readyBadge.AnchorPoint = Vector2.new(0.5, 0.5)
+	readyBadge.Position = UDim2.new(1, -4, 0, 4)
+	readyBadge.Size = UDim2.fromOffset(20, 20)
+	readyBadge.BackgroundColor3 = THEME.Gold
+	readyBadge.Text = "0"
+	readyBadge.TextColor3 = Color3.fromRGB(16, 16, 22)
+	readyBadge.Font = Enum.Font.GothamBlack
+	readyBadge.TextSize = 10
+	readyBadge.Visible = false
+	readyBadge.ZIndex = 18
+	Instance.new("UICorner", readyBadge).CornerRadius = UDim.new(1, 0)
+
+	local homeBtn = Instance.new("TextButton", leftDock)
 	homeBtn.Name = "TeleportHomeButton"
-	homeBtn.Position = UDim2.fromOffset(0, 0)
-	homeBtn.Size = UDim2.fromOffset(122, 52)
-	homeBtn.BackgroundColor3 = Color3.fromRGB(24, 34, 48)
+	homeBtn.LayoutOrder = 2
+	homeBtn.Size = UDim2.new(1, 0, 0, 38)
+	homeBtn.BackgroundColor3 = Color3.fromRGB(22, 30, 44)
+	homeBtn.BackgroundTransparency = 0.06
 	homeBtn.Text = Localization.T("en", "MY_ZONE_BTN")
 	homeBtn.TextColor3 = THEME.Cyan
 	homeBtn.Font = Enum.Font.GothamBold
-	homeBtn.TextSize = 12
+	homeBtn.TextSize = 11
 	homeBtn.ZIndex = 15
-	Instance.new("UICorner", homeBtn).CornerRadius = UDim.new(0, 14)
+	Instance.new("UICorner", homeBtn).CornerRadius = UDim.new(0, 12)
 
 	local homeStroke = Instance.new("UIStroke", homeBtn)
 	homeStroke.Color = THEME.Cyan
-	homeStroke.Thickness = 1.6
+	homeStroke.Thickness = 1.4
 
 	homeBtn.MouseButton1Click:Connect(function()
 		if remotes and remotes.TeleportHome then
@@ -122,102 +190,58 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 		end
 	end)
 
-	local toggleBtn = Instance.new("TextButton", bottomBar)
-	toggleBtn.Name = "BigOpenMenuButton"
-	toggleBtn.Position = UDim2.fromOffset(130, 0)
-	toggleBtn.Size = UDim2.fromOffset(224, 52)
-	toggleBtn.BackgroundColor3 = Color3.fromRGB(22, 24, 36)
-	toggleBtn.Text = ""
-	toggleBtn.AutoButtonColor = true
-	toggleBtn.ZIndex = 15
-	Instance.new("UICorner", toggleBtn).CornerRadius = UDim.new(0, 14)
+	-- === DOCK LATERALE DESTRA (Boost x2 + Tutorial) ===
+	local rightDock = Instance.new("Frame", parentGui)
+	rightDock.Name = "RightSideActionBar"
+	rightDock.AnchorPoint = Vector2.new(1, 0.5)
+	rightDock.Position = UDim2.new(1, -14, 0.52, 0)
+	rightDock.Size = UDim2.fromOffset(152, 90)
+	rightDock.BackgroundTransparency = 1
+	rightDock.ZIndex = 15
 
-	local toggleStroke = Instance.new("UIStroke", toggleBtn)
-	toggleStroke.Color = THEME.Gold
-	toggleStroke.Thickness = 1.8
+	local rightLayout = Instance.new("UIListLayout", rightDock)
+	rightLayout.Padding = UDim.new(0, 8)
+	rightLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
-	local toggleIconBg = Instance.new("TextLabel", toggleBtn)
-	toggleIconBg.Size = UDim2.fromOffset(34, 34)
-	toggleIconBg.Position = UDim2.fromOffset(9, 9)
-	toggleIconBg.BackgroundColor3 = Color3.fromRGB(44, 34, 18)
-	toggleIconBg.Text = "🧙"
-	toggleIconBg.TextSize = 18
-	toggleIconBg.ZIndex = 16
-	Instance.new("UICorner", toggleIconBg).CornerRadius = UDim.new(0, 10)
+	local dockBoostBtn = Instance.new("TextButton", rightDock)
+	dockBoostBtn.Name = "BigDoubleLightButton"
+	dockBoostBtn.LayoutOrder = 1
+	dockBoostBtn.Size = UDim2.new(1, 0, 0, 40)
+	dockBoostBtn.BackgroundColor3 = Color3.fromRGB(38, 28, 16)
+	dockBoostBtn.BackgroundTransparency = 0.06
+	dockBoostBtn.Text = Localization.T("en", "ROBUX_X2_BTN")
+	dockBoostBtn.TextColor3 = THEME.Gold
+	dockBoostBtn.Font = Enum.Font.GothamBold
+	dockBoostBtn.TextSize = 11
+	dockBoostBtn.ZIndex = 15
+	Instance.new("UICorner", dockBoostBtn).CornerRadius = UDim.new(0, 12)
 
-	local toggleLabel = Instance.new("TextLabel", toggleBtn)
-	toggleLabel.Size = UDim2.new(1, -54, 0, 20)
-	toggleLabel.Position = UDim2.fromOffset(50, 7)
-	toggleLabel.BackgroundTransparency = 1
-	toggleLabel.Text = Localization.T("en", "CHAR_BTN_TITLE")
-	toggleLabel.TextColor3 = THEME.TextMain
-	toggleLabel.TextXAlignment = Enum.TextXAlignment.Left
-	toggleLabel.Font = Enum.Font.GothamBlack
-	toggleLabel.TextSize = 13
-	toggleLabel.ZIndex = 16
+	local dockBoostStroke = Instance.new("UIStroke", dockBoostBtn)
+	dockBoostStroke.Color = THEME.Gold
+	dockBoostStroke.Thickness = 1.4
 
-	local toggleSub = Instance.new("TextLabel", toggleBtn)
-	toggleSub.Size = UDim2.new(1, -54, 0, 16)
-	toggleSub.Position = UDim2.fromOffset(50, 28)
-	toggleSub.BackgroundTransparency = 1
-	toggleSub.Text = Localization.T("en", "CHAR_BTN_SUB")
-	toggleSub.TextColor3 = THEME.TextSub
-	toggleSub.TextXAlignment = Enum.TextXAlignment.Left
-	toggleSub.Font = Enum.Font.Gotham
-	toggleSub.TextSize = 11
-	toggleSub.ZIndex = 16
-
-	local readyBadge = Instance.new("TextLabel", toggleBtn)
-	readyBadge.Name = "ReadyBadge"
-	readyBadge.AnchorPoint = Vector2.new(0.5, 0.5)
-	readyBadge.Position = UDim2.fromOffset(4, 4)
-	readyBadge.Size = UDim2.fromOffset(22, 22)
-	readyBadge.BackgroundColor3 = THEME.Gold
-	readyBadge.Text = "0"
-	readyBadge.TextColor3 = Color3.fromRGB(16, 16, 22)
-	readyBadge.Font = Enum.Font.GothamBlack
-	readyBadge.TextSize = 11
-	readyBadge.Visible = false
-	readyBadge.ZIndex = 18
-	Instance.new("UICorner", readyBadge).CornerRadius = UDim.new(1, 0)
-
-	local tutorialBtn = Instance.new("TextButton", bottomBar)
+	local tutorialBtn = Instance.new("TextButton", rightDock)
 	tutorialBtn.Name = "OpenTutorialButton"
-	tutorialBtn.Position = UDim2.fromOffset(362, 0)
-	tutorialBtn.Size = UDim2.fromOffset(114, 52)
-	tutorialBtn.BackgroundColor3 = Color3.fromRGB(28, 24, 44)
+	tutorialBtn.LayoutOrder = 2
+	tutorialBtn.Size = UDim2.new(1, 0, 0, 38)
+	tutorialBtn.BackgroundColor3 = Color3.fromRGB(26, 22, 42)
+	tutorialBtn.BackgroundTransparency = 0.06
 	tutorialBtn.Text = Localization.T("en", "TUTORIAL_BTN")
 	tutorialBtn.TextColor3 = THEME.Purple
 	tutorialBtn.Font = Enum.Font.GothamBold
-	tutorialBtn.TextSize = 12
+	tutorialBtn.TextSize = 11
 	tutorialBtn.ZIndex = 15
-	Instance.new("UICorner", tutorialBtn).CornerRadius = UDim.new(0, 14)
+	Instance.new("UICorner", tutorialBtn).CornerRadius = UDim.new(0, 12)
 
 	local tutorialStroke = Instance.new("UIStroke", tutorialBtn)
 	tutorialStroke.Color = THEME.Purple
-	tutorialStroke.Thickness = 1.6
+	tutorialStroke.Thickness = 1.4
 
 	tutorialBtn.MouseButton1Click:Connect(function()
 		if onOpenTutorial then
 			onOpenTutorial()
 		end
 	end)
-
-	local dockBoostBtn = Instance.new("TextButton", bottomBar)
-	dockBoostBtn.Name = "BigDoubleLightButton"
-	dockBoostBtn.Position = UDim2.fromOffset(484, 0)
-	dockBoostBtn.Size = UDim2.fromOffset(136, 52)
-	dockBoostBtn.BackgroundColor3 = Color3.fromRGB(42, 32, 16)
-	dockBoostBtn.Text = Localization.T("en", "ROBUX_X2_BTN")
-	dockBoostBtn.TextColor3 = THEME.Gold
-	dockBoostBtn.Font = Enum.Font.GothamBold
-	dockBoostBtn.TextSize = 12
-	dockBoostBtn.ZIndex = 15
-	Instance.new("UICorner", dockBoostBtn).CornerRadius = UDim.new(0, 14)
-
-	local dockBoostStroke = Instance.new("UIStroke", dockBoostBtn)
-	dockBoostStroke.Color = THEME.Gold
-	dockBoostStroke.Thickness = 1.6
 
 	dockBoostBtn.MouseButton1Click:Connect(function()
 		local passId = GameConfig.RobuxPasses and GameConfig.RobuxPasses.DoubleLight and GameConfig.RobuxPasses.DoubleLight.GamePassId or 0
@@ -506,7 +530,7 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 			for idx, u in ipairs(sorted) do
 				local card = Instance.new("Frame", scroll)
 				card.LayoutOrder = idx
-				card.Size = UDim2.new(1, -6, 0, 58)
+				card.Size = UDim2.new(1, -6, 0, 50)
 				card.BackgroundColor3 = THEME.Card
 				card.ZIndex = 22
 				Instance.new("UICorner", card).CornerRadius = UDim.new(0, 10)
@@ -523,13 +547,13 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 
 				local desc = Instance.new("TextLabel", card)
 				desc.Position = UDim2.fromOffset(12, 25)
-				desc.Size = UDim2.new(1, -150, 0, 28)
+				desc.Size = UDim2.new(1, -150, 0, 22)
 				desc.BackgroundTransparency = 1
-				desc.TextColor3 = THEME.TextSub
+				desc.TextColor3 = Color3.fromRGB(150, 164, 192)
 				desc.TextXAlignment = Enum.TextXAlignment.Left
 				desc.TextWrapped = true
 				desc.Font = Enum.Font.Gotham
-				desc.TextSize = 11
+				desc.TextSize = 10
 				desc.ZIndex = 23
 
 				local buyBtn = Instance.new("TextButton", card)
@@ -596,7 +620,7 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 			for idx, w in ipairs(GameConfig.Weapons) do
 				local row = Instance.new("Frame", scroll)
 				row.LayoutOrder = 10 + idx
-				row.Size = UDim2.new(1, -6, 0, 56)
+				row.Size = UDim2.new(1, -6, 0, 50)
 				row.BackgroundColor3 = THEME.Card
 				row.ZIndex = 22
 				Instance.new("UICorner", row).CornerRadius = UDim.new(0, 10)
@@ -613,13 +637,13 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 
 				local dLbl = Instance.new("TextLabel", row)
 				dLbl.Position = UDim2.fromOffset(12, 24)
-				dLbl.Size = UDim2.new(1, -150, 0, 26)
+				dLbl.Size = UDim2.new(1, -150, 0, 22)
 				dLbl.BackgroundTransparency = 1
-				dLbl.TextColor3 = THEME.TextSub
+				dLbl.TextColor3 = Color3.fromRGB(150, 164, 192)
 				dLbl.TextXAlignment = Enum.TextXAlignment.Left
 				dLbl.TextWrapped = true
 				dLbl.Font = Enum.Font.Gotham
-				dLbl.TextSize = 11
+				dLbl.TextSize = 10
 				dLbl.ZIndex = 23
 
 				local b = Instance.new("TextButton", row)
@@ -652,7 +676,7 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 			for idx, d in ipairs(GameConfig.Defenses) do
 				local row = Instance.new("Frame", scroll)
 				row.LayoutOrder = 40 + idx
-				row.Size = UDim2.new(1, -6, 0, 56)
+				row.Size = UDim2.new(1, -6, 0, 50)
 				row.BackgroundColor3 = THEME.Card
 				row.ZIndex = 22
 				Instance.new("UICorner", row).CornerRadius = UDim.new(0, 10)
@@ -669,13 +693,13 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 
 				local dLbl = Instance.new("TextLabel", row)
 				dLbl.Position = UDim2.fromOffset(12, 24)
-				dLbl.Size = UDim2.new(1, -150, 0, 26)
+				dLbl.Size = UDim2.new(1, -150, 0, 22)
 				dLbl.BackgroundTransparency = 1
-				dLbl.TextColor3 = THEME.TextSub
+				dLbl.TextColor3 = Color3.fromRGB(150, 164, 192)
 				dLbl.TextXAlignment = Enum.TextXAlignment.Left
 				dLbl.TextWrapped = true
 				dLbl.Font = Enum.Font.Gotham
-				dLbl.TextSize = 11
+				dLbl.TextSize = 10
 				dLbl.ZIndex = 23
 
 				local b = Instance.new("TextButton", row)
@@ -823,7 +847,7 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 			for idx, ap in ipairs(GameConfig.AlbaPerks) do
 				local row = Instance.new("Frame", scroll)
 				row.LayoutOrder = 10 + idx
-				row.Size = UDim2.new(1, -6, 0, 56)
+				row.Size = UDim2.new(1, -6, 0, 50)
 				row.BackgroundColor3 = THEME.Card
 				row.ZIndex = 22
 				Instance.new("UICorner", row).CornerRadius = UDim.new(0, 10)
@@ -840,13 +864,13 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 
 				local dLbl = Instance.new("TextLabel", row)
 				dLbl.Position = UDim2.fromOffset(12, 24)
-				dLbl.Size = UDim2.new(1, -150, 0, 26)
+				dLbl.Size = UDim2.new(1, -150, 0, 22)
 				dLbl.BackgroundTransparency = 1
-				dLbl.TextColor3 = THEME.TextSub
+				dLbl.TextColor3 = Color3.fromRGB(150, 164, 192)
 				dLbl.TextXAlignment = Enum.TextXAlignment.Left
 				dLbl.TextWrapped = true
 				dLbl.Font = Enum.Font.Gotham
-				dLbl.TextSize = 11
+				dLbl.TextSize = 10
 				dLbl.ZIndex = 23
 
 				local b = Instance.new("TextButton", row)
@@ -879,7 +903,7 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 			for idx, z in ipairs(GameConfig.AlbaZones) do
 				local row = Instance.new("Frame", scroll)
 				row.LayoutOrder = 40 + idx
-				row.Size = UDim2.new(1, -6, 0, 56)
+				row.Size = UDim2.new(1, -6, 0, 50)
 				row.BackgroundColor3 = THEME.Card
 				row.ZIndex = 22
 				Instance.new("UICorner", row).CornerRadius = UDim.new(0, 10)
@@ -896,13 +920,13 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 
 				local dLbl = Instance.new("TextLabel", row)
 				dLbl.Position = UDim2.fromOffset(12, 24)
-				dLbl.Size = UDim2.new(1, -150, 0, 26)
+				dLbl.Size = UDim2.new(1, -150, 0, 22)
 				dLbl.BackgroundTransparency = 1
-				dLbl.TextColor3 = THEME.TextSub
+				dLbl.TextColor3 = Color3.fromRGB(150, 164, 192)
 				dLbl.TextXAlignment = Enum.TextXAlignment.Left
 				dLbl.TextWrapped = true
 				dLbl.Font = Enum.Font.Gotham
-				dLbl.TextSize = 11
+				dLbl.TextSize = 10
 				dLbl.ZIndex = 23
 
 				local b = Instance.new("TextButton", row)

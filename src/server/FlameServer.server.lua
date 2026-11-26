@@ -169,19 +169,55 @@ local function updatePlotBrazierVisuals(plot, stats)
 	local col = (stats and stats.BrazierColor) or Color3.fromRGB(255, 145, 45)
 	local scaleFactor = math.clamp(1.0 + (rLvl - 1) * 0.045, 1.0, 2.3)
 
+	local corePos = plot.BaseFlamePos or plot.FlameCore.Position
 	if plot.BaseFlameSize and plot.BaseFlamePos then
 		plot.FlameCore.Size = plot.BaseFlameSize * scaleFactor
-		plot.FlameCore.Position = plot.BaseFlamePos + Vector3.new(0, (scaleFactor - 1.0) * plot.BaseFlameSize.Y * 0.42, 0)
+		corePos = plot.BaseFlamePos + Vector3.new(0, (scaleFactor - 1.0) * plot.BaseFlameSize.Y * 0.42, 0)
+		plot.FlameCore.Position = corePos
 	end
 	plot.FlameCore.Color = col
+
+	if plot.InnerFlameCore and plot.InnerFlameCore.Parent then
+		plot.InnerFlameCore.Size = Vector3.new(2.7, 3.8, 2.7) * scaleFactor
+		plot.InnerFlameCore.Position = corePos + Vector3.new(0, -0.35 * scaleFactor, 0)
+		plot.InnerFlameCore.Color = col:Lerp(Color3.fromRGB(255, 250, 225), 0.65)
+	end
+
+	if plot.FlameTongues then
+		for _, tInfo in ipairs(plot.FlameTongues) do
+			if tInfo.Part and tInfo.Part.Parent then
+				tInfo.Part.Color = col
+				tInfo.Part.Size = tInfo.BaseSize * scaleFactor
+				tInfo.Part.CFrame = CFrame.new(corePos + Vector3.new(math.cos(tInfo.Angle) * 1.15 * scaleFactor, 0.65 * scaleFactor, math.sin(tInfo.Angle) * 1.15 * scaleFactor))
+					* CFrame.Angles(0, tInfo.Angle, math.rad(14))
+			end
+		end
+	end
+
+	if plot.RuneCrystals then
+		for _, crys in ipairs(plot.RuneCrystals) do
+			if crys and crys.Parent then
+				crys.Color = col
+			end
+		end
+	end
+
+	if plot.FireEmitter and plot.FireEmitter.Parent then
+		plot.FireEmitter.Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, col:Lerp(Color3.fromRGB(255, 250, 220), 0.7)),
+			ColorSequenceKeypoint.new(0.5, col),
+			ColorSequenceKeypoint.new(1, col:Lerp(Color3.fromRGB(80, 20, 10), 0.35)),
+		})
+	end
+	if plot.SparkEmitter and plot.SparkEmitter.Parent then
+		plot.SparkEmitter.Color = ColorSequence.new(col:Lerp(Color3.fromRGB(255, 250, 220), 0.6), col)
+	end
 
 	for _, desc in ipairs(plot.FlameCore:GetChildren()) do
 		if desc:IsA("PointLight") then
 			desc.Color = col
 			desc.Range = 60
 			desc.Brightness = math.min(8.5, 3.6 + rLvl * 0.28)
-		elseif desc:IsA("ParticleEmitter") then
-			desc.Color = ColorSequence.new(col)
 		end
 	end
 
@@ -229,8 +265,7 @@ local function updatePlotGroundButtons(plot, data)
 			local maxed = lvl >= maxLvl
 			local cost = GameConfig.GetAltarCost(alt, lvl, albaCount)
 			local altName = Localization.Pick(lang, alt.Name, alt.Name_it)
-			local altDesc = Localization.Pick(lang, alt.Desc, alt.Desc_it)
-			local benefit = Localization.Pick(lang, alt.BenefitTag, alt.BenefitTag_it)
+			local benefit = Localization.Pick(lang, alt.BenefitTag, alt.BenefitTag_it) or Localization.Pick(lang, alt.Desc, alt.Desc_it)
 
 			local bbg = pad:FindFirstChildOfClass("BillboardGui")
 			local container = bbg and (bbg:FindFirstChildOfClass("Frame") or bbg)
@@ -240,7 +275,7 @@ local function updatePlotGroundButtons(plot, data)
 				local t2 = container:FindFirstChild("CostLabel")
 
 				if td then
-					td.Text = altDesc
+					td.Text = benefit
 				end
 
 				if alt.IsColorButton then
@@ -248,7 +283,7 @@ local function updatePlotGroundButtons(plot, data)
 						t1.Text = maxed and ("✅ " .. altName) or ("🎨 " .. altName)
 					end
 					if t2 then
-						t2.Text = maxed and (Localization.T(lang, "ACTIVE_GROUND_PAD") .. " (" .. (benefit or "") .. ")") or (NumberFormat.Format(cost) .. " " .. lightUnit .. " • " .. (benefit or ""))
+						t2.Text = maxed and Localization.T(lang, "ACTIVE_GROUND_PAD") or (NumberFormat.Format(cost) .. " " .. lightUnit)
 					end
 				else
 					if t1 then
@@ -266,12 +301,14 @@ local function updatePlotGroundButtons(plot, data)
 		plot.VictoryTitleLabel.Text = "🌅 " .. Localization.Pick(lang, GameConfig.VictoryButton.Name, GameConfig.VictoryButton.Name_it)
 	end
 	if plot.VictoryDescLabel then
-		plot.VictoryDescLabel.Text = Localization.Pick(lang, GameConfig.VictoryButton.Desc, GameConfig.VictoryButton.Desc_it)
+		local reward = EconomyEngine.GetAlbaRewardPerRebirth(data)
+		plot.VictoryDescLabel.Text = (lang == "it")
+			and string.format("Prestigio (+%d Punti Alba)", reward)
+			or string.format("Prestige (+%d Dawn Pts)", reward)
 	end
 	if plot.VictoryStatusLabel then
 		local vCost = GameConfig.GetVictoryCost(albaCount)
-		local reward = EconomyEngine.GetAlbaRewardPerRebirth(data)
-		plot.VictoryStatusLabel.Text = Localization.T(lang, "FINAL_BTN_COST_FMT", NumberFormat.Format(vCost), reward)
+		plot.VictoryStatusLabel.Text = NumberFormat.Format(vCost) .. " " .. lightUnit
 	end
 end
 

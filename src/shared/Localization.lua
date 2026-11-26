@@ -14,7 +14,7 @@ local STRINGS = {
 
 		MY_ZONE_BTN = "🏠 My Zone",
 		CHAR_BTN_TITLE = "Character & Flame",
-		CHAR_BTN_SUB = "Upgrades, Defenses, Dawn",
+		CHAR_BTN_SUB = "Upgrades & Dawn",
 		TUTORIAL_BTN = "📖 Tutorial",
 		ROBUX_X2_BTN = "⚡ x2 Light (Robux)",
 		ROBUX_X2_ACTIVE = "✅ x2 Light Active",
@@ -147,7 +147,7 @@ local STRINGS = {
 
 		MY_ZONE_BTN = "🏠 La Mia Zona",
 		CHAR_BTN_TITLE = "Personaggio & Fiamma",
-		CHAR_BTN_SUB = "Potenziamenti, Difese, Alba",
+		CHAR_BTN_SUB = "Potenziamenti & Alba",
 		TUTORIAL_BTN = "📖 Tutorial",
 		ROBUX_X2_BTN = "⚡ x2 Luce (Robux)",
 		ROBUX_X2_ACTIVE = "✅ x2 Luce Attivo",
