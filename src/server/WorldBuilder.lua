@@ -82,7 +82,23 @@ local function makeUprightCylinder(parent, name, height, diameter, pos, color, m
 	return makePart(parent, name, Vector3.new(height, diameter, diameter), cf, color, material, transparency, canCollide, Enum.PartType.Cylinder)
 end
 
+-- Rimuove o abbassa eventuali Baseplate/piattaforme predefinite a Y = 0 che causano sfarfallio (Z-fighting)
+local function neutralizeBaseplateOverlap()
+	for _, child in ipairs(Workspace:GetChildren()) do
+		if child:IsA("BasePart") and child.Name ~= "LastFlameWorld" then
+			local topY = child.Position.Y + (child.Size.Y * 0.5)
+			if math.abs(topY) < 0.25 and (child.Size.X >= 80 or child.Size.Z >= 80) then
+				child.Transparency = 1
+				child.CanCollide = false
+				child.CanQuery = false
+				child.Position = Vector3.new(child.Position.X, child.Position.Y - 40, child.Position.Z)
+			end
+		end
+	end
+end
+
 local function bindSpeedPad(padPart, boostSpeed, duration)
+	padPart.CanTouch = true
 	padPart.Touched:Connect(function(hit)
 		local character = hit and hit.Parent
 		if not character then
@@ -270,7 +286,6 @@ local function placeMonumentOnIsland(islandFolder, zCfg, pedestalTopPos, dir)
 	return buildFallbackMonument(islandFolder, zCfg, pedestalTopPos, dir)
 end
 
--- Dimensioni dei pannelli sui tasti leggermente ridotte per non ostruire la visuale
 local function createPadBillboard(pad, titleText, descText, costText, accentColor)
 	local bbg = Instance.new("BillboardGui")
 	bbg.Name = "PadGui"
@@ -327,10 +342,10 @@ local function createPadBillboard(pad, titleText, descText, costText, accentColo
 end
 
 function WorldBuilder.Build()
-	local existing = Workspace:FindFirstChild("LastFlameWorld")
-	if existing then
-		existing:Destroy()
+	while Workspace:FindFirstChild("LastFlameWorld") do
+		Workspace:FindFirstChild("LastFlameWorld"):Destroy()
 	end
+	neutralizeBaseplateOverlap()
 
 	local world = Instance.new("Folder")
 	world.Name = "LastFlameWorld"
@@ -344,7 +359,6 @@ function WorldBuilder.Build()
 	local auxiliaryLights = {}
 	local isBrazierOnlyDark = false
 
-	-- Gestione illuminazione: già scura di base, diventa buio totale (solo bracieri) al primo claim
 	local function applyDarknessMode(brazierOnly)
 		isBrazierOnlyDark = brazierOnly
 		world:SetAttribute("BrazierOnlyDark", brazierOnly)
@@ -381,7 +395,6 @@ function WorldBuilder.Build()
 				end
 			end
 		else
-			-- Oscurità atmosferica di base: i bracieri sono già la fonte di luce principale
 			Lighting.Brightness = 0.05
 			Lighting.Ambient = Color3.fromRGB(4, 5, 10)
 			Lighting.OutdoorAmbient = Color3.fromRGB(6, 8, 14)
@@ -417,26 +430,25 @@ function WorldBuilder.Build()
 		end
 	end
 
-	-- === PEDANA CENTRALE COLORATA (CentralHub) ===
+	-- === PEDANA CENTRALE COLORATA ===
 	local hubFolder = Instance.new("Folder")
 	hubFolder.Name = "CentralHub"
 	hubFolder.Parent = world
 
 	makeUprightCylinder(hubFolder, "CentralHubFloor", 2, 110, Vector3.new(0, -1, 0), Color3.fromRGB(26, 32, 50), Enum.Material.Slate, 0, true)
-	makeUprightCylinder(hubFolder, "CentralHubTrim", 2.2, 114, Vector3.new(0, -1.05, 0), Color3.fromRGB(255, 195, 70), Enum.Material.Neon, 0.22, false)
+	makeUprightCylinder(hubFolder, "CentralHubTrim", 1.8, 113.5, Vector3.new(0, -1.15, 0), Color3.fromRGB(255, 195, 70), Enum.Material.Neon, 0.22, false)
 
-	-- Anelli cromatici concentrici a filo pavimento (CanCollide = false per non intralciare)
-	makeUprightCylinder(hubFolder, "HubCrimsonRing", 0.08, 86, Vector3.new(0, 0.02, 0), Color3.fromRGB(76, 32, 54), Enum.Material.Marble, 0, false)
-	makeUprightCylinder(hubFolder, "HubGoldRing", 0.10, 88, Vector3.new(0, 0.03, 0), Color3.fromRGB(255, 185, 60), Enum.Material.Neon, 0.25, false)
-	makeUprightCylinder(hubFolder, "HubTealDisc", 0.12, 58, Vector3.new(0, 0.04, 0), Color3.fromRGB(24, 56, 78), Enum.Material.Marble, 0, false)
-	makeUprightCylinder(hubFolder, "HubCyanRuneRing", 0.14, 60, Vector3.new(0, 0.05, 0), Color3.fromRGB(70, 215, 230), Enum.Material.Neon, 0.28, false)
-	makeUprightCylinder(hubFolder, "HubCenterDais", 0.28, 25, Vector3.new(0, 0.12, 0), Color3.fromRGB(54, 42, 36), Enum.Material.Marble, 0, false)
-	makeUprightCylinder(hubFolder, "HubCenterGoldTrim", 0.30, 26.4, Vector3.new(0, 0.13, 0), Color3.fromRGB(255, 205, 80), Enum.Material.Neon, 0.15, false)
+	-- Anelli cromatici sovrapposti sopra Y = 0 senza compenetrazioni
+	makeUprightCylinder(hubFolder, "HubCrimsonRing", 0.06, 86, Vector3.new(0, 0.03, 0), Color3.fromRGB(76, 32, 54), Enum.Material.Marble, 0, false)
+	makeUprightCylinder(hubFolder, "HubGoldRing", 0.06, 88, Vector3.new(0, 0.035, 0), Color3.fromRGB(255, 185, 60), Enum.Material.Neon, 0.25, false)
+	makeUprightCylinder(hubFolder, "HubTealDisc", 0.08, 58, Vector3.new(0, 0.07, 0), Color3.fromRGB(24, 56, 78), Enum.Material.Marble, 0, false)
+	makeUprightCylinder(hubFolder, "HubCyanRuneRing", 0.08, 60, Vector3.new(0, 0.075, 0), Color3.fromRGB(70, 215, 230), Enum.Material.Neon, 0.28, false)
+	makeUprightCylinder(hubFolder, "HubCenterDais", 0.22, 25, Vector3.new(0, 0.16, 0), Color3.fromRGB(54, 42, 36), Enum.Material.Marble, 0, false)
+	makeUprightCylinder(hubFolder, "HubCenterGoldTrim", 0.22, 26.4, Vector3.new(0, 0.165, 0), Color3.fromRGB(255, 205, 80), Enum.Material.Neon, 0.15, false)
 
-	-- Monolite / Fiamma primordiale al centro
-	makeUprightCylinder(hubFolder, "CentralPedestal", 1.8, 12, Vector3.new(0, 0.9, 0), Color3.fromRGB(38, 42, 58), Enum.Material.Basalt, 0, true)
-	local hubBeacon = makeUprightCylinder(hubFolder, "CentralBeacon", 14, 4.6, Vector3.new(0, 8.2, 0), Color3.fromRGB(255, 195, 75), Enum.Material.Neon, 0.14, true)
-	makeUprightCylinder(hubFolder, "CentralBeaconHalo", 0.7, 9.5, Vector3.new(0, 12.5, 0), Color3.fromRGB(255, 120, 45), Enum.Material.Neon, 0.18, false)
+	makeUprightCylinder(hubFolder, "CentralPedestal", 1.8, 12, Vector3.new(0, 1.15, 0), Color3.fromRGB(38, 42, 58), Enum.Material.Basalt, 0, true)
+	local hubBeacon = makeUprightCylinder(hubFolder, "CentralBeacon", 14, 4.6, Vector3.new(0, 8.4, 0), Color3.fromRGB(255, 195, 75), Enum.Material.Neon, 0.14, true)
+	makeUprightCylinder(hubFolder, "CentralBeaconHalo", 0.7, 9.5, Vector3.new(0, 12.7, 0), Color3.fromRGB(255, 120, 45), Enum.Material.Neon, 0.18, false)
 
 	local hubLight = Instance.new("PointLight", hubBeacon)
 	hubLight.Color = Color3.fromRGB(255, 195, 75)
@@ -457,21 +469,20 @@ function WorldBuilder.Build()
 		local inwardDir = -outwardDir
 		local origin = outwardDir * ringRadius
 
-		-- Sentiero radiale colorato sulla pedana centrale verso lo slot i
+		-- Sentiero radiale sulla pedana centrale (a quota Y = 0.12, sopra gli anelli)
 		local pathLen = 39
 		local pathMid = outwardDir * (13.5 + pathLen * 0.5)
 		makePart(
 			hubFolder,
 			"HubRadialPath_" .. i,
-			Vector3.new(4.2, 0.08, pathLen),
-			CFrame.lookAt(pathMid, pathMid + outwardDir) * CFrame.new(0, 0.06, 0),
+			Vector3.new(4.2, 0.04, pathLen),
+			CFrame.lookAt(pathMid, pathMid + outwardDir) * CFrame.new(0, 0.13, 0),
 			Color3.fromRGB(255, 185, 65),
 			Enum.Material.Neon,
 			0.38,
 			false
 		)
 
-		-- Due colonne lanterna decorative all'imbocco di ogni ponte sulla pedana centrale
 		for sideIdx, sideSign in ipairs({ -1, 1 }) do
 			local pillarPos = outwardDir * 51 + rightDir * (sideSign * 6.8)
 			makeUprightCylinder(hubFolder, "HubPillar_" .. i .. "_" .. sideIdx, 5.2, 1.4, pillarPos + Vector3.new(0, 2.6, 0), Color3.fromRGB(46, 52, 74), Enum.Material.Marble, 0, true)
@@ -500,41 +511,56 @@ function WorldBuilder.Build()
 		plotModel.Parent = world
 
 		local plotLook = CFrame.lookAt(origin, origin + outwardDir)
+		local floorSize = halfSize * 2
 
-		makePart(plotModel, "PlotFloor", Vector3.new(halfSize * 2, 2, halfSize * 2), plotLook * CFrame.new(0, -1, 0), Color3.fromRGB(24, 28, 42), Enum.Material.Slate, 0, true)
-		local plotBorder = makePart(plotModel, "PlotBorder", Vector3.new(halfSize * 2 + 2.4, 1.6, halfSize * 2 + 2.4), plotLook * CFrame.new(0, -1.1, 0), Color3.fromRGB(70, 145, 210), Enum.Material.Neon, 0.45, false)
+		-- Pavimento singolo pulito senza parti interne compenetrate
+		makePart(plotModel, "PlotFloor", Vector3.new(floorSize, 2, floorSize), plotLook * CFrame.new(0, -1, 0), Color3.fromRGB(24, 28, 42), Enum.Material.Slate, 0, true)
 
-		-- Ponte di collegamento + pedane velocizzanti per raggiungere rapidamente gli slot
+		-- 4 bordi perimetrali esterni separati (zero compenetrazione con PlotFloor)
+		local borderThick = 1.1
+		local borderHeight = 1.6
+		local borderY = -1.15
+		local borderColor = Color3.fromRGB(70, 145, 210)
+		local borderParts = {
+			makePart(plotModel, "PlotBorder_Front", Vector3.new(floorSize + borderThick * 2, borderHeight, borderThick), plotLook * CFrame.new(0, borderY, halfSize + borderThick * 0.5), borderColor, Enum.Material.Neon, 0.35, false),
+			makePart(plotModel, "PlotBorder_Back", Vector3.new(floorSize + borderThick * 2, borderHeight, borderThick), plotLook * CFrame.new(0, borderY, -(halfSize + borderThick * 0.5)), borderColor, Enum.Material.Neon, 0.35, false),
+			makePart(plotModel, "PlotBorder_Left", Vector3.new(borderThick, borderHeight, floorSize), plotLook * CFrame.new(-(halfSize + borderThick * 0.5), borderY, 0), borderColor, Enum.Material.Neon, 0.35, false),
+			makePart(plotModel, "PlotBorder_Right", Vector3.new(borderThick, borderHeight, floorSize), plotLook * CFrame.new(halfSize + borderThick * 0.5, borderY, 0), borderColor, Enum.Material.Neon, 0.35, false),
+		}
+
+		-- Ponte di collegamento distanziato da CentralHub e PlotFloor + pedane velocizzanti
 		local speedPads = {}
-		local hubBridgeLen = ringRadius - 54 - halfSize
+		local bridgeStartDist = 55.05
+		local bridgeEndDist = ringRadius - halfSize - 0.05
+		local hubBridgeLen = bridgeEndDist - bridgeStartDist
 		if hubBridgeLen > 10 then
-			local bridgeMid = outwardDir * (54 + hubBridgeLen * 0.5)
+			local bridgeMid = outwardDir * (bridgeStartDist + hubBridgeLen * 0.5)
 			local bridgeCF = CFrame.lookAt(bridgeMid, bridgeMid + outwardDir)
-			makePart(plotModel, "HubBridge", Vector3.new(8, 1.2, hubBridgeLen), bridgeCF * CFrame.new(0, -0.8, 0), Color3.fromRGB(30, 35, 52), Enum.Material.SmoothPlastic, 0, true)
-			makePart(plotModel, "HubBridgeRails", Vector3.new(8.6, 0.5, hubBridgeLen), bridgeCF * CFrame.new(0, -0.95, 0), Color3.fromRGB(65, 185, 235), Enum.Material.Neon, 0.55, false)
+			makePart(plotModel, "HubBridge", Vector3.new(8, 1.2, hubBridgeLen), bridgeCF * CFrame.new(0, -0.75, 0), Color3.fromRGB(30, 35, 52), Enum.Material.SmoothPlastic, 0, true)
+			makePart(plotModel, "HubBridgeRail_L", Vector3.new(0.45, 0.5, hubBridgeLen), bridgeCF * CFrame.new(-4.25, -0.9, 0), Color3.fromRGB(65, 185, 235), Enum.Material.Neon, 0.45, false)
+			makePart(plotModel, "HubBridgeRail_R", Vector3.new(0.45, 0.5, hubBridgeLen), bridgeCF * CFrame.new(4.25, -0.9, 0), Color3.fromRGB(65, 185, 235), Enum.Material.Neon, 0.45, false)
 
 			local padFractions = { 0.18, 0.50, 0.82 }
 			for pIdx, frac in ipairs(padFractions) do
-				local distFromHub = 54 + hubBridgeLen * frac
-				local spPos = outwardDir * distFromHub + Vector3.new(0, -0.14, 0)
+				local distFromHub = bridgeStartDist + hubBridgeLen * frac
+				local spPos = outwardDir * distFromHub + Vector3.new(0, -0.02, 0)
 				local spCF = CFrame.lookAt(spPos, spPos + outwardDir)
 
 				local spPad = makePart(
 					plotModel,
 					"SpeedPad_" .. pIdx,
-					Vector3.new(5.6, 0.18, 8.5),
+					Vector3.new(5.6, 0.28, 8.5),
 					spCF,
 					Color3.fromRGB(55, 225, 255),
 					Enum.Material.Neon,
 					0.15,
 					false
 				)
-				-- Striscia centrale oro per evidenziare la direzione
 				makePart(
 					spPad,
 					"SpeedChevron",
-					Vector3.new(2.2, 0.22, 6.2),
-					spCF * CFrame.new(0, 0.02, 0),
+					Vector3.new(2.2, 0.06, 6.2),
+					spCF * CFrame.new(0, 0.17, 0),
 					Color3.fromRGB(255, 215, 85),
 					Enum.Material.Neon,
 					0.1,
@@ -592,6 +618,8 @@ function WorldBuilder.Build()
 			0.18,
 			false
 		)
+		claimPad.CanTouch = true
+
 		local cTitleLbl, _, cStatusLbl = createPadBillboard(
 			claimPad,
 			"CLAIM SLOT #" .. tostring(i),
@@ -627,7 +655,9 @@ function WorldBuilder.Build()
 		local brazierLightEntry = { light = flameLight, claimed = false }
 		table.insert(brazierLights, brazierLightEntry)
 
-		local flameHitbox = makePart(brazierModel, "FlameHitbox", Vector3.new(11, 11, 11), CFrame.new(origin + Vector3.new(0, 6.0, 0)), Color3.fromRGB(255, 200, 80), Enum.Material.SmoothPlastic, 1, false)
+		local flameHitbox = makePart(brazierModel, "FlameHitbox", Vector3.new(15, 12, 15), CFrame.new(origin + Vector3.new(0, 6.0, 0)), Color3.fromRGB(255, 200, 80), Enum.Material.SmoothPlastic, 1, false)
+		flameHitbox.CanTouch = true
+		flameHitbox.CanQuery = true
 
 		local titleBbg = Instance.new("BillboardGui", flameCore)
 		titleBbg.Name = "BrazierTitleGui"
@@ -644,7 +674,7 @@ function WorldBuilder.Build()
 		flameTitle.Font = Enum.Font.GothamBlack
 		flameTitle.TextSize = 15
 
-		-- Tasti principali ridotti leggermente per non essere fastidiosi
+		-- Tasti ridotti leggermente
 		local altarsFolder = Instance.new("Folder")
 		altarsFolder.Name = "Altars"
 		altarsFolder.Parent = plotModel
@@ -745,17 +775,18 @@ function WorldBuilder.Build()
 			local zDist = z.Distance or 90
 			local islandCenter = origin + zDir * zDist
 
+			-- Ponte AlbaZone distanziato da PlotFloor e a quota Y leggermente inferiore per evitare Z-fighting
 			local edgeDist = halfSize / math.max(math.abs(math.cos(fanRad)), math.abs(math.sin(fanRad)))
-			local bridgeStartDist = edgeDist - 0.5
-			local bridgeEndDist = zDist - 12.5
+			local bridgeStartDist = edgeDist + 0.08
+			local bridgeEndDist = zDist - 13.8
 			local bridgeLen = math.max(10, bridgeEndDist - bridgeStartDist)
 			local bridgeMid = origin + zDir * (bridgeStartDist + bridgeLen * 0.5)
 			local bridgeCF = CFrame.lookAt(bridgeMid, bridgeMid + zDir)
 
-			local bridge = makePart(zFolder, "Bridge", Vector3.new(5.6, 1.0, bridgeLen), bridgeCF * CFrame.new(0, -0.5, 0), Color3.fromRGB(36, 42, 60), Enum.Material.Marble, 0.65, false)
-			local bridgeTrim = makePart(zFolder, "BridgeTrim", Vector3.new(6.2, 0.6, bridgeLen), bridgeCF * CFrame.new(0, -0.65, 0), z.Color, Enum.Material.Neon, 0.80, false)
+			local bridge = makePart(zFolder, "Bridge", Vector3.new(5.6, 1.0, bridgeLen), bridgeCF * CFrame.new(0, -0.56, 0), Color3.fromRGB(36, 42, 60), Enum.Material.Marble, 0.65, false)
+			local bridgeTrim = makePart(zFolder, "BridgeTrim", Vector3.new(6.2, 0.6, bridgeLen), bridgeCF * CFrame.new(0, -0.72, 0), z.Color, Enum.Material.Neon, 0.80, false)
 
-			local gatePos = origin + zDir * (edgeDist - 1.8)
+			local gatePos = origin + zDir * (edgeDist - 2.4)
 			local gateCF = CFrame.lookAt(gatePos, gatePos + zDir)
 			local gatePad = makePart(zFolder, "GatePad", Vector3.new(4.6, 0.38, 3.4), gateCF * CFrame.new(0, 0.2, 0), z.Color, Enum.Material.Neon, 0.22, false)
 			local gateBarrier = makePart(zFolder, "GateBarrier", Vector3.new(6.4, 7.2, 0.9), gateCF * CFrame.new(0, 3.6, 0), z.Color, Enum.Material.ForceField, 0.35, true)
@@ -776,19 +807,19 @@ function WorldBuilder.Build()
 			Instance.new("UICorner", gateLabel).CornerRadius = UDim.new(0, 7)
 
 			local islandBase = makeUprightCylinder(zFolder, "IslandBase", 2.4, 28, islandCenter + Vector3.new(0, -1.2, 0), Color3.fromRGB(32, 36, 52), Enum.Material.Slate, 0.55, false)
-			local islandRim = makeUprightCylinder(zFolder, "IslandRim", 2.0, 29.4, islandCenter + Vector3.new(0, -1.35, 0), z.Color, Enum.Material.Neon, 0.70, false)
-			local islandInner = makeUprightCylinder(zFolder, "IslandInner", 0.6, 21.5, islandCenter + Vector3.new(0, 0.2, 0), Color3.fromRGB(220, 224, 236), Enum.Material.Marble, 0.55, false)
+			local islandRim = makeUprightCylinder(zFolder, "IslandRim", 1.8, 29.4, islandCenter + Vector3.new(0, -1.35, 0), z.Color, Enum.Material.Neon, 0.70, false)
+			local islandInner = makeUprightCylinder(zFolder, "IslandInner", 0.4, 21.5, islandCenter + Vector3.new(0, 0.21, 0), Color3.fromRGB(220, 224, 236), Enum.Material.Marble, 0.55, false)
 
 			local pillars = {}
 			for _, pDeg in ipairs({ -125, -45, 45, 125 }) do
 				local pDir = (CFrame.fromAxisAngle(Vector3.yAxis, math.rad(pDeg)) * zDir).Unit
-				local pPos = islandCenter + pDir * 11.8 + Vector3.new(0, 4.2, 0)
+				local pPos = islandCenter + pDir * 11.8 + Vector3.new(0, 4.3, 0)
 				local pil = makeUprightCylinder(zFolder, "IslandPillar", 7.8, 1.4, pPos, Color3.fromRGB(225, 228, 240), Enum.Material.Marble, 0.55, false)
 				table.insert(pillars, pil)
 			end
 
-			local pedestal = makeUprightCylinder(zFolder, "MonumentPedestal", 1.8, 8.2, islandCenter + Vector3.new(0, 1.2, 0), Color3.fromRGB(46, 52, 72), Enum.Material.Marble, 0.55, false)
-			local pedestalTopPos = islandCenter + Vector3.new(0, 2.1, 0)
+			local pedestal = makeUprightCylinder(zFolder, "MonumentPedestal", 1.8, 8.2, islandCenter + Vector3.new(0, 1.3, 0), Color3.fromRGB(46, 52, 72), Enum.Material.Marble, 0.55, false)
+			local pedestalTopPos = islandCenter + Vector3.new(0, 2.2, 0)
 			local monumentParts, monumentLights = placeMonumentOnIsland(zFolder, z, pedestalTopPos, zDir)
 
 			local zTitleAnchor = makePart(zFolder, "ZoneTitleAnchor", Vector3.new(1, 1, 1), CFrame.new(islandCenter + Vector3.new(0, 15.5, 0)), z.Color, Enum.Material.SmoothPlastic, 1, false)
@@ -856,90 +887,78 @@ function WorldBuilder.Build()
 			DefensesFolder = defensesFolder,
 		}
 
-		-- Funzione di finalizzazione claim singolo (una sola volta per slot e per giocatore)
-		local function finalizeSlotClaim(player)
-			if plotEntry.Claimed or plotEntry.Owner ~= nil then
-				return false
-			end
-			if not player or not player:IsA("Player") then
-				return false
-			end
-			if claimedByUserId[player.UserId] ~= nil then
-				return false
-			end
+		local claimCooldownByUser = {}
 
-			plotEntry.Claimed = true
-			claimedByUserId[player.UserId] = i
-			brazierLightEntry.claimed = true
-
-			plotModel:SetAttribute("Claimed", true)
-			plotModel:SetAttribute("OwnerUserId", player.UserId)
-
-			claimPad.Color = Color3.fromRGB(65, 220, 125)
-			claimPrompt.Enabled = false
-			cTitleLbl.Text = "SLOT #" .. tostring(i) .. " RECLAMATO"
-			cStatusLbl.Text = player.DisplayName
-			cStatusLbl.TextColor3 = Color3.fromRGB(115, 255, 165)
-
-			plotBorder.Color = Color3.fromRGB(255, 175, 65)
-			flameTitle.Text = player.DisplayName .. "'s Flame"
-
-			for _, ot in ipairs(signOwnerTitles) do
-				ot.Text = player.DisplayName
-			end
-			for _, osLbl in ipairs(signOwnerSubs) do
-				osLbl.Text = "Slot #" .. tostring(i) .. " • Reclamato"
-			end
-
-			-- Attiva subito il buio totale con luce solo dai bracieri
-			applyDarknessMode(true)
-			plotClaimedEvent:Fire(i, player)
-
-			-- Se nessun altro script server imposta plotEntry.Owner entro 0.15s, lo assegna direttamente
-			task.delay(0.15, function()
-				if plotEntry.Owner == nil then
-					plotEntry.Owner = player
-				end
-			end)
-
-			return true
-		end
-
-		claimPad.Touched:Connect(function(hit)
+		-- Porta il giocatore direttamente sul FlameHitbox così lo script principale avvia regolarmente il tycoon
+		local function triggerServerBrazierClaim(player)
 			if plotEntry.Claimed or plotEntry.Owner ~= nil then
 				return
 			end
+			if not player or not player:IsA("Player") then
+				return
+			end
+			if claimedByUserId[player.UserId] ~= nil then
+				return
+			end
+			local now = os.clock()
+			if claimCooldownByUser[player.UserId] and now - claimCooldownByUser[player.UserId] < 0.8 then
+				return
+			end
+			claimCooldownByUser[player.UserId] = now
+
+			local character = player.Character
+			local hrp = character and character:FindFirstChild("HumanoidRootPart")
+			if hrp then
+				local targetPos = origin + inwardDir * 6.0 + Vector3.new(0, 5.2, 0)
+				hrp.CFrame = CFrame.lookAt(targetPos, origin + Vector3.new(0, 5.2, 0))
+			end
+		end
+
+		claimPad.Touched:Connect(function(hit)
 			local character = hit and hit.Parent
 			local player = character and Players:GetPlayerFromCharacter(character)
 			if player then
-				finalizeSlotClaim(player)
+				triggerServerBrazierClaim(player)
 			end
 		end)
 
 		claimPrompt.Triggered:Connect(function(player)
-			finalizeSlotClaim(player)
+			triggerServerBrazierClaim(player)
 		end)
 
-		-- Sincronizzazione automatica nel caso plotEntry.Owner venga impostato da uno script esterno
+		-- Sincronizza lo stato grafico e il blocco claim singolo appena lo script server imposta plotEntry.Owner
 		task.spawn(function()
 			while world.Parent do
 				if not plotEntry.Claimed and plotEntry.Owner ~= nil then
 					local owner = plotEntry.Owner
 					plotEntry.Claimed = true
 					brazierLightEntry.claimed = true
+
 					if typeof(owner) == "Instance" and owner:IsA("Player") then
 						claimedByUserId[owner.UserId] = i
 						plotModel:SetAttribute("OwnerUserId", owner.UserId)
 						cStatusLbl.Text = owner.DisplayName
+						flameTitle.Text = owner.DisplayName .. "'s Flame"
+						for _, ot in ipairs(signOwnerTitles) do
+							ot.Text = owner.DisplayName
+						end
 					else
 						cStatusLbl.Text = "Reclamato"
 					end
+
+					for _, osLbl in ipairs(signOwnerSubs) do
+						osLbl.Text = "Slot #" .. tostring(i) .. " • Reclamato"
+					end
+
 					plotModel:SetAttribute("Claimed", true)
 					claimPad.Color = Color3.fromRGB(65, 220, 125)
 					claimPrompt.Enabled = false
 					cTitleLbl.Text = "SLOT #" .. tostring(i) .. " RECLAMATO"
 					cStatusLbl.TextColor3 = Color3.fromRGB(115, 255, 165)
-					plotBorder.Color = Color3.fromRGB(255, 175, 65)
+
+					for _, bp in ipairs(borderParts) do
+						bp.Color = Color3.fromRGB(255, 175, 65)
+					end
 
 					if not isBrazierOnlyDark then
 						applyDarknessMode(true)
@@ -947,15 +966,16 @@ function WorldBuilder.Build()
 						flameLight.Range = 80
 						flameLight.Brightness = 5.2
 					end
+
+					plotClaimedEvent:Fire(i, owner)
 				end
-				task.wait(0.25)
+				task.wait(0.15)
 			end
 		end)
 
 		table.insert(plots, plotEntry)
 	end
 
-	-- Applica l'oscurità iniziale di base con i bracieri accesi
 	applyDarknessMode(false)
 
 	return {
