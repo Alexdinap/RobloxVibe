@@ -16,6 +16,30 @@ local built = WorldBuilder.Build()
 local world = built.World
 local plots = built.Plots
 
+-- Disabilita eventuali SpawnLocation esterne (es. Baseplate/Lobby) così il player entra solo nel proprio slot
+for _, obj in ipairs(workspace:GetDescendants()) do
+	if obj:IsA("SpawnLocation") and (not world or not obj:IsDescendantOf(world)) then
+		obj.Enabled = false
+	end
+end
+
+-- Crea una SpawnLocation privata dentro ogni Plot per lo spawn diretto nello slot
+for _, plot in ipairs(plots) do
+	local lookTarget = plot.Origin + Vector3.new(0, 4.5, 0)
+	local spawnPos = plot.SpawnPos or (plot.Origin + Vector3.new(0, 4.5, -28))
+	local sp = Instance.new("SpawnLocation")
+	sp.Name = "PlotSpawn_" .. tostring(plot.Index)
+	sp.Anchored = true
+	sp.CanCollide = false
+	sp.Transparency = 1
+	sp.Duration = 0
+	sp.Neutral = false
+	sp.Size = Vector3.new(6, 1, 6)
+	sp.CFrame = CFrame.lookAt(spawnPos, lookTarget)
+	sp.Parent = plot.Folder or world
+	plot.SpawnPad = sp
+end
+
 -- Remotes
 local remotes = Instance.new("Folder", ReplicatedStorage)
 remotes.Name = "Remotes"
@@ -100,7 +124,8 @@ local function teleportPlayerToPlot(player, plot)
 	local hrp = char and char:FindFirstChild("HumanoidRootPart")
 	if hrp then
 		local lookTarget = plot.Origin + Vector3.new(0, 4.5, 0)
-		hrp.CFrame = CFrame.lookAt(plot.SpawnPos, lookTarget)
+		local spawnPos = plot.SpawnPos or (plot.Origin + Vector3.new(0, 4.5, -28))
+		hrp.CFrame = CFrame.lookAt(spawnPos, lookTarget)
 	end
 end
 
@@ -129,8 +154,10 @@ local function updatePlotBrazierVisuals(plot, stats)
 	local col = (stats and stats.BrazierColor) or Color3.fromRGB(255, 145, 45)
 	local scaleFactor = math.clamp(1.0 + (rLvl - 1) * 0.045, 1.0, 2.3)
 
-	plot.FlameCore.Size = plot.BaseFlameSize * scaleFactor
-	plot.FlameCore.Position = plot.BaseFlamePos + Vector3.new(0, (scaleFactor - 1.0) * plot.BaseFlameSize.Y * 0.42, 0)
+	if plot.BaseFlameSize and plot.BaseFlamePos then
+		plot.FlameCore.Size = plot.BaseFlameSize * scaleFactor
+		plot.FlameCore.Position = plot.BaseFlamePos + Vector3.new(0, (scaleFactor - 1.0) * plot.BaseFlameSize.Y * 0.42, 0)
+	end
 	plot.FlameCore.Color = col
 
 	for _, desc in ipairs(plot.FlameCore:GetChildren()) do
@@ -310,6 +337,9 @@ local function assignPlotToPlayer(player, lang)
 		if plot.Owner == nil then
 			plot.Owner = player
 			PlayerPlotMap[player.UserId] = plot
+			if plot.SpawnPad then
+				player.RespawnLocation = plot.SpawnPad
+			end
 			player:SetAttribute("PlotIndex", plot.Index)
 			player:SetAttribute("PlotOrigin", plot.Origin)
 			if plot.FlameTitle then
@@ -325,7 +355,9 @@ end
 local function releasePlotFromPlayer(player)
 	local plot = PlayerPlotMap[player.UserId]
 	if not plot then return end
-	ShadowDefenseService.ClearPlot(plot.Index)
+	pcall(function()
+		ShadowDefenseService.ClearPlot(plot.Index)
+	end)
 	if plot.DefensesFolder then
 		plot.DefensesFolder:ClearAllChildren()
 	end
@@ -443,8 +475,8 @@ SetLanguage.OnServerEvent:Connect(function(player, lang)
 		updatePlotGroundButtons(plot, data)
 		updatePlotAlbaZones(plot, data)
 	end
-	ShadowDefenseService.SyncPlayerTools(player, data)
-	Regno1Service.SyncPlayer(player)
+	pcall(function() ShadowDefenseService.SyncPlayerTools(player, data) end)
+	pcall(function() Regno1Service.SyncPlayer(player) end)
 	syncPlayer(player)
 end)
 
@@ -556,7 +588,7 @@ for _, plot in ipairs(plots) do
 
 	TouchingByPlot[plot.Index] = {}
 	for _, alt in ipairs(GameConfig.Altars) do
-		local pad = plot.AltarsFolder:FindFirstChild(alt.Id)
+		local pad = plot.AltarsFolder and plot.AltarsFolder:FindFirstChild(alt.Id)
 		if pad then
 			TouchingByPlot[plot.Index][alt.Id] = false
 			pad.Touched:Connect(function(hit)
@@ -678,9 +710,9 @@ for _, plot in ipairs(plots) do
 			updatePlotBrazierVisuals(plot, freshStats)
 			updatePlotGroundButtons(plot, data)
 			updatePlotAlbaZones(plot, data)
-			ShadowDefenseService.RebuildPlotDefenses(plot, data)
-			ShadowDefenseService.SyncPlayerTools(plr, data)
-			Regno1Service.SyncPlayer(plr)
+			pcall(function() ShadowDefenseService.RebuildPlotDefenses(plot, data) end)
+			pcall(function() ShadowDefenseService.SyncPlayerTools(plr, data) end)
+			pcall(function() Regno1Service.SyncPlayer(plr) end)
 
 			syncPlayer(plr, {
 				VictoryTriggered = true,
@@ -799,7 +831,7 @@ BuyUpgrade.OnServerEvent:Connect(function(player, upgId)
 			end
 		elseif target.Id == "u_braziers" then
 			popup = Localization.T(lang, "POP_R1_UNLOCKED")
-			Regno1Service.SyncPlayer(player)
+			pcall(function() Regno1Service.SyncPlayer(player) end)
 		elseif #newlyUnlocked > 0 then
 			popup = Localization.T(lang, "POP_NEW_UNLOCK", table.concat(newlyUnlocked, " & "))
 		end
@@ -838,7 +870,7 @@ BuyWeapon.OnServerEvent:Connect(function(player, wepId)
 	if data.Points >= cost then
 		data.Points -= cost
 		data.OwnedWeapons[target.Id] = true
-		ShadowDefenseService.SyncPlayerTools(player, data)
+		pcall(function() ShadowDefenseService.SyncPlayerTools(player, data) end)
 
 		syncPlayer(player, {
 			SoundCue = "Upgrade",
@@ -894,7 +926,7 @@ BuyDefense.OnServerEvent:Connect(function(player, defId)
 
 		local plot = PlayerPlotMap[player.UserId]
 		if plot then
-			ShadowDefenseService.RebuildPlotDefenses(plot, data)
+			pcall(function() ShadowDefenseService.RebuildPlotDefenses(plot, data) end)
 		end
 
 		syncPlayer(player, {
@@ -1111,8 +1143,8 @@ local syncAccumulator = 0
 task.spawn(function()
 	while true do
 		task.wait(0.1)
-		Regno1Service.Tick(0.1)
-		ShadowDefenseService.Tick(0.1, ClickHeat)
+		pcall(function() Regno1Service.Tick(0.1) end)
+		pcall(function() ShadowDefenseService.Tick(0.1, ClickHeat) end)
 
 		syncAccumulator += 0.1
 		local doPassiveSync = syncAccumulator >= 0.25
@@ -1175,6 +1207,10 @@ Players.PlayerAdded:Connect(function(player)
 	local p = Instance.new("StringValue", ls); p.Name = "Points"; p.Value = "0"
 	local l = Instance.new("StringValue", ls); l.Name = "Light"; l.Value = "4%"
 
+	-- Assegna IMMEDIATAMENTE uno slot vuoto prima di qualsiasi yield (DataStore)
+	-- così il giocatore entra e spawna direttamente nel suo slot già attivo
+	local assignedPlot = assignPlotToPlayer(player, "en")
+
 	local data = EconomyEngine.DefaultData()
 	if mainStore then
 		local ok, saved = pcall(function() return mainStore:GetAsync("Plr_" .. player.UserId) end)
@@ -1197,37 +1233,46 @@ Players.PlayerAdded:Connect(function(player)
 	verifyDoubleLightOwnership(player, data)
 	PlayerData[player.UserId] = data
 
-	local assignedPlot = assignPlotToPlayer(player, getLang(data))
 	if assignedPlot then
 		if data.TutorialCompleted then
-			ShadowDefenseService.StartGracePeriod(assignedPlot.Index, GameConfig.InitialShadowGraceSeconds or 180, true)
+			pcall(function()
+				ShadowDefenseService.StartGracePeriod(assignedPlot.Index, GameConfig.InitialShadowGraceSeconds or 180, true)
+			end)
 		else
-			ShadowDefenseService.StartGracePeriod(assignedPlot.Index, 999999, true)
+			pcall(function()
+				ShadowDefenseService.StartGracePeriod(assignedPlot.Index, 999999, true)
+			end)
 		end
 	end
 
-	player.CharacterAdded:Connect(function()
-		task.wait(0.2)
+	local function setupCharacter(char)
+		task.wait(0.15)
+		if not char or not char.Parent then return end
 		local stats = EconomyEngine.CalculateStats(data, 0, 1, data.HasDoubleLight)
 		applyCharacterSpeed(player, stats.WalkSpeed)
-		ShadowDefenseService.SyncPlayerTools(player, data)
+		pcall(function() ShadowDefenseService.SyncPlayerTools(player, data) end)
 		if assignedPlot then
 			teleportPlayerToPlot(player, assignedPlot)
 		end
-	end)
+	end
 
-	task.wait(0.8)
+	player.CharacterAdded:Connect(setupCharacter)
+	if player.Character then
+		task.spawn(setupCharacter, player.Character)
+	end
+
+	task.wait(0.4)
 	if assignedPlot then
 		local initStats = EconomyEngine.CalculateStats(data, 0, 1, data.HasDoubleLight)
-		updatePlotBrazierVisuals(assignedPlot, initStats)
-		updatePlotGroundButtons(assignedPlot, data)
-		updatePlotAlbaZones(assignedPlot, data)
-		ShadowDefenseService.RebuildPlotDefenses(assignedPlot, data)
-		ShadowDefenseService.SyncPlayerTools(player, data)
+		pcall(function() updatePlotBrazierVisuals(assignedPlot, initStats) end)
+		pcall(function() updatePlotGroundButtons(assignedPlot, data) end)
+		pcall(function() updatePlotAlbaZones(assignedPlot, data) end)
+		pcall(function() ShadowDefenseService.RebuildPlotDefenses(assignedPlot, data) end)
+		pcall(function() ShadowDefenseService.SyncPlayerTools(player, data) end)
 		teleportPlayerToPlot(player, assignedPlot)
 	end
 
-	Regno1Service.SyncPlayer(player)
+	pcall(function() Regno1Service.SyncPlayer(player) end)
 	syncPlayer(player)
 end)
 
