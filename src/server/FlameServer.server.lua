@@ -1,5 +1,12 @@
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local remotes = ReplicatedStorage:FindFirstChild("Remotes")
+if not remotes then
+	remotes = Instance.new("Folder")
+	remotes.Name = "Remotes"
+	remotes.Parent = ReplicatedStorage
+end
+
 local DataStoreService = game:GetService("DataStoreService")
 local HttpService = game:GetService("HttpService")
 local MarketplaceService = game:GetService("MarketplaceService")
@@ -33,7 +40,7 @@ for _, plot in ipairs(plots) do
 	sp.CanCollide = false
 	sp.Transparency = 1
 	sp.Duration = 0
-	sp.Neutral = false
+	sp.Neutral = true
 	sp.Size = Vector3.new(6, 1, 6)
 	sp.CFrame = CFrame.lookAt(spawnPos, lookTarget)
 	sp.Parent = plot.Folder or world
@@ -1207,11 +1214,31 @@ Players.PlayerAdded:Connect(function(player)
 	local p = Instance.new("StringValue", ls); p.Name = "Points"; p.Value = "0"
 	local l = Instance.new("StringValue", ls); l.Name = "Light"; l.Value = "4%"
 
-	-- Assegna IMMEDIATAMENTE uno slot vuoto prima di qualsiasi yield (DataStore)
-	-- così il giocatore entra e spawna direttamente nel suo slot già attivo
 	local assignedPlot = assignPlotToPlayer(player, "en")
+	if assignedPlot and assignedPlot.Folder then
+		assignedPlot.Folder:SetAttribute("OwnerUserId", player.UserId)
+	end
 
 	local data = EconomyEngine.DefaultData()
+	PlayerData[player.UserId] = data
+
+	local function setupCharacter(char)
+		task.wait(0.1)
+		if not char or not char.Parent then return end
+		local curData = PlayerData[player.UserId] or data
+		local stats = EconomyEngine.CalculateStats(curData, 0, 1, curData.HasDoubleLight)
+		applyCharacterSpeed(player, stats.WalkSpeed)
+		pcall(function() ShadowDefenseService.SyncPlayerTools(player, curData) end)
+		if assignedPlot then
+			teleportPlayerToPlot(player, assignedPlot)
+		end
+	end
+
+	player.CharacterAdded:Connect(setupCharacter)
+	if player.Character then
+		task.spawn(setupCharacter, player.Character)
+	end
+
 	if mainStore then
 		local ok, saved = pcall(function() return mainStore:GetAsync("Plr_" .. player.UserId) end)
 		if ok and type(saved) == "table" then
@@ -1231,38 +1258,13 @@ Players.PlayerAdded:Connect(function(player)
 	data.TutorialCompleted = (data.TutorialCompleted == true)
 
 	verifyDoubleLightOwnership(player, data)
-	PlayerData[player.UserId] = data
 
 	if assignedPlot then
-		if data.TutorialCompleted then
-			pcall(function()
-				ShadowDefenseService.StartGracePeriod(assignedPlot.Index, GameConfig.InitialShadowGraceSeconds or 180, true)
-			end)
-		else
-			pcall(function()
-				ShadowDefenseService.StartGracePeriod(assignedPlot.Index, 999999, true)
-			end)
-		end
-	end
+		local graceSecs = data.TutorialCompleted and (GameConfig.InitialShadowGraceSeconds or 180) or 999999
+		pcall(function()
+			ShadowDefenseService.StartGracePeriod(assignedPlot.Index, graceSecs, true)
+		end)
 
-	local function setupCharacter(char)
-		task.wait(0.15)
-		if not char or not char.Parent then return end
-		local stats = EconomyEngine.CalculateStats(data, 0, 1, data.HasDoubleLight)
-		applyCharacterSpeed(player, stats.WalkSpeed)
-		pcall(function() ShadowDefenseService.SyncPlayerTools(player, data) end)
-		if assignedPlot then
-			teleportPlayerToPlot(player, assignedPlot)
-		end
-	end
-
-	player.CharacterAdded:Connect(setupCharacter)
-	if player.Character then
-		task.spawn(setupCharacter, player.Character)
-	end
-
-	task.wait(0.4)
-	if assignedPlot then
 		local initStats = EconomyEngine.CalculateStats(data, 0, 1, data.HasDoubleLight)
 		pcall(function() updatePlotBrazierVisuals(assignedPlot, initStats) end)
 		pcall(function() updatePlotGroundButtons(assignedPlot, data) end)
