@@ -514,6 +514,30 @@ local function buildRitualBrazier(plotModel, plotIndex, origin, outwardDir)
 	}
 end
 
+local function removeDefaultBaseplate(worldFolder)
+	for _, obj in ipairs(Workspace:GetDescendants()) do
+		if obj:IsA("BasePart") and (not worldFolder or not obj:IsDescendantOf(worldFolder)) then
+			local isCharacterPart = obj.Parent and obj.Parent:FindFirstChildOfClass("Humanoid") ~= nil
+			if not isCharacterPart then
+				local lowerName = string.lower(obj.Name)
+				local topY = obj.Position.Y + (obj.Size.Y * 0.5)
+				local isDefaultFloor = (lowerName == "baseplate")
+					or (math.abs(topY) <= 1.5 and (obj.Size.X >= 80 or obj.Size.Z >= 80))
+				if isDefaultFloor then
+					obj:Destroy()
+				end
+			end
+		end
+	end
+
+	local terrain = Workspace:FindFirstChildOfClass("Terrain")
+	if terrain then
+		pcall(function()
+			terrain:Clear()
+		end)
+	end
+end
+
 function WorldBuilder.Build()
 	local existing = Workspace:FindFirstChild("LastFlameWorld")
 	if existing then
@@ -523,6 +547,9 @@ function WorldBuilder.Build()
 	local world = Instance.new("Folder")
 	world.Name = "LastFlameWorld"
 	world.Parent = Workspace
+
+	-- Elimina il pavimento Baseplate di default di Roblox Studio così non attraversa piazza e slot
+	removeDefaultBaseplate(world)
 
 	local plotCount = GameConfig.PlotCount or 10
 	local ringRadius = GameConfig.PlotRingRadius or 245
@@ -593,22 +620,22 @@ function WorldBuilder.Build()
 			makePart(plotModel, "PlotBorderFrontR", Vector3.new(frontSegmentLen, borderHeight, borderThick), plotLook * CFrame.new(wingX, borderY, sideOffset), Color3.fromRGB(70, 145, 210), Enum.Material.Neon, 0.35, false)
 		end
 
-		-- === PASSERELLA DI COLLEGAMENTO A FILO (DA R = 52.00 A R = ringRadius - halfSize) ===
-		local bridgeStart = hubRadius
+		-- === PASSERELLA DI COLLEGAMENTO A FILO (DA R = 51.50 A R = ringRadius - halfSize) ===
+		local bridgeStart = hubRadius - 0.5
 		local bridgeEnd = ringRadius - halfSize
 		local hubBridgeLen = bridgeEnd - bridgeStart
 		if hubBridgeLen > 4 then
 			local bridgeMid = outwardDir * (bridgeStart + hubBridgeLen * 0.5)
 			local bridgeCF = CFrame.lookAt(bridgeMid, bridgeMid + outwardDir)
 
-			-- Piano principale a livello Y = 0.00 esatto, senza alcuna compenetrazione
-			makePart(plotModel, "HubBridge", Vector3.new(walkwayWidth, 1.8, hubBridgeLen), bridgeCF * CFrame.new(0, -0.9, 0), Color3.fromRGB(30, 35, 52), Enum.Material.Slate, 0, true)
+			-- Piano principale a Y = -0.01 così si innesta sotto la piazza centrale senza Z-fighting né fessure
+			makePart(plotModel, "HubBridge", Vector3.new(walkwayWidth, 1.8, hubBridgeLen), bridgeCF * CFrame.new(0, -0.91, 0), Color3.fromRGB(30, 35, 52), Enum.Material.Slate, 0, true)
 			-- Cordoli laterali rialzati
 			local curbOffset = walkwayWidth * 0.5 + 0.25
-			makePart(plotModel, "HubBridgeCurbL", Vector3.new(0.5, 0.36, hubBridgeLen), bridgeCF * CFrame.new(-curbOffset, 0.06, 0), Color3.fromRGB(48, 56, 80), Enum.Material.SmoothPlastic, 0, true)
-			makePart(plotModel, "HubBridgeCurbR", Vector3.new(0.5, 0.36, hubBridgeLen), bridgeCF * CFrame.new(curbOffset, 0.06, 0), Color3.fromRGB(48, 56, 80), Enum.Material.SmoothPlastic, 0, true)
-			-- Striscia luminosa centrale leggermente sopra Y = 0.00 (Y = 0.02, zero Z-fighting)
-			makePart(plotModel, "HubBridgeGuideline", Vector3.new(0.36, 0.04, hubBridgeLen - 2.0), bridgeCF * CFrame.new(0, 0.02, 0), Color3.fromRGB(255, 195, 75), Enum.Material.Neon, 0.35, false)
+			makePart(plotModel, "HubBridgeCurbL", Vector3.new(0.5, 0.36, hubBridgeLen - 0.6), bridgeCF * CFrame.new(-curbOffset, 0.05, 0.3), Color3.fromRGB(48, 56, 80), Enum.Material.SmoothPlastic, 0, true)
+			makePart(plotModel, "HubBridgeCurbR", Vector3.new(0.5, 0.36, hubBridgeLen - 0.6), bridgeCF * CFrame.new(curbOffset, 0.05, 0.3), Color3.fromRGB(48, 56, 80), Enum.Material.SmoothPlastic, 0, true)
+			-- Striscia luminosa centrale leggermente sopra il piano (Y = 0.01, zero Z-fighting)
+			makePart(plotModel, "HubBridgeGuideline", Vector3.new(0.36, 0.04, hubBridgeLen - 2.4), bridgeCF * CFrame.new(0, 0.01, 0.3), Color3.fromRGB(255, 195, 75), Enum.Material.Neon, 0.35, false)
 		end
 
 		-- Cartello identificativo Plot
