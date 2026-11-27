@@ -737,10 +737,10 @@ local RAID_MAX_ON_PLOT     = 8      -- cap mob simultanei per plot
 
 local function getRaidState(plotIndex)
 	if not PlotRaidState[plotIndex] then
-		-- primo raid: inizia dopo un cooldown casuale ridotto (30-90s)
+		-- Il primo raid rispetta lo stesso intervallo casuale degli altri.
 		PlotRaidState[plotIndex] = {
 			RaidUntil  = 0,
-			NextRaidAt = os.clock() + math.random(30, 90),
+			NextRaidAt = os.clock() + math.random(RAID_COOLDOWN_MIN, RAID_COOLDOWN_MAX),
 			SpawnTimer = 0,
 		}
 	end
@@ -939,25 +939,6 @@ function ShadowDefenseService.Tick(dt, clickHeatTable)
 			end
 		end
 	end
-						drain = math.min(currentPts, math.max(sh.MinDrain, math.floor(currentPts * sh.DrainPct)))
-						data.Points = math.max(0, currentPts - drain)
-					end
-					if clickHeatTable and clickHeatTable[owner.UserId] then
-						clickHeatTable[owner.UserId].Heat = math.max(0, (clickHeatTable[owner.UserId].Heat or 0) - 0.35)
-					end
-					if SyncPlayerFn then
-						SyncPlayerFn(owner, {
-							Shockwave = true,
-							PopupText = Localization.T(getLang(data), "POP_SHADOW_HIT", NumberFormat.Format(drain)),
-						})
-					end
-				end
-			else
-				sh.Part.CFrame = CFrame.lookAt(sh.Part.Position, targetPos) + toCenter.Unit * (sh.Speed * speedMult * dt)
-			end
-		end
-	end
-
 	for plotIndex, defState in pairs(PlotDefensesState) do
 		local plot = PlotsRef[plotIndex]
 		local owner = plot and plot.Owner
