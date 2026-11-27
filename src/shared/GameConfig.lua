@@ -6,6 +6,7 @@ GameConfig.PlotHalfSize = 42
 
 GameConfig.InitialShadowGraceSeconds = 180 -- 3 minuti all'ingresso
 GameConfig.RebirthShadowGraceSeconds = 120 -- 2 minuti dopo ogni Rinascita
+GameConfig.RebirthUpgradeCostGrowth = 0.12
 
 GameConfig.BaseClickCooldown = 0.50
 GameConfig.MinClickCooldown = 0.06
@@ -135,14 +136,14 @@ GameConfig.Upgrades = {
 		Icon = "🎯",
 		Name = "Flare Precision",
 		Name_it = "Precisione Vampa",
-		Tag = "+3% Crit Chance",
-		Tag_it = "+3% Prob. Critico",
+		Tag = "+1.8% Crit Chance",
+		Tag_it = "+1.8% Prob. Critico",
 		Desc = "Increases chance to trigger critical Light bursts on click.",
 		Desc_it = "Aumenta la probabilità di esplosioni critiche di Luce al click.",
 		BaseCost = 140,
 		CostMult = 1.88,
 		MaxLevel = 12,
-		CritChanceAdd = 0.03,
+		CritChanceAdd = 0.018,
 		LightPct = 1.2,
 		ReqId = "u_click_cooldown",
 		ReqLvl = 1,
@@ -163,7 +164,7 @@ GameConfig.Upgrades = {
 		BaseCost = 120,
 		CostMult = 1.52,
 		MaxLevel = 20,
-		HeatCapBonus = 0.16,
+		HeatCapBonus = 0.10,
 		LightPct = 1.0,
 		ReqId = "alt_radius",
 		ReqLvl = 1,
@@ -241,14 +242,14 @@ GameConfig.Upgrades = {
 		Icon = "💥",
 		Name = "Solar Flare",
 		Name_it = "Brillamento Solare",
-		Tag = "+0.6x Crit Damage",
-		Tag_it = "+0.6x Molt. Critico",
+		Tag = "+0.36x Crit Damage",
+		Tag_it = "+0.36x Molt. Critico",
 		Desc = "Increases the multiplier of every critical click.",
 		Desc_it = "Aumenta il moltiplicatore di ogni click critico.",
 		BaseCost = 1500,
 		CostMult = 1.92,
 		MaxLevel = 12,
-		CritMultAdd = 0.6,
+		CritMultAdd = 0.36,
 		LightPct = 1.2,
 		ReqId = "u_crit_chance",
 		ReqLvl = 1,
@@ -262,14 +263,14 @@ GameConfig.Upgrades = {
 		Icon = "💪",
 		Name = "Focused Kindle",
 		Name_it = "Innesco Concentrato",
-		Tag = "x1.28 Click Power",
-		Tag_it = "x1.28 Potere Click",
-		Desc = "Multiplies all click Light power by x1.28 per level.",
-		Desc_it = "Moltiplica il potere di click di x1.28 per livello.",
+		Tag = "x1.17 Click Power",
+		Tag_it = "x1.17 Potere Click",
+		Desc = "Multiplies all click Light power by x1.17 per level.",
+		Desc_it = "Moltiplica il potere di click di x1.17 per livello.",
 		BaseCost = 800,
 		CostMult = 1.95,
 		MaxLevel = 15,
-		ClickMult = 1.28,
+		ClickMult = 1.17,
 		LightPct = 1.2,
 		ReqId = "u_crit_chance",
 		ReqLvl = 1,
@@ -307,14 +308,14 @@ GameConfig.Upgrades = {
 		Icon = "☀️",
 		Name = "Solar Multiplier",
 		Name_it = "Moltiplicatore Solare",
-		Tag = "x1.22 All Light",
-		Tag_it = "x1.22 Luce Totale",
-		Desc = "Multiplies ALL Light earned (clicks & passive) by x1.22/lv.",
-		Desc_it = "Moltiplica TUTTA la Luce ottenuta (click e passiva) di x1.22/lv.",
+		Tag = "x1.13 All Light",
+		Tag_it = "x1.13 Luce Totale",
+		Desc = "Multiplies ALL Light earned (clicks & passive) by x1.13/lv.",
+		Desc_it = "Moltiplica TUTTA la Luce ottenuta (click e passiva) di x1.13/lv.",
 		BaseCost = 1800,
 		CostMult = 1.72,
 		MaxLevel = 18,
-		MultBonus = 0.22,
+		MultBonus = 0.13,
 		LightPct = 1.2,
 		ReqId = "alt_heat",
 		ReqLvl = 1,
@@ -348,14 +349,14 @@ GameConfig.Upgrades = {
 		Icon = "🌟",
 		Name = "Beacon Resonance",
 		Name_it = "Risonanza del Faro",
-		Tag = "x1.32 Passive Light",
-		Tag_it = "x1.32 Luce Passiva",
-		Desc = "Multiplies all passive Light per second by x1.32 per level.",
-		Desc_it = "Moltiplica tutta la Luce passiva al secondo di x1.32/lv.",
+		Tag = "x1.19 Passive Light",
+		Tag_it = "x1.19 Luce Passiva",
+		Desc = "Multiplies all passive Light per second by x1.19 per level.",
+		Desc_it = "Moltiplica tutta la Luce passiva al secondo di x1.19/lv.",
 		BaseCost = 2400,
 		CostMult = 1.88,
 		MaxLevel = 15,
-		PassiveMult = 1.32,
+		PassiveMult = 1.19,
 		LightPct = 1.2,
 		ReqId = "alt_spark",
 		ReqLvl = 1,
@@ -436,14 +437,14 @@ GameConfig.Upgrades = {
 		Icon = "👑",
 		Name = "Radiant Amplifier",
 		Name_it = "Amplificatore Radioso",
-		Tag = "x1.30 ALL Light",
-		Tag_it = "x1.30 TUTTA la Luce",
-		Desc = "Global multiplier: boosts every Light source by x1.30 per level.",
-		Desc_it = "Moltiplicatore globale: potenzia ogni fonte di Luce di x1.30/lv.",
+		Tag = "x1.18 ALL Light",
+		Tag_it = "x1.18 TUTTA la Luce",
+		Desc = "Global multiplier: boosts every Light source by x1.18 per level.",
+		Desc_it = "Moltiplicatore globale: potenzia ogni fonte di Luce di x1.18/lv.",
 		BaseCost = 35000,
 		CostMult = 1.88,
 		MaxLevel = 14,
-		AllMult = 1.30,
+		AllMult = 1.18,
 		LightPct = 1.5,
 		ReqId = "alt_mult",
 		ReqLvl = 1,
@@ -483,14 +484,14 @@ GameConfig.Upgrades = {
 		Icon = "🌠",
 		Name = "Zenith Core",
 		Name_it = "Nucleo dello Zenith",
-		Tag = "x1.38 ALL Light",
-		Tag_it = "x1.38 TUTTA la Luce",
+		Tag = "x1.23 ALL Light",
+		Tag_it = "x1.23 TUTTA la Luce",
 		Desc = "Endgame multiplier: massively scales total Light output.",
 		Desc_it = "Moltiplicatore avanzato: scala enormemente la Luce totale.",
 		BaseCost = 1800000,
 		CostMult = 1.75,
 		MaxLevel = 10,
-		AllMult = 1.38,
+		AllMult = 1.23,
 		LightPct = 2.0,
 		ReqId = "u_mult_all_1",
 		ReqLvl = 1,
@@ -530,7 +531,7 @@ GameConfig.VictoryButton = {
 	Desc = "Requires ALL tree upgrades maxed. Resets Light for Dawn Points!",
 	Desc_it = "Richiede TUTTI i potenziamenti dell'albero al MAX. Azzera la Luce per Punti Alba!",
 	BaseCost = 1000000000,
-	CostMult = 3.5,
+	CostMult = 2.0,
 	BaseAlbaReward = 1,
 }
 
@@ -559,8 +560,8 @@ GameConfig.AlbaPerks = {
 		Id = "ap_discount",
 		Name = "Ancient Wisdom",
 		Name_it = "Saggezza Antica",
-		Desc = "Reduces all Light upgrade & button costs by 8% per level.",
-		Desc_it = "Riduce il costo di tutti i potenziamenti e bottoni dell'8% per livello.",
+		Desc = "Reduces all Light purchase costs by 8% per level.",
+		Desc_it = "Riduce tutti i costi in Luce dell'8% per livello.",
 		Cost = 2,
 		CostMult = 2.5,
 		MaxLevel = 8,
@@ -790,39 +791,44 @@ local function computeSteepCurve(baseCost, costMult, lvl, steepAfter, steepFacto
 	return cost
 end
 
+local function getRebirthCostScale(albaCount)
+	return 1 + math.max(0, albaCount or 0) * (GameConfig.RebirthUpgradeCostGrowth or 0.12)
+end
+
+local function applyLightCostDiscount(cost, discountLvl)
+	local discountMult = math.max(0.30, 1 - math.max(0, discountLvl or 0) * 0.08)
+	return math.max(1, math.floor(cost * discountMult))
+end
+
 function GameConfig.GetAltarCost(alt, lvl, albaCount, discountLvl)
-	local rebirthScale = 1 + (albaCount or 0) * 0.35
-	local discountMult = math.max(0.25, 1 - (discountLvl or 0) * 0.08)
 	local raw = computeSteepCurve(alt.BaseCost, alt.CostMult or 1.5, lvl, alt.SteepAfterLevel, alt.SteepFactor)
-	return math.max(1, math.floor(raw * rebirthScale * discountMult))
+	return applyLightCostDiscount(raw * getRebirthCostScale(albaCount), discountLvl)
 end
 
 function GameConfig.GetUpgradeCost(upg, lvl, albaCount, discountLvl)
-	local rebirthScale = 1 + (albaCount or 0) * 0.35
-	local discountMult = math.max(0.25, 1 - (discountLvl or 0) * 0.08)
 	local raw = computeSteepCurve(upg.BaseCost, upg.CostMult or 1.8, lvl, upg.SteepAfterLevel, upg.SteepFactor)
-	return math.max(1, math.floor(raw * rebirthScale * discountMult))
+	return applyLightCostDiscount(raw * getRebirthCostScale(albaCount), discountLvl)
 end
 
-function GameConfig.GetVictoryCost(albaCount)
+function GameConfig.GetVictoryCost(albaCount, discountLvl)
 	local vb = GameConfig.VictoryButton
-	return math.floor(vb.BaseCost * (vb.CostMult ^ (albaCount or 0)))
+	local raw = vb.BaseCost * (vb.CostMult ^ math.max(0, albaCount or 0))
+	return applyLightCostDiscount(raw, discountLvl)
 end
 
-function GameConfig.GetWeaponCost(wep, albaCount)
-	local scale = 1 + (albaCount or 0) * 0.25
-	return math.floor(wep.BaseCost * scale)
+function GameConfig.GetWeaponCost(wep, albaCount, discountLvl)
+	return applyLightCostDiscount(wep.BaseCost * getRebirthCostScale(albaCount), discountLvl)
 end
 
-function GameConfig.GetDefenseCost(def, lvl, albaCount)
-	local scale = 1 + (albaCount or 0) * 0.25
-	local pts = math.floor(def.BaseCost * ((def.CostMult or 2.0) ^ lvl) * scale)
+function GameConfig.GetDefenseCost(def, lvl, albaCount, discountLvl)
+	local raw = def.BaseCost * ((def.CostMult or 2.0) ^ lvl) * getRebirthCostScale(albaCount)
+	local pts = applyLightCostDiscount(raw, discountLvl)
 	local alba = (def.AlbaCost and lvl == 0) and def.AlbaCost or 0
 	return { Points = pts, Alba = alba }
 end
 
-function GameConfig.GetWispCost(albaCount)
-	return math.floor(350 * (1 + (albaCount or 0) * 0.4))
+function GameConfig.GetWispCost(albaCount, discountLvl)
+	return applyLightCostDiscount(350 * getRebirthCostScale(albaCount), discountLvl)
 end
 
 return GameConfig

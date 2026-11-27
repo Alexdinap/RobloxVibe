@@ -254,6 +254,7 @@ end
 local function updatePlotGroundButtons(plot, data)
 	if not plot then return end
 	local albaCount = (data and data.AlbaCount) or 0
+	local discountLvl = EconomyEngine.GetLevel(data and data.AlbaPerks, "ap_discount")
 	local lang = getLang(data)
 	local lightUnit = Localization.T(lang, "LIGHT_UNIT")
 	local ownedWeapons = (data and data.OwnedWeapons) or {}
@@ -266,7 +267,7 @@ local function updatePlotGroundButtons(plot, data)
 				local owned = ownedWeapons[wep.Id] == true
 				local reqAlba = wep.ReqAlba or 0
 				local locked = (not owned) and (albaCount < reqAlba)
-				local cost = GameConfig.GetWeaponCost(wep, albaCount)
+				local cost = GameConfig.GetWeaponCost(wep, albaCount, discountLvl)
 				local wName = Localization.Pick(lang, wep.Name, wep.Name_it)
 				local wTag = Localization.Pick(lang, wep.Tag, wep.Tag_it)
 
@@ -292,7 +293,7 @@ local function updatePlotGroundButtons(plot, data)
 	if plot.WispStationRefs then
 		local ws = plot.WispStationRefs
 		local wispsUnlocked = EconomyEngine.GetUpgradeLevel(data or {}, "u_unlock_wisps") > 0
-		local unitCost = GameConfig.GetWispCost(albaCount)
+		local unitCost = GameConfig.GetWispCost(albaCount, discountLvl)
 		if ws.ShrineTitle then
 			ws.ShrineTitle.Text = Localization.T(lang, "PAD_WISP_SHRINE_TITLE")
 		end
@@ -330,7 +331,7 @@ local function updatePlotGroundButtons(plot, data)
 			or string.format("Prestige (+%d Dawn Pts)", reward)
 	end
 	if plot.VictoryStatusLabel then
-		local vCost = GameConfig.GetVictoryCost(albaCount)
+		local vCost = GameConfig.GetVictoryCost(albaCount, discountLvl)
 		plot.VictoryStatusLabel.Text = NumberFormat.Format(vCost) .. " " .. lightUnit
 	end
 	local _ = upgrades
@@ -696,7 +697,8 @@ local function handleWeaponPurchaseOrEquip(player, wepId, equipIfOwned)
 		return
 	end
 
-	local cost = GameConfig.GetWeaponCost(target, albaCount)
+	local discountLvl = EconomyEngine.GetLevel(data.AlbaPerks, "ap_discount")
+	local cost = GameConfig.GetWeaponCost(target, albaCount, discountLvl)
 	if data.Points >= cost then
 		data.Points -= cost
 		data.OwnedWeapons[target.Id] = true
@@ -730,7 +732,8 @@ local function handleSummonWisp(player, amount)
 	end
 
 	amount = math.clamp(math.floor(amount or 1), 1, 5)
-	local unitCost = GameConfig.GetWispCost(data.AlbaCount or 0)
+	local discountLvl = EconomyEngine.GetLevel(data.AlbaPerks, "ap_discount")
+	local unitCost = GameConfig.GetWispCost(data.AlbaCount or 0, discountLvl)
 	local totalCost = unitCost * amount
 	if data.Points < totalCost then
 		syncPlayer(player, { PopupText = Localization.T(lang, "POP_NEED_LIGHT", NumberFormat.Format(totalCost)) })
@@ -859,7 +862,8 @@ for _, plot in ipairs(plots) do
 			VictoryCooldown[plr.UserId] = now
 
 			local lang = getLang(data)
-			local vCost = GameConfig.GetVictoryCost(data.AlbaCount or 0)
+			local discountLvl = EconomyEngine.GetLevel(data.AlbaPerks, "ap_discount")
+			local vCost = GameConfig.GetVictoryCost(data.AlbaCount or 0, discountLvl)
 			if data.Points < vCost then
 				syncPlayer(plr, {
 					PopupText = Localization.T(lang, "POP_NEED_FINAL", NumberFormat.Format(vCost)),
@@ -914,7 +918,8 @@ BuyUpgrade.OnServerEvent:Connect(function(player, upgId)
 	if cur >= target.MaxLevel then return end
 
 	local lang = getLang(data)
-	local cost = GameConfig.GetUpgradeCost(target, cur, data.AlbaCount or 0)
+	local discountLvl = EconomyEngine.GetLevel(data.AlbaPerks, "ap_discount")
+	local cost = GameConfig.GetUpgradeCost(target, cur, data.AlbaCount or 0, discountLvl)
 	if data.Points >= cost then
 		local wasAllDone = EconomyEngine.GetUpgradeCompletion(data)
 		data.Points -= cost
@@ -1003,7 +1008,8 @@ BuyDefense.OnServerEvent:Connect(function(player, defId)
 	if cur >= target.MaxLevel then return end
 
 	local lang = getLang(data)
-	local costInfo = GameConfig.GetDefenseCost(target, cur, data.AlbaCount or 0)
+	local discountLvl = EconomyEngine.GetLevel(data.AlbaPerks, "ap_discount")
+	local costInfo = GameConfig.GetDefenseCost(target, cur, data.AlbaCount or 0, discountLvl)
 	local needPoints = costInfo.Points or 0
 	local needAlba = costInfo.Alba or 0
 

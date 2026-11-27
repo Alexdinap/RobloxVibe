@@ -31,12 +31,14 @@ local SHADOW_TYPES = {
 		Id = "wisp",
 		Name_en = "Void Wisp",
 		Name_it = "Ombra Errante",
-		IsKamikaze = true,         -- esplode al contatto con il braciere
+		IsMelee = true,            -- si ferma vicino e colpisce in melee
+		MeleeRange = 9.0,
+		MeleeInterval = 1.8,
 		MaxHP = 18,
-		Speed = 6.5,               -- leggermente più veloce per la carica
+		Speed = 6.5,
 		Size = 3.4,
-		DrainPct = 0.14,           -- danno burst maggiorato (era 0.08)
-		MinDrain = 110,            -- danno minimo maggiorato (era 55)
+		DrainPct = 0.025,
+		MinDrain = 20,
 		RewardMult = 18,
 		Color = Color3.fromRGB(32, 14, 58),
 		LightColor = Color3.fromRGB(165, 65, 255),
@@ -45,14 +47,12 @@ local SHADOW_TYPES = {
 		Id = "stalker",
 		Name_en = "Dusk Stalker",
 		Name_it = "Ombra Predatrice",
-		IsMelee = true,            -- si ferma vicino e colpisce in melee
-		MeleeRange = 9.0,          -- distanza a cui si ferma
-		MeleeInterval = 1.4,       -- secondi tra un colpo e l'altro
-		MaxHP = 60,                -- più resistente per il melee (era 10)
-		Speed = 9.0,
+		IsKamikaze = true,         -- carica ed esplode al contatto col braciere
+		MaxHP = 38,
+		Speed = 8.0,
 		Size = 3.6,
-		DrainPct = 0.05,
-		MinDrain = 45,
+		DrainPct = 0.09,
+		MinDrain = 60,
 		RewardMult = 20,
 		Color = Color3.fromRGB(55, 12, 42),
 		LightColor = Color3.fromRGB(235, 55, 140),
@@ -67,8 +67,8 @@ local SHADOW_TYPES = {
 		MaxHP = 95,
 		Speed = 2.8,
 		Size = 5.8,
-		DrainPct = 0.15,
-		MinDrain = 220,
+		DrainPct = 0.11,
+		MinDrain = 160,
 		RewardMult = 75,
 		Color = Color3.fromRGB(20, 8, 32),
 		LightColor = Color3.fromRGB(255, 110, 40),
@@ -82,8 +82,8 @@ local SHADOW_TYPES = {
 		Size = 4.0,
 		StopRange = 22,
 		DrainInterval = 1.6,
-		DrainPct = 0.045,
-		MinDrain = 40,
+		DrainPct = 0.025,
+		MinDrain = 25,
 		RewardMult = 42,
 		Color = Color3.fromRGB(14, 28, 46),
 		LightColor = Color3.fromRGB(0, 215, 255),
@@ -589,26 +589,30 @@ end
 
 local function pickShadowType(data)
 	local alba = (data and data.AlbaCount) or 0
+	local _, completedUpgrades, totalUpgrades = EconomyEngine.GetUpgradeCompletion(data)
+	local progression = completedUpgrades / math.max(1, totalUpgrades)
 	local roll = math.random(1, 100)
 
-	if alba >= 2 then
-		if roll <= 16 then
+	if alba >= 2 and progression >= 0.25 then
+		if roll <= 12 then
 			return SHADOW_TYPES[3]
-		elseif roll <= 36 then
+		elseif roll <= 30 then
 			return SHADOW_TYPES[4]
-		elseif roll <= 80 then
+		elseif roll <= 58 then
 			return SHADOW_TYPES[2]
 		end
 		return SHADOW_TYPES[1]
 	elseif alba >= 1 then
-		if roll <= 24 then
+		if progression < 0.25 then
+			return SHADOW_TYPES[1]
+		elseif roll <= 8 then
 			return SHADOW_TYPES[4]
-		elseif roll <= 76 then
+		elseif roll <= 35 then
 			return SHADOW_TYPES[2]
 		end
 		return SHADOW_TYPES[1]
 	else
-		if roll <= 68 then
+		if progression >= 0.20 and roll <= 20 then
 			return SHADOW_TYPES[2]
 		end
 		return SHADOW_TYPES[1]
@@ -639,10 +643,10 @@ function ShadowDefenseService.SpawnShadowForPlot(plot, data)
 	local sType = pickShadowType(data)
 	local alba = math.max(0, (data and data.AlbaCount) or 0)
 
-	local hpMult = 1 + (alba * 0.75)
-	local drainMult = 1 + (alba * 0.65)
-	local speedMult = 1 + math.min(0.50, alba * 0.09)
-	local rewardScale = 1 + (alba * 0.55)
+	local hpMult = 1 + (alba * 0.25)
+	local drainMult = 1 + (alba * 0.12)
+	local speedMult = 1 + math.min(0.30, alba * 0.04)
+	local rewardScale = 1 + (alba * 0.20)
 
 	local scaledMaxHP = math.max(1, math.round(sType.MaxHP * hpMult))
 	local scaledSpeed = sType.Speed * speedMult
@@ -853,7 +857,7 @@ function ShadowDefenseService.Tick(dt, clickHeatTable)
 					end
 				end
 
-			-- ── MOB MELEE (Stalker, Brute) ───────────────────────────────────
+			-- ── MOB MELEE (Wisp, Colossus) ───────────────────────────────────
 			elseif sh.Type.IsMelee then
 				local meleeRange = sh.Type.MeleeRange or 9.0
 				if dist <= meleeRange then
@@ -887,7 +891,7 @@ function ShadowDefenseService.Tick(dt, clickHeatTable)
 						+ toCenter.Unit * (sh.Speed * speedMult * dt)
 				end
 
-			-- ── WISP KAMIKAZE (esplode al contatto) ──────────────────────────
+			-- ── KAMIKAZE (esplode al contatto) ───────────────────────────────
 			elseif sh.Type.IsKamikaze then
 				if dist <= 7.2 then
 					-- impatto con il braciere

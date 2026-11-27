@@ -123,6 +123,7 @@ function ClientWorldVisuals.Update(st)
 	local lightUnit = Localization.T(lang, "LIGHT_UNIT")
 	local points = st.Points or 0
 	local albaCount = st.AlbaCount or 0
+	local discountLvl = EconomyEngine.GetLevel(st.AlbaPerks, "ap_discount")
 	local ownedWeapons = st.OwnedWeapons or {}
 
 	-- 1. Postazioni Armi a terra
@@ -135,7 +136,7 @@ function ClientWorldVisuals.Update(st)
 				local owned = ownedWeapons[wep.Id] == true
 				local reqAlba = wep.ReqAlba or 0
 				local locked = (not owned) and (albaCount < reqAlba)
-				local cost = GameConfig.GetWeaponCost(wep, albaCount)
+				local cost = GameConfig.GetWeaponCost(wep, albaCount, discountLvl)
 				local canAfford = (not owned) and (not locked) and (points >= cost)
 				local wName = Localization.Pick(lang, wep.Name, wep.Name_it)
 				local wTag = Localization.Pick(lang, wep.Tag, wep.Tag_it)
@@ -193,7 +194,7 @@ function ClientWorldVisuals.Update(st)
 	local wispFolder = plotModel:FindFirstChild("WispStation")
 	if wispFolder then
 		local wispsUnlocked = (st.WispsUnlocked == true)
-		local unitCost = GameConfig.GetWispCost(albaCount)
+		local unitCost = GameConfig.GetWispCost(albaCount, discountLvl)
 		local padConfigs = {
 			{ Name = "WispPad_1", Mult = 1, TitleKey = "PAD_WISP_1_TITLE", BaseColor = Color3.fromRGB(80, 225, 255) },
 			{ Name = "WispPad_5", Mult = 5, TitleKey = "PAD_WISP_5_TITLE", BaseColor = Color3.fromRGB(205, 115, 255) },
@@ -249,7 +250,7 @@ function ClientWorldVisuals.Update(st)
 	local vPad = plotModel:FindFirstChild("VictoryPad")
 	if vPad and vPad:IsA("BasePart") then
 		local showVictory = (st.AllUpgradesCompleted == true)
-		local vCost = GameConfig.GetVictoryCost(albaCount)
+		local vCost = GameConfig.GetVictoryCost(albaCount, discountLvl)
 		vPad.Transparency = showVictory and 0.16 or 1
 		local vRim = vPad:FindFirstChild("VictoryPad_Rim")
 		if vRim and vRim:IsA("BasePart") then

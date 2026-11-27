@@ -506,7 +506,8 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 		local lvl = EconomyEngine.GetUpgradeLevel(dataProxy, u.Id)
 		local maxLvl = u.MaxLevel or 1
 		local maxed = lvl >= maxLvl
-		local cost = GameConfig.GetUpgradeCost(u, lvl, st.AlbaCount or 0)
+		local discountLvl = EconomyEngine.GetLevel(st.AlbaPerks, "ap_discount")
+		local cost = GameConfig.GetUpgradeCost(u, lvl, st.AlbaCount or 0, discountLvl)
 		local canBuy = (not maxed) and ((st.Points or 0) >= cost)
 
 		local uName = Localization.Pick(lang, u.Name, u.Name_it)
@@ -769,6 +770,7 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 		local points = st.Points or 0
 		local albaPts = st.AlbaPoints or 0
 		local albaCount = st.AlbaCount or 0
+		local discountLvl = EconomyEngine.GetLevel(st.AlbaPerks, "ap_discount")
 
 		if renderedTab == "Character" then
 			local dataProxy = { Upgrades = st.Upgrades or {}, Altars = st.Altars or {} }
@@ -811,7 +813,7 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 				local lvl = EconomyEngine.GetUpgradeLevel(dataProxy, u.Id)
 				local maxLvl = u.MaxLevel or 1
 				local maxed = lvl >= maxLvl
-				local cost = GameConfig.GetUpgradeCost(u, lvl, albaCount)
+				local cost = GameConfig.GetUpgradeCost(u, lvl, albaCount, discountLvl)
 				local canBuy = (not maxed) and points >= cost
 
 				if maxed then
@@ -859,7 +861,7 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 				local owned = ownedWeapons[w.Id] == true
 				local reqAlba = w.ReqAlba or 0
 				local albaLocked = (not owned) and (albaCount < reqAlba)
-				local wepCost = GameConfig.GetWeaponCost(w, albaCount)
+				local wepCost = GameConfig.GetWeaponCost(w, albaCount, discountLvl)
 				local canBuy = (not owned) and (not albaLocked) and points >= wepCost
 				local wName = Localization.Pick(lang, w.Name, w.Name_it)
 				local wTag = Localization.Pick(lang, w.Tag, w.Tag_it)
@@ -896,7 +898,7 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 
 				local lvl = EconomyEngine.GetLevel(st.Defenses, d.Id)
 				local maxed = lvl >= d.MaxLevel
-				local costInfo = GameConfig.GetDefenseCost(d, lvl, albaCount)
+				local costInfo = GameConfig.GetDefenseCost(d, lvl, albaCount, discountLvl)
 				local needPts = costInfo.Points or 0
 				local needAlba = costInfo.Alba or 0
 				local canBuy = (not maxed) and (points >= needPts) and (albaPts >= needAlba)
@@ -924,7 +926,7 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 				wispLockRef.Text = Localization.T(lang, "WISPS_LOCKED")
 			end
 			if wispHeaderRefs then
-				local unitWispCost = GameConfig.GetWispCost(albaCount)
+				local unitWispCost = GameConfig.GetWispCost(albaCount, discountLvl)
 				wispHeaderRefs.Card.Visible = st.WispsUnlocked == true
 				wispHeaderRefs.Info.Text = Localization.T(lang, "WISPS_HEADER_FMT", st.EquippedCount or 0, st.MaxWispSlots or 3)
 				wispHeaderRefs.Btn1.Text = Localization.T(lang, "SUMMON_1_FMT", NumberFormat.Format(unitWispCost))
@@ -1573,11 +1575,12 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 			local readyCount = 0
 			local pts = st.Points or 0
 			local albaCount = st.AlbaCount or 0
+			local discountLvl = EconomyEngine.GetLevel(st.AlbaPerks, "ap_discount")
 			local dataProxy = { Upgrades = st.Upgrades or {}, Altars = st.Altars or {} }
 			for _, u in ipairs(GameConfig.Upgrades) do
 				local lvl = EconomyEngine.GetUpgradeLevel(dataProxy, u.Id)
 				if lvl < (u.MaxLevel or 1) and EconomyEngine.IsUpgradeUnlocked(dataProxy, u) then
-					local cost = GameConfig.GetUpgradeCost(u, lvl, albaCount)
+					local cost = GameConfig.GetUpgradeCost(u, lvl, albaCount, discountLvl)
 					if pts >= cost then
 						readyCount += 1
 					end
