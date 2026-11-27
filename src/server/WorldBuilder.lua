@@ -1,4 +1,5 @@
 local Workspace = game:GetService("Workspace")
+local Lighting = game:GetService("Lighting")
 local InsertService = game:GetService("InsertService")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
@@ -104,11 +105,7 @@ local function buildFallbackMonument(parent, zCfg, pedestalTopPos, dir)
 		table.insert(parts, b1); table.insert(parts, w1); table.insert(parts, col1)
 		table.insert(parts, b2); table.insert(parts, w2)
 
-		local pl = Instance.new("PointLight", apex)
-		pl.Color = accent
-		pl.Range = 26
-		pl.Brightness = 2.4
-		table.insert(lights, pl)
+
 
 	elseif mType == "Temple" then
 		local floor = makeUprightCylinder(parent, "TempleDais", 0.8, 12.0, pedestalTopPos + Vector3.new(0, 0.4, 0), marble, Enum.Material.Marble, 0, false)
@@ -127,11 +124,7 @@ local function buildFallbackMonument(parent, zCfg, pedestalTopPos, dir)
 		local statueOrb = addPart("GuardianHalo", Vector3.new(2.6, 2.6, 0.4), CFrame.new(0, 6.2, 0), accent, Enum.Material.Neon, 0.05, Enum.PartType.Cylinder)
 		table.insert(parts, roofRing)
 
-		local pl = Instance.new("PointLight", statueBody)
-		pl.Color = accent
-		pl.Range = 28
-		pl.Brightness = 2.6
-		table.insert(lights, pl)
+
 
 	elseif mType == "Phoenix" then
 		addPart("PhoenixPlinth", Vector3.new(4.2, 2.2, 4.2), CFrame.new(0, 1.1, 0), marble, Enum.Material.Marble, 0)
@@ -142,11 +135,7 @@ local function buildFallbackMonument(parent, zCfg, pedestalTopPos, dir)
 		addPart("PhoenixWingR2", Vector3.new(5.4, 1.2, 0.6), CFrame.new(4.8, 7.2, 0.6) * CFrame.Angles(0, math.rad(22), math.rad(-42)), gold, Enum.Material.Neon, 0.08)
 		local crown = addPart("PhoenixCrown", Vector3.new(2.8, 2.8, 2.8), CFrame.new(0, 9.4, 0), Color3.fromRGB(255, 250, 210), Enum.Material.Neon, 0.02, Enum.PartType.Ball)
 
-		local pl = Instance.new("PointLight", crown)
-		pl.Color = accent
-		pl.Range = 32
-		pl.Brightness = 3.0
-		table.insert(lights, pl)
+
 
 	else
 		addPart("ObeliskBase", Vector3.new(4.8, 1.8, 4.8), CFrame.new(0, 0.9, 0), marble, Enum.Material.Marble, 0)
@@ -155,11 +144,7 @@ local function buildFallbackMonument(parent, zCfg, pedestalTopPos, dir)
 		addPart("ObeliskShaftUpper", Vector3.new(2.2, 4.2, 2.2), CFrame.new(0, 9.8, 0), marble, Enum.Material.Marble, 0)
 		local apex = addPart("ObeliskApex", Vector3.new(2.4, 2.4, 2.4), CFrame.new(0, 12.8, 0) * CFrame.Angles(math.rad(45), math.rad(45), 0), accent, Enum.Material.Neon, 0.04)
 
-		local pl = Instance.new("PointLight", apex)
-		pl.Color = accent
-		pl.Range = 28
-		pl.Brightness = 2.6
-		table.insert(lights, pl)
+
 	end
 
 	return parts, lights
@@ -193,26 +178,12 @@ local function placeMonumentOnIsland(islandFolder, zCfg, pedestalTopPos, dir)
 				desc.Anchored = true
 				desc.CanCollide = false
 				table.insert(parts, desc)
-			elseif desc:IsA("PointLight") or desc:IsA("SpotLight") or desc:IsA("ParticleEmitter") then
+			elseif desc:IsA("PointLight") or desc:IsA("SpotLight") or desc:IsA("SurfaceLight") then
+				desc:Destroy()
+			elseif desc:IsA("ParticleEmitter") then
 				table.insert(lights, desc)
 			end
 		end
-
-		local glowAnchor = makePart(
-			clone,
-			"MonumentAuraCore",
-			Vector3.new(1.5, 1.5, 1.5),
-			CFrame.new(pedestalTopPos + Vector3.new(0, 5.5, 0)),
-			accent,
-			Enum.Material.Neon,
-			1,
-			false
-		)
-		local pl = Instance.new("PointLight", glowAnchor)
-		pl.Color = accent
-		pl.Range = 28
-		pl.Brightness = 2.5
-		table.insert(lights, pl)
 
 		return parts, lights
 	end
@@ -223,58 +194,191 @@ end
 local function createPadBillboard(pad, titleText, descText, costText, accentColor)
 	local bbg = Instance.new("BillboardGui")
 	bbg.Name = "PadGui"
-	bbg.Size = UDim2.fromOffset(156, 44)
-	bbg.StudsOffset = Vector3.new(0, 2.75, 0)
-	bbg.MaxDistance = 38
+	bbg.Adornee = pad
+	bbg.Size = UDim2.fromOffset(230, 74)
+	bbg.StudsOffset = Vector3.new(0, 3.8, 0)
+	bbg.MaxDistance = 55
 	bbg.AlwaysOnTop = false
 	bbg.Parent = pad
 
 	local bg = Instance.new("Frame", bbg)
 	bg.Size = UDim2.fromScale(1, 1)
-	bg.BackgroundColor3 = Color3.fromRGB(13, 15, 24)
-	bg.BackgroundTransparency = 0.24
-	Instance.new("UICorner", bg).CornerRadius = UDim.new(0, 8)
+	bg.BackgroundColor3 = Color3.fromRGB(12, 15, 24)
+	bg.BackgroundTransparency = 0.14
+	Instance.new("UICorner", bg).CornerRadius = UDim.new(0, 10)
 
 	local stroke = Instance.new("UIStroke", bg)
 	stroke.Color = accentColor or Color3.fromRGB(255, 200, 75)
-	stroke.Thickness = 1.1
+	stroke.Thickness = 1.6
 
 	local titleLbl = Instance.new("TextLabel", bg)
 	titleLbl.Name = "TitleLabel"
-	titleLbl.Position = UDim2.fromOffset(6, 2)
-	titleLbl.Size = UDim2.new(1, -12, 0, 14)
+	titleLbl.Position = UDim2.fromOffset(8, 4)
+	titleLbl.Size = UDim2.new(1, -16, 0, 22)
 	titleLbl.BackgroundTransparency = 1
 	titleLbl.Text = titleText
-	titleLbl.TextColor3 = Color3.fromRGB(255, 248, 225)
+	titleLbl.TextColor3 = Color3.fromRGB(255, 250, 235)
 	titleLbl.Font = Enum.Font.GothamBlack
-	titleLbl.TextSize = 10
+	titleLbl.TextSize = 14
 	titleLbl.TextScaled = false
 	titleLbl.TextTruncate = Enum.TextTruncate.AtEnd
 
 	local descLbl = Instance.new("TextLabel", bg)
 	descLbl.Name = "DescLabel"
-	descLbl.Position = UDim2.fromOffset(6, 16)
-	descLbl.Size = UDim2.new(1, -12, 0, 12)
+	descLbl.Position = UDim2.fromOffset(8, 26)
+	descLbl.Size = UDim2.new(1, -16, 0, 22)
 	descLbl.BackgroundTransparency = 1
 	descLbl.Text = descText or ""
-	descLbl.TextColor3 = Color3.fromRGB(170, 188, 216)
-	descLbl.Font = Enum.Font.Gotham
-	descLbl.TextSize = 8
+	descLbl.TextColor3 = Color3.fromRGB(214, 226, 248)
+	descLbl.Font = Enum.Font.GothamBold
+	descLbl.TextSize = 12
 	descLbl.TextWrapped = false
 	descLbl.TextTruncate = Enum.TextTruncate.AtEnd
 
 	local costLbl = Instance.new("TextLabel", bg)
 	costLbl.Name = "CostLabel"
-	costLbl.Position = UDim2.fromOffset(6, 28)
-	costLbl.Size = UDim2.new(1, -12, 0, 14)
+	costLbl.Position = UDim2.fromOffset(8, 48)
+	costLbl.Size = UDim2.new(1, -16, 0, 20)
 	costLbl.BackgroundTransparency = 1
 	costLbl.Text = costText
 	costLbl.TextColor3 = accentColor or Color3.fromRGB(255, 215, 80)
-	costLbl.Font = Enum.Font.GothamBold
-	costLbl.TextSize = 10
+	costLbl.Font = Enum.Font.GothamBlack
+	costLbl.TextSize = 13
 	costLbl.TextTruncate = Enum.TextTruncate.AtEnd
 
 	return titleLbl, descLbl, costLbl
+end
+
+local function createRoundGroundPad(parent, name, groundPos, diameter, color, titleText, descText, costText)
+	local pad = makeUprightCylinder(
+		parent,
+		name,
+		0.52,
+		diameter,
+		groundPos + Vector3.new(0, 0.26, 0),
+		color or Color3.fromRGB(255, 200, 80),
+		Enum.Material.Neon,
+		0.18,
+		false
+	)
+	local rim = makeUprightCylinder(
+		pad,
+		name .. "_Rim",
+		0.28,
+		diameter + 1.0,
+		groundPos + Vector3.new(0, 0.14, 0),
+		color or Color3.fromRGB(255, 200, 80),
+		Enum.Material.Neon,
+		0.05,
+		false
+	)
+	rim.CanTouch = false
+	rim.CanQuery = false
+
+	local titleLbl, descLbl, costLbl = createPadBillboard(pad, titleText, descText, costText, color)
+	return pad, rim, titleLbl, descLbl, costLbl
+end
+
+local function buildWeaponDisplayStand(parent, wep, standPos, faceDir)
+	local standCF = CFrame.lookAt(standPos, standPos + faceDir)
+	makeUprightCylinder(parent, wep.Id .. "_StandBase", 0.55, 4.4, standPos + Vector3.new(0, 0.275, 0), Color3.fromRGB(28, 32, 46), Enum.Material.Marble, 0, true)
+	makeUprightCylinder(parent, wep.Id .. "_StandTrim", 0.22, 4.7, standPos + Vector3.new(0, 0.11, 0), wep.Color, Enum.Material.Neon, 0.12, false)
+	makeUprightCylinder(parent, wep.Id .. "_StandPillar", 2.2, 2.0, standPos + Vector3.new(0, 1.65, 0), Color3.fromRGB(36, 42, 58), Enum.Material.Slate, 0, true)
+	makeUprightCylinder(parent, wep.Id .. "_StandCap", 0.3, 2.7, standPos + Vector3.new(0, 2.85, 0), wep.Color, Enum.Material.Neon, 0.15, false)
+
+	local displayPos = standPos + Vector3.new(0, 4.4, 0)
+	local displayCF = CFrame.lookAt(displayPos, displayPos + faceDir) * CFrame.Angles(0, 0, math.rad(-22))
+	local preview = makePart(parent, wep.Id .. "_Preview", Vector3.new(0.38, 3.2, 0.38), displayCF, Color3.fromRGB(64, 46, 36), Enum.Material.Wood, 0, false)
+	local tip = makePart(parent, wep.Id .. "_PreviewGlow", Vector3.new(0.55, 1.5, 0.55), displayCF * CFrame.new(0, 1.5, 0), wep.Color, Enum.Material.Neon, 0.05, false)
+	if wep.Id == "wep_torch" then
+		tip.Shape = Enum.PartType.Ball
+		tip.Size = Vector3.new(1.0, 1.2, 1.0)
+	elseif wep.Id == "wep_zenith_scythe" then
+		tip.Size = Vector3.new(0.24, 0.75, 2.6)
+		tip.CFrame = displayCF * CFrame.new(0, 1.4, -0.8)
+	elseif wep.Id == "wep_sunblade" then
+		tip.Size = Vector3.new(0.24, 2.8, 0.75)
+	end
+	local pl = Instance.new("PointLight", tip)
+	pl.Color = wep.Color
+	pl.Range = 12
+	pl.Brightness = 1.4
+	local _ = standCF
+	return preview
+end
+
+local function buildWispSanctuaryStation(parent, shrinePos, faceDir)
+	local shrineModel = Instance.new("Model")
+	shrineModel.Name = "WispSanctuaryShrine"
+	shrineModel.Parent = parent
+
+	local accentCyan = Color3.fromRGB(80, 225, 255)
+	local accentViolet = Color3.fromRGB(195, 110, 255)
+	local marble = Color3.fromRGB(32, 38, 56)
+
+	makeUprightCylinder(shrineModel, "ShrineBase", 0.7, 9.6, shrinePos + Vector3.new(0, 0.35, 0), marble, Enum.Material.Marble, 0, true)
+	makeUprightCylinder(shrineModel, "ShrineBaseRing", 0.32, 10.2, shrinePos + Vector3.new(0, 0.16, 0), accentCyan, Enum.Material.Neon, 0.1, false)
+	makeUprightCylinder(shrineModel, "ShrineDais", 0.9, 6.2, shrinePos + Vector3.new(0, 1.15, 0), Color3.fromRGB(44, 50, 74), Enum.Material.Marble, 0, true)
+	makeUprightCylinder(shrineModel, "ShrineRuneRing", 0.2, 6.6, shrinePos + Vector3.new(0, 1.62, 0), accentViolet, Enum.Material.Neon, 0.08, false)
+
+	for i = 0, 2 do
+		local ang = math.rad(i * 120 + 30)
+		local pPos = shrinePos + Vector3.new(math.cos(ang) * 3.6, 2.8, math.sin(ang) * 3.6)
+		makeUprightCylinder(shrineModel, "ShrinePillar_" .. (i + 1), 3.6, 0.9, pPos, marble, Enum.Material.Marble, 0, true)
+		makePart(
+			shrineModel,
+			"ShrineCrystal_" .. (i + 1),
+			Vector3.new(0.75, 1.1, 0.75),
+			CFrame.new(pPos + Vector3.new(0, 2.5, 0)) * CFrame.Angles(math.rad(45), ang, 0),
+			(i % 2 == 0) and accentCyan or accentViolet,
+			Enum.Material.Neon,
+			0.05,
+			false
+		)
+	end
+
+	local orbPos = shrinePos + Vector3.new(0, 4.6, 0)
+	local orb = makePart(shrineModel, "ShrineCoreOrb", Vector3.new(2.2, 2.2, 2.2), CFrame.new(orbPos), accentCyan, Enum.Material.Neon, 0.05, false, Enum.PartType.Ball)
+	makePart(shrineModel, "ShrineAuraShell", Vector3.new(3.2, 3.2, 3.2), CFrame.new(orbPos), accentViolet, Enum.Material.ForceField, 0.25, false, Enum.PartType.Ball)
+	makePart(shrineModel, "ShrineHaloRing", Vector3.new(0.18, 4.2, 4.2), CFrame.new(orbPos) * CFrame.Angles(math.rad(25), 0, math.rad(72)), Color3.fromRGB(255, 225, 115), Enum.Material.Neon, 0.08, false, Enum.PartType.Cylinder)
+
+	local shrineLight = Instance.new("PointLight", orb)
+	shrineLight.Color = accentCyan
+	shrineLight.Range = 22
+	shrineLight.Brightness = 2.6
+
+	local sparkles = Instance.new("ParticleEmitter", orb)
+	sparkles.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+	sparkles.LightEmission = 1
+	sparkles.Rate = 18
+	sparkles.Lifetime = NumberRange.new(0.9, 1.6)
+	sparkles.Speed = NumberRange.new(1.5, 3.5)
+	sparkles.SpreadAngle = Vector2.new(180, 180)
+	sparkles.Color = ColorSequence.new(accentCyan, accentViolet)
+	sparkles.Size = NumberSequence.new({ NumberSequenceKeypoint.new(0, 0.45), NumberSequenceKeypoint.new(1, 0) })
+
+	local shrineBbg = Instance.new("BillboardGui", orb)
+	shrineBbg.Name = "ShrineTitleGui"
+	shrineBbg.Size = UDim2.fromOffset(230, 38)
+	shrineBbg.StudsOffset = Vector3.new(0, 3.2, 0)
+	shrineBbg.MaxDistance = 65
+
+	local shrineTitle = Instance.new("TextLabel", shrineBbg)
+	shrineTitle.Name = "ShrineTitleLabel"
+	shrineTitle.Size = UDim2.fromScale(1, 1)
+	shrineTitle.BackgroundColor3 = Color3.fromRGB(14, 16, 28)
+	shrineTitle.BackgroundTransparency = 0.2
+	shrineTitle.Text = Localization.T("en", "PAD_WISP_SHRINE_TITLE")
+	shrineTitle.TextColor3 = accentCyan
+	shrineTitle.Font = Enum.Font.GothamBlack
+	shrineTitle.TextSize = 15
+	Instance.new("UICorner", shrineTitle).CornerRadius = UDim.new(0, 8)
+	local sStroke = Instance.new("UIStroke", shrineTitle)
+	sStroke.Color = accentViolet
+	sStroke.Thickness = 1.4
+
+	local _ = faceDir
+	return shrineModel, shrineTitle
 end
 
 local function buildRitualBrazier(plotModel, plotIndex, origin, outwardDir)
@@ -468,9 +572,17 @@ local function buildRitualBrazier(plotModel, plotIndex, origin, outwardDir)
 	sparkEmitter.Parent = flameCore
 
 	local flameLight = Instance.new("PointLight", flameCore)
+	flameLight.Name = "BrazierMainLight"
 	flameLight.Color = Color3.fromRGB(255, 155, 55)
-	flameLight.Range = 55
-	flameLight.Brightness = 3.8
+	flameLight.Range = 60
+	flameLight.Brightness = 4.4
+	flameLight.Shadows = true
+
+	local emberLight = Instance.new("PointLight", emberRing)
+	emberLight.Name = "BrazierEmberLight"
+	emberLight.Color = Color3.fromRGB(255, 130, 40)
+	emberLight.Range = 46
+	emberLight.Brightness = 2.2
 
 	local flameHitbox = makePart(
 		brazierModel,
@@ -485,18 +597,18 @@ local function buildRitualBrazier(plotModel, plotIndex, origin, outwardDir)
 
 	local titleBbg = Instance.new("BillboardGui", flameCore)
 	titleBbg.Name = "BrazierTitleGui"
-	titleBbg.Size = UDim2.fromOffset(200, 28)
-	titleBbg.StudsOffset = Vector3.new(0, 6.0, 0)
-	titleBbg.MaxDistance = 80
+	titleBbg.Size = UDim2.fromOffset(240, 38)
+	titleBbg.StudsOffset = Vector3.new(0, 6.4, 0)
+	titleBbg.MaxDistance = 85
 
 	local flameTitle = Instance.new("TextLabel", titleBbg)
 	flameTitle.Size = UDim2.fromScale(1, 1)
 	flameTitle.BackgroundTransparency = 1
 	flameTitle.Text = Localization.T("en", "BRAZIER_DEFAULT_FMT", plotIndex)
 	flameTitle.TextColor3 = Color3.fromRGB(255, 225, 110)
-	flameTitle.TextStrokeTransparency = 0.2
+	flameTitle.TextStrokeTransparency = 0.15
 	flameTitle.Font = Enum.Font.GothamBlack
-	flameTitle.TextSize = 14
+	flameTitle.TextSize = 16
 
 	return {
 		Bowl = bowl,
@@ -538,7 +650,54 @@ local function removeDefaultBaseplate(worldFolder)
 	end
 end
 
+local function applyBrazierOnlyDarkness()
+	Lighting.ClockTime = 0
+	Lighting.Brightness = 0
+	Lighting.Ambient = Color3.fromRGB(0, 0, 0)
+	Lighting.OutdoorAmbient = Color3.fromRGB(0, 0, 0)
+	Lighting.ColorShift_Top = Color3.fromRGB(0, 0, 0)
+	Lighting.ColorShift_Bottom = Color3.fromRGB(0, 0, 0)
+	Lighting.EnvironmentDiffuseScale = 0
+	Lighting.EnvironmentSpecularScale = 0
+	Lighting.GlobalShadows = true
+	Lighting.ShadowSoftness = 0.35
+	Lighting.ExposureCompensation = 0
+	Lighting.FogColor = Color3.fromRGB(0, 0, 0)
+	Lighting.FogStart = 45
+	Lighting.FogEnd = 460
+
+	for _, child in ipairs(Lighting:GetChildren()) do
+		if child:IsA("Sky") or child:IsA("SunRaysEffect") or child:IsA("Atmosphere") then
+			child:Destroy()
+		end
+	end
+
+	local voidSky = Instance.new("Sky")
+	voidSky.Name = "VoidNightSky"
+	voidSky.SkyboxBk = "rbxassetid://0"
+	voidSky.SkyboxDn = "rbxassetid://0"
+	voidSky.SkyboxFt = "rbxassetid://0"
+	voidSky.SkyboxLf = "rbxassetid://0"
+	voidSky.SkyboxRt = "rbxassetid://0"
+	voidSky.SkyboxUp = "rbxassetid://0"
+	voidSky.CelestialBodiesShown = false
+	voidSky.StarCount = 0
+	voidSky.Parent = Lighting
+
+	local atm = Instance.new("Atmosphere")
+	atm.Name = "VoidNightAtmosphere"
+	atm.Density = 0.28
+	atm.Offset = 0
+	atm.Color = Color3.fromRGB(0, 0, 0)
+	atm.Decay = Color3.fromRGB(0, 0, 0)
+	atm.Glare = 0
+	atm.Haze = 0.08
+	atm.Parent = Lighting
+end
+
 function WorldBuilder.Build()
+	applyBrazierOnlyDarkness()
+
 	local existing = Workspace:FindFirstChild("LastFlameWorld")
 	if existing then
 		existing:Destroy()
@@ -572,14 +731,6 @@ function WorldBuilder.Build()
 	makeUprightCylinder(hubFolder, "HubInnerMarbleDisc", 0.06, 54, Vector3.new(0, 0.15, 0), Color3.fromRGB(24, 34, 52), Enum.Material.Marble, 0, false)
 	makeUprightCylinder(hubFolder, "HubCenterSunDisc", 0.06, 20, Vector3.new(0, 0.21, 0), Color3.fromRGB(52, 42, 34), Enum.Material.SmoothPlastic, 0, false)
 
-	-- Punto luce centrale sospeso (non blocca il passaggio al centro della piazza)
-	local hubLightAnchor = makePart(hubFolder, "HubLightAnchor", Vector3.new(1, 1, 1), CFrame.new(0, 15, 0), Color3.fromRGB(255, 200, 80), Enum.Material.SmoothPlastic, 1, false)
-	hubLightAnchor.CanQuery = false
-	hubLightAnchor.CanTouch = false
-	local hubLight = Instance.new("PointLight", hubLightAnchor)
-	hubLight.Color = Color3.fromRGB(255, 200, 80)
-	hubLight.Range = 65
-	hubLight.Brightness = 2.8
 
 	local plots = {}
 	local walkwayWidth = 8.4
@@ -673,90 +824,85 @@ function WorldBuilder.Build()
 		-- === MODELLO BRACIERE MONUMENTALE ===
 		local brazierRefs = buildRitualBrazier(plotModel, i, origin, outwardDir)
 
-		-- === PEDANE POTENZIAMENTO A TERRA (CON ETICHETTE COMPATTE E PULITE) ===
-		local altarsFolder = Instance.new("Folder")
-		altarsFolder.Name = "Altars"
-		altarsFolder.Parent = plotModel
+		-- === POSTAZIONI ARMI DI DIFESA A TERRA (SINISTRA DEL PLOT, BOTTONI ROTONDI) ===
+		local weaponsFolder = Instance.new("Folder")
+		weaponsFolder.Name = "Weapons"
+		weaponsFolder.Parent = plotModel
 
-		local coreAltars = {}
-		local colorAltars = {}
-		for _, alt in ipairs(GameConfig.Altars) do
-			if alt.IsColorButton then
-				table.insert(colorAltars, alt)
-			else
-				table.insert(coreAltars, alt)
-			end
+		local weaponPadRefs = {}
+		local weaponOffsets = { -16.5, -5.5, 5.5, 16.5 }
+		for idx, wep in ipairs(GameConfig.Weapons) do
+			local offZ = weaponOffsets[idx] or ((idx - 2.5) * 11)
+			local standPos = origin - rightDir * 31.5 + outwardDir * offZ
+			local padPos = origin - rightDir * 25.0 + outwardDir * offZ
+			buildWeaponDisplayStand(weaponsFolder, wep, standPos, rightDir)
+
+			local pad, rim, tLbl, dLbl, cLbl = createRoundGroundPad(
+				weaponsFolder,
+				wep.Id,
+				padPos,
+				5.4,
+				wep.Color or Color3.fromRGB(255, 185, 70),
+				wep.Icon .. " " .. wep.Name,
+				wep.Tag or wep.Desc or "",
+				tostring(wep.BaseCost) .. " Light"
+			)
+			weaponPadRefs[wep.Id] = {
+				Pad = pad,
+				Rim = rim,
+				TitleLabel = tLbl,
+				DescLabel = dLbl,
+				CostLabel = cLbl,
+			}
 		end
 
-		local arcAngles = { -68, -34, 0, 34, 68 }
-		for idx, alt in ipairs(coreAltars) do
-			local deg = arcAngles[idx] or ((idx - 3) * 34)
-			local dirPad = (CFrame.fromAxisAngle(Vector3.yAxis, math.rad(deg)) * inwardDir).Unit
-			local padPos = origin + dirPad * 16.5 + Vector3.new(0, 0.3, 0)
-			local pad = makePart(
-				altarsFolder,
-				alt.Id,
-				Vector3.new(5.4, 0.6, 5.4),
-				CFrame.lookAt(padPos, padPos + inwardDir),
-				alt.Color or Color3.fromRGB(255, 175, 55),
-				Enum.Material.Neon,
-				0.18,
-				false
-			)
-			createPadBillboard(
-				pad,
-				string.format("%s [0/%d]", alt.Name, alt.MaxLevel or 1),
-				alt.BenefitTag or alt.Desc or "",
-				tostring(alt.BaseCost) .. " Light",
-				alt.Color
-			)
-		end
+		-- === POSTAZIONE EVOCAZIONE SPIRITI (DESTRA DEL PLOT, ALTARE + BOTTONI ROTONDI) ===
+		local wispFolder = Instance.new("Folder")
+		wispFolder.Name = "WispStation"
+		wispFolder.Parent = plotModel
 
-		local colorOffsets = {
-			rightDir * -23 + inwardDir * 7,
-			rightDir * -23 + outwardDir * 7,
-			rightDir * 23 + inwardDir * 7,
-			rightDir * 23 + outwardDir * 7,
+		local shrinePos = origin + rightDir * 30.5
+		local _, shrineTitle = buildWispSanctuaryStation(wispFolder, shrinePos, -rightDir)
+
+		local wispPad1, wispRim1, w1Title, w1Desc, w1Cost = createRoundGroundPad(
+			wispFolder,
+			"WispPad_1",
+			origin + rightDir * 23.0 + inwardDir * 5.8,
+			5.6,
+			Color3.fromRGB(80, 225, 255),
+			Localization.T("en", "PAD_WISP_1_TITLE"),
+			Localization.T("en", "PAD_WISP_LOCKED_DESC"),
+			tostring(GameConfig.GetWispCost(0)) .. " Light"
+		)
+
+		local wispPad5, wispRim5, w5Title, w5Desc, w5Cost = createRoundGroundPad(
+			wispFolder,
+			"WispPad_5",
+			origin + rightDir * 23.0 + outwardDir * 5.8,
+			5.6,
+			Color3.fromRGB(205, 115, 255),
+			Localization.T("en", "PAD_WISP_5_TITLE"),
+			Localization.T("en", "PAD_WISP_LOCKED_DESC"),
+			tostring(GameConfig.GetWispCost(0) * 5) .. " Light"
+		)
+
+		local wispStationRefs = {
+			ShrineTitle = shrineTitle,
+			Pad1 = { Pad = wispPad1, Rim = wispRim1, TitleLabel = w1Title, DescLabel = w1Desc, CostLabel = w1Cost },
+			Pad5 = { Pad = wispPad5, Rim = wispRim5, TitleLabel = w5Title, DescLabel = w5Desc, CostLabel = w5Cost },
 		}
-		for idx, alt in ipairs(colorAltars) do
-			local off = colorOffsets[idx] or (rightDir * (20 + idx * 4))
-			local padPos = origin + off + Vector3.new(0, 0.3, 0)
-			local pad = makePart(
-				altarsFolder,
-				alt.Id,
-				Vector3.new(5.2, 0.6, 5.2),
-				CFrame.lookAt(padPos, padPos + inwardDir),
-				alt.Color or Color3.fromRGB(255, 200, 80),
-				Enum.Material.Neon,
-				0.18,
-				false
-			)
-			createPadBillboard(
-				pad,
-				"🎨 " .. alt.Name,
-				alt.BenefitTag or alt.Desc or "",
-				tostring(alt.BaseCost) .. " Light",
-				alt.Color
-			)
-		end
 
-		local victoryPos = origin + outwardDir * 21.5 + Vector3.new(0, 0.35, 0)
-		local victoryPad = makePart(
+		-- === PEDANA RINASCITA DELL'ALBA (ROTONDA CON BORDO LUMINOSO) ===
+		local victoryPos = origin + outwardDir * 21.5
+		local victoryPad, victoryPadRim, vTitleLbl, vDescLbl, vStatusLbl = createRoundGroundPad(
 			plotModel,
 			"VictoryPad",
-			Vector3.new(8.2, 0.7, 6.0),
-			CFrame.lookAt(victoryPos, victoryPos + inwardDir),
+			victoryPos,
+			8.2,
 			Color3.fromRGB(255, 215, 75),
-			Enum.Material.Neon,
-			0.14,
-			false
-		)
-		local vTitleLbl, vDescLbl, vStatusLbl = createPadBillboard(
-			victoryPad,
 			"🌅 " .. GameConfig.VictoryButton.Name,
 			"+1 Dawn Pt (Prestige)",
-			"25B Light",
-			Color3.fromRGB(255, 220, 90)
+			"1B Light"
 		)
 
 		-- === 4 ISOLE DELL'ALBA ===
@@ -785,25 +931,34 @@ function WorldBuilder.Build()
 			local bridge = makePart(zFolder, "Bridge", Vector3.new(5.6, 1.0, bridgeLen), bridgeCF * CFrame.new(0, -0.5, 0), Color3.fromRGB(36, 42, 60), Enum.Material.Marble, 0.65, false)
 			local bridgeTrim = makePart(zFolder, "BridgeTrim", Vector3.new(6.2, 0.6, bridgeLen), bridgeCF * CFrame.new(0, -0.75, 0), z.Color, Enum.Material.Neon, 0.80, false)
 
-			local gatePos = origin + zDir * (edgeDist - 1.8)
+			local gatePos = origin + zDir * (edgeDist - 2.4)
 			local gateCF = CFrame.lookAt(gatePos, gatePos + zDir)
-			local gatePad = makePart(zFolder, "GatePad", Vector3.new(5.8, 0.45, 4.2), gateCF * CFrame.new(0, 0.25, 0), z.Color, Enum.Material.Neon, 0.20, false)
+			local gatePad = makeUprightCylinder(zFolder, "GatePad", 0.48, 5.6, gatePos + Vector3.new(0, 0.24, 0), z.Color, Enum.Material.Neon, 0.20, false)
+			local gatePadRim = makeUprightCylinder(gatePad, "GatePad_Rim", 0.26, 6.5, gatePos + Vector3.new(0, 0.13, 0), z.Color, Enum.Material.Neon, 0.06, false)
+			gatePadRim.CanTouch = false
+			gatePadRim.CanQuery = false
+
 			local gateBarrier = makePart(zFolder, "GateBarrier", Vector3.new(6.4, 7.2, 0.9), gateCF * CFrame.new(0, 3.6, 0), z.Color, Enum.Material.ForceField, 0.35, true)
 
-			local gateBbg = Instance.new("BillboardGui", gateBarrier)
-			gateBbg.Size = UDim2.fromOffset(186, 32)
-			gateBbg.StudsOffset = Vector3.new(0, 4.0, 0)
-			gateBbg.MaxDistance = 60
+			local gateBbg = Instance.new("BillboardGui", gatePad)
+			gateBbg.Adornee = gatePad
+			gateBbg.Size = UDim2.fromOffset(240, 44)
+			gateBbg.StudsOffset = Vector3.new(0, 4.1, 0)
+			gateBbg.MaxDistance = 75
 
 			local gateLabel = Instance.new("TextLabel", gateBbg)
 			gateLabel.Size = UDim2.fromScale(1, 1)
-			gateLabel.BackgroundColor3 = Color3.fromRGB(16, 18, 28)
-			gateLabel.BackgroundTransparency = 0.2
+			gateLabel.BackgroundColor3 = Color3.fromRGB(14, 17, 28)
+			gateLabel.BackgroundTransparency = 0.14
 			gateLabel.Text = Localization.T("en", "ZONE_GATE_LOCKED_FMT", z.Name, z.Cost)
 			gateLabel.TextColor3 = z.Color
 			gateLabel.Font = Enum.Font.GothamBlack
-			gateLabel.TextSize = 11
-			Instance.new("UICorner", gateLabel).CornerRadius = UDim.new(0, 8)
+			gateLabel.TextSize = 13
+			gateLabel.TextWrapped = true
+			Instance.new("UICorner", gateLabel).CornerRadius = UDim.new(0, 10)
+			local gateStroke = Instance.new("UIStroke", gateLabel)
+			gateStroke.Color = z.Color
+			gateStroke.Thickness = 1.4
 
 			local islandBase = makeUprightCylinder(zFolder, "IslandBase", 2.4, 28, islandCenter + Vector3.new(0, -1.2, 0), Color3.fromRGB(32, 36, 52), Enum.Material.Slate, 0.55, false)
 			local islandRim = makeUprightCylinder(zFolder, "IslandRim", 2.0, 29.4, islandCenter + Vector3.new(0, -1.45, 0), z.Color, Enum.Material.Neon, 0.70, false)
@@ -823,23 +978,24 @@ function WorldBuilder.Build()
 
 			local zTitleAnchor = makePart(zFolder, "ZoneTitleAnchor", Vector3.new(1, 1, 1), CFrame.new(islandCenter + Vector3.new(0, 15.5, 0)), z.Color, Enum.Material.SmoothPlastic, 1, false)
 			local zBbg = Instance.new("BillboardGui", zTitleAnchor)
-			zBbg.Size = UDim2.fromOffset(220, 32)
-			zBbg.MaxDistance = 110
+			zBbg.Size = UDim2.fromOffset(260, 40)
+			zBbg.MaxDistance = 120
 
 			local zoneTitle = Instance.new("TextLabel", zBbg)
 			zoneTitle.Size = UDim2.fromScale(1, 1)
 			zoneTitle.BackgroundTransparency = 1
 			zoneTitle.Text = string.format("🔒 %s (x%.2f)", z.Name, z.LightMult or 1.0)
 			zoneTitle.TextColor3 = z.Color
-			zoneTitle.TextStrokeTransparency = 0.2
+			zoneTitle.TextStrokeTransparency = 0.15
 			zoneTitle.Font = Enum.Font.GothamBlack
-			zoneTitle.TextSize = 13
+			zoneTitle.TextSize = 15
 
 			albaZoneRefs[z.Id] = {
 				Bridge = bridge,
 				BridgeTrim = bridgeTrim,
 				GateBarrier = gateBarrier,
 				GatePad = gatePad,
+				GatePadRim = gatePadRim,
 				GateLabel = gateLabel,
 				IslandBase = islandBase,
 				IslandRim = islandRim,
@@ -865,6 +1021,7 @@ function WorldBuilder.Build()
 			RightDir = rightDir,
 			SpawnPos = spawnPos,
 			Owner = nil,
+			Folder = plotModel,
 			SignBoard = signBoard,
 			FlameCore = brazierRefs.FlameCore,
 			InnerFlameCore = brazierRefs.InnerFlameCore,
@@ -877,8 +1034,12 @@ function WorldBuilder.Build()
 			FlameHitbox = brazierRefs.FlameHitbox,
 			FlameTitle = brazierRefs.FlameTitle,
 			EmberRing = brazierRefs.EmberRing,
-			AltarsFolder = altarsFolder,
+			WeaponsFolder = weaponsFolder,
+			WeaponPadRefs = weaponPadRefs,
+			WispFolder = wispFolder,
+			WispStationRefs = wispStationRefs,
 			VictoryPad = victoryPad,
+			VictoryPadRim = victoryPadRim,
 			VictoryTitleLabel = vTitleLbl,
 			VictoryDescLabel = vDescLbl,
 			VictoryStatusLabel = vStatusLbl,

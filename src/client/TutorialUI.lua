@@ -47,7 +47,7 @@ local function createCloseButton(parent, zIndex)
 	local btn = Instance.new("TextButton", parent)
 	btn.AnchorPoint = Vector2.new(1, 0.5)
 	btn.Position = UDim2.new(1, -12, 0.5, 0)
-	btn.Size = UDim2.fromOffset(30, 30)
+	btn.Size = UDim2.fromOffset(36, 36)
 	btn.BackgroundColor3 = Color3.fromRGB(48, 24, 32)
 	btn.Text = ""
 	btn.AutoButtonColor = true
@@ -56,12 +56,12 @@ local function createCloseButton(parent, zIndex)
 
 	local stroke = Instance.new("UIStroke", btn)
 	stroke.Color = Color3.fromRGB(255, 105, 120)
-	stroke.Thickness = 1.2
+	stroke.Thickness = 1.4
 
 	local icon = Instance.new("ImageLabel", btn)
 	icon.AnchorPoint = Vector2.new(0.5, 0.5)
 	icon.Position = UDim2.fromScale(0.5, 0.5)
-	icon.Size = UDim2.fromOffset(16, 16)
+	icon.Size = UDim2.fromOffset(18, 18)
 	icon.BackgroundTransparency = 1
 	icon.Image = "rbxasset://textures/ui/InspectMenu/x.png"
 	icon.ImageColor3 = Color3.fromRGB(255, 120, 130)
@@ -90,123 +90,127 @@ function TutorialUI.Build(parentGui, remotes)
 	modal.Name = "TutorialModal"
 	modal.AnchorPoint = Vector2.new(0.5, 0.5)
 	modal.Position = UDim2.fromScale(0.5, 0.5)
-	modal.Size = UDim2.fromOffset(560, 360)
+	modal.Size = UDim2.new(0.92, 0, 0.85, 0)
 	modal.BackgroundColor3 = Color3.fromRGB(16, 18, 28)
 	modal.ZIndex = 51
 	Instance.new("UICorner", modal).CornerRadius = UDim.new(0, 18)
+
+	local modalConstraint = Instance.new("UISizeConstraint", modal)
+	modalConstraint.MaxSize = Vector2.new(640, 430)
+	modalConstraint.MinSize = Vector2.new(340, 320)
 
 	local modalStroke = Instance.new("UIStroke", modal)
 	modalStroke.Color = Color3.fromRGB(255, 200, 65)
 	modalStroke.Thickness = 2.0
 
 	local header = Instance.new("Frame", modal)
-	header.Size = UDim2.new(1, 0, 0, 46)
+	header.Size = UDim2.new(1, 0, 0, 52)
 	header.BackgroundTransparency = 1
 	header.ZIndex = 52
 
 	local headerTitle = Instance.new("TextLabel", header)
-	headerTitle.Position = UDim2.fromOffset(18, 10)
-	headerTitle.Size = UDim2.fromOffset(260, 26)
+	headerTitle.Position = UDim2.fromOffset(18, 12)
+	headerTitle.Size = UDim2.fromOffset(280, 28)
 	headerTitle.BackgroundTransparency = 1
 	headerTitle.Text = Localization.T("en", "TUTORIAL_HEADER")
-	headerTitle.TextColor3 = Color3.fromRGB(255, 205, 70)
+	headerTitle.TextColor3 = Color3.fromRGB(255, 215, 85)
 	headerTitle.TextXAlignment = Enum.TextXAlignment.Left
 	headerTitle.Font = Enum.Font.GothamBlack
-	headerTitle.TextSize = 15
+	headerTitle.TextSize = 17
 	headerTitle.ZIndex = 52
 
 	local stepBadge = Instance.new("TextLabel", header)
 	stepBadge.AnchorPoint = Vector2.new(1, 0.5)
-	stepBadge.Position = UDim2.new(1, -52, 0.5, 0)
-	stepBadge.Size = UDim2.fromOffset(96, 24)
+	stepBadge.Position = UDim2.new(1, -56, 0.5, 0)
+	stepBadge.Size = UDim2.fromOffset(112, 28)
 	stepBadge.BackgroundColor3 = Color3.fromRGB(28, 33, 48)
 	stepBadge.Text = "Slide 1 / 5"
-	stepBadge.TextColor3 = Color3.fromRGB(185, 200, 225)
+	stepBadge.TextColor3 = Color3.fromRGB(220, 232, 250)
 	stepBadge.Font = Enum.Font.GothamBold
-	stepBadge.TextSize = 11
+	stepBadge.TextSize = 13
 	stepBadge.ZIndex = 52
 	Instance.new("UICorner", stepBadge).CornerRadius = UDim.new(0, 8)
 
 	local closeBtn = createCloseButton(header, 53)
 
 	local contentCard = Instance.new("Frame", modal)
-	contentCard.Position = UDim2.fromOffset(18, 52)
-	contentCard.Size = UDim2.new(1, -36, 0, 220)
+	contentCard.Position = UDim2.fromOffset(18, 56)
+	contentCard.Size = UDim2.new(1, -36, 1, -148)
 	contentCard.BackgroundColor3 = Color3.fromRGB(24, 28, 42)
 	contentCard.ZIndex = 52
 	Instance.new("UICorner", contentCard).CornerRadius = UDim.new(0, 14)
 
 	local cardStroke = Instance.new("UIStroke", contentCard)
 	cardStroke.Color = Color3.fromRGB(255, 195, 65)
-	cardStroke.Thickness = 1.2
+	cardStroke.Thickness = 1.4
 
 	local iconBox = Instance.new("TextLabel", contentCard)
 	iconBox.Position = UDim2.fromOffset(16, 14)
-	iconBox.Size = UDim2.fromOffset(46, 46)
+	iconBox.Size = UDim2.fromOffset(50, 50)
 	iconBox.BackgroundColor3 = Color3.fromRGB(36, 32, 24)
 	iconBox.Text = "🔥"
-	iconBox.TextSize = 26
+	iconBox.TextSize = 28
 	iconBox.ZIndex = 53
 	Instance.new("UICorner", iconBox).CornerRadius = UDim.new(0, 12)
 
 	local slideTitle = Instance.new("TextLabel", contentCard)
-	slideTitle.Position = UDim2.fromOffset(74, 14)
-	slideTitle.Size = UDim2.new(1, -90, 0, 46)
+	slideTitle.Position = UDim2.fromOffset(78, 14)
+	slideTitle.Size = UDim2.new(1, -94, 0, 50)
 	slideTitle.BackgroundTransparency = 1
 	slideTitle.Text = ""
 	slideTitle.TextColor3 = Color3.fromRGB(255, 225, 105)
 	slideTitle.TextXAlignment = Enum.TextXAlignment.Left
 	slideTitle.TextWrapped = true
 	slideTitle.Font = Enum.Font.GothamBlack
-	slideTitle.TextSize = 17
+	slideTitle.TextSize = 18
 	slideTitle.ZIndex = 53
 
 	local slideBody = Instance.new("TextLabel", contentCard)
-	slideBody.Position = UDim2.fromOffset(18, 68)
-	slideBody.Size = UDim2.new(1, -36, 0, 104)
+	slideBody.Position = UDim2.fromOffset(18, 72)
+	slideBody.Size = UDim2.new(1, -36, 1, -132)
 	slideBody.BackgroundTransparency = 1
 	slideBody.Text = ""
-	slideBody.TextColor3 = Color3.fromRGB(238, 242, 255)
+	slideBody.TextColor3 = Color3.fromRGB(245, 248, 255)
 	slideBody.TextXAlignment = Enum.TextXAlignment.Left
 	slideBody.TextYAlignment = Enum.TextYAlignment.Top
 	slideBody.TextWrapped = true
 	slideBody.Font = Enum.Font.Gotham
-	slideBody.TextSize = 13
-	slideBody.LineHeight = 1.18
+	slideBody.TextSize = 15
+	slideBody.LineHeight = 1.22
 	slideBody.ZIndex = 53
 
 	local tipBox = Instance.new("Frame", contentCard)
 	tipBox.AnchorPoint = Vector2.new(0.5, 1)
-	tipBox.Position = UDim2.new(0.5, 0, 1, -10)
-	tipBox.Size = UDim2.new(1, -28, 0, 34)
-	tipBox.BackgroundColor3 = Color3.fromRGB(18, 22, 34)
+	tipBox.Position = UDim2.new(0.5, 0, 1, -12)
+	tipBox.Size = UDim2.new(1, -28, 0, 44)
+	tipBox.BackgroundColor3 = Color3.fromRGB(16, 20, 32)
 	tipBox.ZIndex = 53
 	Instance.new("UICorner", tipBox).CornerRadius = UDim.new(0, 8)
 
 	local tipLabel = Instance.new("TextLabel", tipBox)
-	tipLabel.Position = UDim2.fromOffset(10, 0)
-	tipLabel.Size = UDim2.new(1, -20, 1, 0)
+	tipLabel.Position = UDim2.fromOffset(12, 2)
+	tipLabel.Size = UDim2.new(1, -24, 1, -4)
 	tipLabel.BackgroundTransparency = 1
 	tipLabel.Text = ""
-	tipLabel.TextColor3 = Color3.fromRGB(95, 225, 255)
+	tipLabel.TextColor3 = Color3.fromRGB(130, 235, 255)
 	tipLabel.TextXAlignment = Enum.TextXAlignment.Left
 	tipLabel.TextWrapped = true
 	tipLabel.Font = Enum.Font.GothamBold
-	tipLabel.TextSize = 11
+	tipLabel.TextSize = 13
 	tipLabel.ZIndex = 54
 
 	local dotsHolder = Instance.new("Frame", modal)
-	dotsHolder.AnchorPoint = Vector2.new(0.5, 0)
-	dotsHolder.Position = UDim2.new(0.5, 0, 0, 282)
-	dotsHolder.Size = UDim2.fromOffset(#SLIDES * 24, 16)
+	dotsHolder.AnchorPoint = Vector2.new(0.5, 1)
+	dotsHolder.Position = UDim2.new(0.5, 0, 1, -66)
+	dotsHolder.Size = UDim2.fromOffset(#SLIDES * 26, 18)
 	dotsHolder.BackgroundTransparency = 1
 	dotsHolder.ZIndex = 52
 
 	local dots = {}
 	for i = 1, #SLIDES do
 		local dot = Instance.new("TextButton", dotsHolder)
-		dot.Position = UDim2.fromOffset((i - 1) * 24 + 5, 2)
-		dot.Size = UDim2.fromOffset(12, 12)
+		dot.Position = UDim2.fromOffset((i - 1) * 26 + 5, 2)
+		dot.Size = UDim2.fromOffset(14, 14)
 		dot.BackgroundColor3 = Color3.fromRGB(60, 68, 92)
 		dot.Text = ""
 		dot.ZIndex = 53
@@ -217,24 +221,24 @@ function TutorialUI.Build(parentGui, remotes)
 	local prevBtn = Instance.new("TextButton", modal)
 	prevBtn.AnchorPoint = Vector2.new(0, 1)
 	prevBtn.Position = UDim2.new(0, 18, 1, -14)
-	prevBtn.Size = UDim2.fromOffset(130, 38)
-	prevBtn.BackgroundColor3 = Color3.fromRGB(32, 38, 54)
+	prevBtn.Size = UDim2.fromOffset(145, 42)
+	prevBtn.BackgroundColor3 = Color3.fromRGB(34, 40, 58)
 	prevBtn.Text = Localization.T("en", "TUTORIAL_PREV")
-	prevBtn.TextColor3 = Color3.fromRGB(220, 228, 245)
+	prevBtn.TextColor3 = Color3.fromRGB(235, 242, 255)
 	prevBtn.Font = Enum.Font.GothamBold
-	prevBtn.TextSize = 13
+	prevBtn.TextSize = 14
 	prevBtn.ZIndex = 52
 	Instance.new("UICorner", prevBtn).CornerRadius = UDim.new(0, 10)
 
 	local nextBtn = Instance.new("TextButton", modal)
 	nextBtn.AnchorPoint = Vector2.new(1, 1)
 	nextBtn.Position = UDim2.new(1, -18, 1, -14)
-	nextBtn.Size = UDim2.fromOffset(180, 38)
+	nextBtn.Size = UDim2.fromOffset(195, 42)
 	nextBtn.BackgroundColor3 = Color3.fromRGB(255, 200, 65)
 	nextBtn.Text = Localization.T("en", "TUTORIAL_NEXT")
 	nextBtn.TextColor3 = Color3.fromRGB(16, 18, 24)
 	nextBtn.Font = Enum.Font.GothamBlack
-	nextBtn.TextSize = 13
+	nextBtn.TextSize = 14
 	nextBtn.ZIndex = 52
 	Instance.new("UICorner", nextBtn).CornerRadius = UDim.new(0, 10)
 
@@ -254,12 +258,12 @@ function TutorialUI.Build(parentGui, remotes)
 		for i, dot in ipairs(dots) do
 			if i == currentIndex then
 				dot.BackgroundColor3 = slide.Accent
-				dot.Size = UDim2.fromOffset(14, 14)
-				dot.Position = UDim2.fromOffset((i - 1) * 24 + 4, 1)
+				dot.Size = UDim2.fromOffset(16, 16)
+				dot.Position = UDim2.fromOffset((i - 1) * 26 + 4, 1)
 			else
 				dot.BackgroundColor3 = Color3.fromRGB(60, 68, 92)
-				dot.Size = UDim2.fromOffset(12, 12)
-				dot.Position = UDim2.fromOffset((i - 1) * 24 + 5, 2)
+				dot.Size = UDim2.fromOffset(14, 14)
+				dot.Position = UDim2.fromOffset((i - 1) * 26 + 5, 2)
 			end
 		end
 
@@ -287,6 +291,7 @@ function TutorialUI.Build(parentGui, remotes)
 		if not isOpen then return end
 		isOpen = false
 		overlay.Visible = false
+		tutorialCompleted = true
 		if remotes and remotes.CompleteTutorial then
 			remotes.CompleteTutorial:FireServer()
 		end
@@ -352,6 +357,12 @@ function TutorialUI.Build(parentGui, remotes)
 			if not st then return end
 			if st.Language == "en" or st.Language == "it" then
 				currentLang = st.Language
+			end
+			tutorialCompleted = (st.TutorialCompleted == true)
+			if st.DataLoaded == true and not tutorialCompleted and not hasAutoOpened then
+				hasAutoOpened = true
+				openTutorial(1)
+				return
 			end
 			if isOpen then
 				renderSlide()

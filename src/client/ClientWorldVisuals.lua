@@ -123,54 +123,65 @@ function ClientWorldVisuals.Update(st)
 	local lightUnit = Localization.T(lang, "LIGHT_UNIT")
 	local points = st.Points or 0
 	local albaCount = st.AlbaCount or 0
-	local altars = st.Altars or {}
-	local altarsFolder = plotModel:FindFirstChild("Altars")
+	local ownedWeapons = st.OwnedWeapons or {}
 
-	if altarsFolder then
-		for _, alt in ipairs(GameConfig.Altars) do
-			local pad = altarsFolder:FindFirstChild(alt.Id)
+	-- 1. Postazioni Armi a terra
+	local weaponsFolder = plotModel:FindFirstChild("Weapons")
+	if weaponsFolder then
+		for _, wep in ipairs(GameConfig.Weapons) do
+			local pad = weaponsFolder:FindFirstChild(wep.Id)
 			if pad and pad:IsA("BasePart") then
-				local maxLvl = alt.MaxLevel or 1
-				local lvl = altars[alt.Id] or 0
-				local maxed = lvl >= maxLvl
-				local cost = GameConfig.GetAltarCost(alt, lvl, albaCount)
-				local canAfford = (not maxed) and (points >= cost)
-				local altName = Localization.Pick(lang, alt.Name, alt.Name_it)
-				local benefit = Localization.Pick(lang, alt.BenefitTag, alt.BenefitTag_it)
+				local rim = pad:FindFirstChild(wep.Id .. "_Rim")
+				local owned = ownedWeapons[wep.Id] == true
+				local reqAlba = wep.ReqAlba or 0
+				local locked = (not owned) and (albaCount < reqAlba)
+				local cost = GameConfig.GetWeaponCost(wep, albaCount)
+				local canAfford = (not owned) and (not locked) and (points >= cost)
+				local wName = Localization.Pick(lang, wep.Name, wep.Name_it)
+				local wTag = Localization.Pick(lang, wep.Tag, wep.Tag_it)
 
-				if maxed then
-					pad.Color = Color3.fromRGB(50, 175, 110)
-					pad.Material = Enum.Material.SmoothPlastic
+				local padCol, padMat
+				if owned then
+					padCol = Color3.fromRGB(50, 185, 115)
+					padMat = Enum.Material.SmoothPlastic
+				elseif locked then
+					padCol = Color3.fromRGB(36, 40, 54)
+					padMat = Enum.Material.SmoothPlastic
 				elseif canAfford then
-					pad.Color = alt.Color
-					pad.Material = Enum.Material.Neon
+					padCol = wep.Color
+					padMat = Enum.Material.Neon
 				else
-					pad.Color = alt.Color:Lerp(Color3.fromRGB(22, 24, 34), 0.62)
-					pad.Material = Enum.Material.SmoothPlastic
+					padCol = wep.Color:Lerp(Color3.fromRGB(22, 24, 34), 0.58)
+					padMat = Enum.Material.SmoothPlastic
+				end
+				pad.Color = padCol
+				pad.Material = padMat
+				if rim and rim:IsA("BasePart") then
+					rim.Color = owned and Color3.fromRGB(70, 245, 145) or (locked and Color3.fromRGB(65, 72, 95) or wep.Color)
 				end
 
 				local bbg = pad:FindFirstChildOfClass("BillboardGui")
 				local container = bbg and (bbg:FindFirstChildOfClass("Frame") or bbg)
 				if container then
 					local t1 = container:FindFirstChild("TitleLabel")
+					local td = container:FindFirstChild("DescLabel")
 					local t2 = container:FindFirstChild("CostLabel")
 					if t1 then
-						if alt.IsColorButton then
-							t1.Text = maxed and ("✅ " .. altName) or ("🎨 " .. altName)
-						else
-							t1.Text = string.format("%s [%d/%d]", altName, lvl, maxLvl)
-						end
+						t1.Text = (locked and "🔒 " or (wep.Icon .. " ")) .. wName
+					end
+					if td then
+						td.Text = wTag
 					end
 					if t2 then
-						if maxed then
-							t2.Text = alt.IsColorButton and Localization.T(lang, "ACTIVE_GROUND_PAD") or Localization.T(lang, "MAX_GROUND_PAD")
+						if owned then
+							t2.Text = Localization.T(lang, "PAD_WEP_EQUIPPED")
 							t2.TextColor3 = Color3.fromRGB(95, 245, 155)
-						elseif alt.IsColorButton then
-							t2.Text = (canAfford and "✅ " or "") .. NumberFormat.Format(cost) .. " " .. lightUnit
-							t2.TextColor3 = canAfford and Color3.fromRGB(95, 255, 155) or Color3.fromRGB(225, 230, 242)
+						elseif locked then
+							t2.Text = Localization.T(lang, "PAD_WEP_LOCKED_FMT", reqAlba)
+							t2.TextColor3 = Color3.fromRGB(190, 200, 222)
 						else
 							t2.Text = (canAfford and "✅ " or "") .. NumberFormat.Format(cost) .. " " .. lightUnit
-							t2.TextColor3 = canAfford and Color3.fromRGB(95, 255, 155) or Color3.fromRGB(225, 230, 242)
+							t2.TextColor3 = canAfford and Color3.fromRGB(95, 255, 155) or Color3.fromRGB(235, 240, 252)
 						end
 					end
 				end
@@ -178,21 +189,82 @@ function ClientWorldVisuals.Update(st)
 		end
 	end
 
+	-- 2. Postazione Spiriti a terra
+	local wispFolder = plotModel:FindFirstChild("WispStation")
+	if wispFolder then
+		local wispsUnlocked = (st.WispsUnlocked == true)
+		local unitCost = GameConfig.GetWispCost(albaCount)
+		local padConfigs = {
+			{ Name = "WispPad_1", Mult = 1, TitleKey = "PAD_WISP_1_TITLE", BaseColor = Color3.fromRGB(80, 225, 255) },
+			{ Name = "WispPad_5", Mult = 5, TitleKey = "PAD_WISP_5_TITLE", BaseColor = Color3.fromRGB(205, 115, 255) },
+		}
+		for _, pc in ipairs(padConfigs) do
+			local pad = wispFolder:FindFirstChild(pc.Name)
+			if pad and pad:IsA("BasePart") then
+				local rim = pad:FindFirstChild(pc.Name .. "_Rim")
+				local totalCost = unitCost * pc.Mult
+				local canAfford = wispsUnlocked and (points >= totalCost)
+
+				if not wispsUnlocked then
+					pad.Color = Color3.fromRGB(36, 40, 56)
+					pad.Material = Enum.Material.SmoothPlastic
+				elseif canAfford then
+					pad.Color = pc.BaseColor
+					pad.Material = Enum.Material.Neon
+				else
+					pad.Color = pc.BaseColor:Lerp(Color3.fromRGB(22, 24, 34), 0.56)
+					pad.Material = Enum.Material.SmoothPlastic
+				end
+				if rim and rim:IsA("BasePart") then
+					rim.Color = wispsUnlocked and pc.BaseColor or Color3.fromRGB(68, 76, 102)
+				end
+
+				local bbg = pad:FindFirstChildOfClass("BillboardGui")
+				local container = bbg and (bbg:FindFirstChildOfClass("Frame") or bbg)
+				if container then
+					local t1 = container:FindFirstChild("TitleLabel")
+					local td = container:FindFirstChild("DescLabel")
+					local t2 = container:FindFirstChild("CostLabel")
+					if t1 then
+						t1.Text = Localization.T(lang, pc.TitleKey)
+					end
+					if td then
+						td.Text = wispsUnlocked and Localization.T(lang, "PAD_WISP_READY_DESC") or Localization.T(lang, "PAD_WISP_LOCKED_DESC")
+					end
+					if t2 then
+						if not wispsUnlocked then
+							t2.Text = "🔒 " .. Localization.T(lang, "BTN_LOCKED")
+							t2.TextColor3 = Color3.fromRGB(190, 200, 222)
+						else
+							t2.Text = (canAfford and "✅ " or "") .. NumberFormat.Format(totalCost) .. " " .. lightUnit
+							t2.TextColor3 = canAfford and Color3.fromRGB(95, 255, 155) or Color3.fromRGB(235, 240, 252)
+						end
+					end
+				end
+			end
+		end
+	end
+
+	-- 3. Pedana Rebirth
 	local vPad = plotModel:FindFirstChild("VictoryPad")
 	if vPad and vPad:IsA("BasePart") then
 		local showVictory = (st.AllUpgradesCompleted == true)
 		local vCost = GameConfig.GetVictoryCost(albaCount)
 		vPad.Transparency = showVictory and 0.16 or 1
+		local vRim = vPad:FindFirstChild("VictoryPad_Rim")
+		if vRim and vRim:IsA("BasePart") then
+			vRim.Transparency = showVictory and 0.05 or 1
+		end
 
 		local bbg = vPad:FindFirstChildOfClass("BillboardGui")
 		if bbg then
 			bbg.Enabled = showVictory
 		end
 		if showVictory then
-			if points >= vCost then
-				vPad.Color = Color3.fromRGB(70, 245, 145)
-			else
-				vPad.Color = Color3.fromRGB(255, 215, 75)
+			local vCol = (points >= vCost) and Color3.fromRGB(70, 245, 145) or Color3.fromRGB(255, 215, 75)
+			vPad.Color = vCol
+			if vRim and vRim:IsA("BasePart") then
+				vRim.Color = vCol
 			end
 		end
 	end
@@ -292,7 +364,11 @@ function ClientWorldVisuals.StartWispRenderer()
 		local list = playerOrbs[userId]
 		if list then
 			for _, item in ipairs(list) do
-				if item.Part then item.Part:Destroy() end
+				if item.Model then
+					item.Model:Destroy()
+				elseif item.Part then
+					item.Part:Destroy()
+				end
 			end
 			playerOrbs[userId] = nil
 		end
@@ -301,6 +377,25 @@ function ClientWorldVisuals.StartWispRenderer()
 	Players.PlayerRemoving:Connect(function(plr)
 		clearPlayerOrbs(plr.UserId)
 	end)
+
+	local function makeWispPart(parent, name, shape, size, color, material, transparency)
+		local p = Instance.new("Part")
+		p.Name = name
+		p.Anchored = true
+		p.CanCollide = false
+		p.CanTouch = false
+		p.CanQuery = false
+		p.CastShadow = false
+		if shape then
+			p.Shape = shape
+		end
+		p.Size = size
+		p.Color = color
+		p.Material = material or Enum.Material.Neon
+		p.Transparency = transparency or 0
+		p.Parent = parent
+		return p
+	end
 
 	RunService.RenderStepped:Connect(function()
 		local t = os.clock()
@@ -319,24 +414,119 @@ function ClientWorldVisuals.StartWispRenderer()
 						return HttpService:JSONDecode(rawAttr)
 					end)
 					if ok and type(decoded) == "table" then
-						for _, rawId in ipairs(decoded) do
+						for idx, rawId in ipairs(decoded) do
 							local cfg, isRad = EconomyEngine.ParseWispId(rawId)
 							if cfg then
-								local orb = Instance.new("Part")
-								orb.Anchored = true
-								orb.CanCollide = false
-								orb.Shape = Enum.PartType.Ball
-								orb.Material = Enum.Material.Neon
-								orb.Size = isRad and Vector3.new(1.15, 1.15, 1.15) or Vector3.new(0.85, 0.85, 0.85)
-								orb.Color = cfg.Color
-								orb.Parent = wispFolder
+								local s = isRad and 1.28 or 0.96
+								local model = Instance.new("Model")
+								model.Name = "WispOrb_" .. tostring(idx)
 
-								local light = Instance.new("PointLight", orb)
+								local core = makeWispPart(
+									model,
+									"Core",
+									Enum.PartType.Ball,
+									Vector3.new(0.82, 0.82, 0.82) * s,
+									cfg.Color:Lerp(Color3.new(1, 1, 1), 0.35),
+									Enum.Material.Neon,
+									0.02
+								)
+
+								local aura = makeWispPart(
+									model,
+									"AuraShell",
+									Enum.PartType.Ball,
+									Vector3.new(1.42, 1.42, 1.42) * s,
+									cfg.Color,
+									Enum.Material.ForceField,
+									0.32
+								)
+
+								local ringColor = isRad and Color3.fromRGB(255, 240, 155) or cfg.Color:Lerp(Color3.new(1, 1, 1), 0.2)
+								local ring = makeWispPart(
+									model,
+									"HaloRing",
+									Enum.PartType.Cylinder,
+									Vector3.new(0.09, 1.85 * s, 1.85 * s),
+									ringColor,
+									Enum.Material.Neon,
+									0.12
+								)
+
+								local wingL = makeWispPart(
+									model,
+									"WingL",
+									Enum.PartType.Block,
+									Vector3.new(0.10, 0.42, 0.78) * s,
+									cfg.Color,
+									Enum.Material.Neon,
+									0.18
+								)
+								local wingR = makeWispPart(
+									model,
+									"WingR",
+									Enum.PartType.Block,
+									Vector3.new(0.10, 0.42, 0.78) * s,
+									cfg.Color,
+									Enum.Material.Neon,
+									0.18
+								)
+
+								-- Scia luminosa
+								local attTop = Instance.new("Attachment", core)
+								attTop.Position = Vector3.new(0, 0.34 * s, 0)
+								local attBot = Instance.new("Attachment", core)
+								attBot.Position = Vector3.new(0, -0.34 * s, 0)
+
+								local trail = Instance.new("Trail", core)
+								trail.Attachment0 = attTop
+								trail.Attachment1 = attBot
+								trail.Color = ColorSequence.new(cfg.Color:Lerp(Color3.new(1, 1, 1), 0.45), cfg.Color)
+								trail.Transparency = NumberSequence.new({
+									NumberSequenceKeypoint.new(0, 0.25),
+									NumberSequenceKeypoint.new(1, 1),
+								})
+								trail.WidthScale = NumberSequence.new({
+									NumberSequenceKeypoint.new(0, 1.0),
+									NumberSequenceKeypoint.new(1, 0.1),
+								})
+								trail.Lifetime = isRad and 0.55 or 0.42
+								trail.LightEmission = 1
+
+								-- Particelle scintillanti
+								local sparkles = Instance.new("ParticleEmitter", core)
+								sparkles.Texture = "rbxasset://textures/particles/sparkles_main.dds"
+								sparkles.LightEmission = 1
+								sparkles.LightInfluence = 0
+								sparkles.Rate = isRad and 18 or 10
+								sparkles.Lifetime = NumberRange.new(0.45, 0.85)
+								sparkles.Speed = NumberRange.new(0.8, 2.2)
+								sparkles.SpreadAngle = Vector2.new(180, 180)
+								sparkles.Color = ColorSequence.new(Color3.new(1, 1, 1), cfg.Color)
+								sparkles.Size = NumberSequence.new({
+									NumberSequenceKeypoint.new(0, 0.32 * s),
+									NumberSequenceKeypoint.new(1, 0),
+								})
+								sparkles.Transparency = NumberSequence.new({
+									NumberSequenceKeypoint.new(0, 0.1),
+									NumberSequenceKeypoint.new(1, 1),
+								})
+
+								local light = Instance.new("PointLight", core)
 								light.Color = cfg.Color
-								light.Range = isRad and 5 or 3.5
-								light.Brightness = isRad and 0.8 or 0.5
+								light.Range = isRad and 8.5 or 5.5
+								light.Brightness = isRad and 1.3 or 0.8
 
-								table.insert(list, { Part = orb, IsRadiant = isRad })
+								model.Parent = wispFolder
+								table.insert(list, {
+									Model = model,
+									Core = core,
+									Aura = aura,
+									Ring = ring,
+									WingL = wingL,
+									WingR = wingR,
+									Scale = s,
+									IsRadiant = isRad,
+								})
 							end
 						end
 					end
@@ -345,12 +535,25 @@ function ClientWorldVisuals.StartWispRenderer()
 
 				local count = #list
 				for idx, item in ipairs(list) do
-					if item.Part and item.Part.Parent then
+					if item.Model and item.Model.Parent and item.Core then
 						local angle = t * 2.1 + ((idx - 1) * (math.pi * 2 / math.max(1, count)))
-						local radius = 4.2 + (idx % 2) * 0.6
+						local radius = 4.4 + (idx % 2) * 0.65
 						local bob = math.sin(t * 3.4 + idx) * 0.65
-						local offset = Vector3.new(math.cos(angle) * radius, 1.2 + bob, math.sin(angle) * radius)
-						item.Part.Position = hrp.Position + offset
+						local pos = hrp.Position + Vector3.new(math.cos(angle) * radius, 1.35 + bob, math.sin(angle) * radius)
+
+						-- Orientamento lungo la tangente dell'orbita
+						local tangent = Vector3.new(-math.sin(angle), 0, math.cos(angle))
+						local baseCF = CFrame.lookAt(pos, pos + tangent)
+						local s = item.Scale
+						local pulse = 1 + math.sin(t * 4.5 + idx) * 0.08
+						local flap = math.sin(t * 9.0 + idx) * 0.45
+
+						item.Core.CFrame = baseCF
+						item.Aura.Size = Vector3.new(1.42, 1.42, 1.42) * s * pulse
+						item.Aura.CFrame = baseCF
+						item.Ring.CFrame = baseCF * CFrame.Angles(math.rad(22), t * 2.8 + idx, math.rad(75))
+						item.WingL.CFrame = baseCF * CFrame.new(-0.58 * s, 0.08 * s, 0.15 * s) * CFrame.Angles(0, math.rad(28) + flap, math.rad(18))
+						item.WingR.CFrame = baseCF * CFrame.new(0.58 * s, 0.08 * s, 0.15 * s) * CFrame.Angles(0, math.rad(-28) - flap, math.rad(-18))
 					end
 				end
 			end

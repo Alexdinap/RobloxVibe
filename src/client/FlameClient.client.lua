@@ -1,6 +1,14 @@
 local Players = game:GetService("Players")
 local Workspace = game:GetService("Workspace")
+local Lighting = game:GetService("Lighting")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+Lighting.ClockTime = 0
+Lighting.Brightness = 0
+Lighting.Ambient = Color3.fromRGB(0, 0, 0)
+Lighting.OutdoorAmbient = Color3.fromRGB(0, 0, 0)
+Lighting.EnvironmentDiffuseScale = 0
+Lighting.EnvironmentSpecularScale = 0
 local TweenService = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
@@ -49,76 +57,82 @@ gui.Parent = player:WaitForChild("PlayerGui")
 local topHud = Instance.new("Frame", gui)
 topHud.Name = "TopStatsBar"
 topHud.AnchorPoint = Vector2.new(0.5, 0)
-topHud.Position = UDim2.new(0.5, 0, 0, 12)
-topHud.Size = UDim2.fromOffset(640, 56)
+topHud.Position = UDim2.new(0.5, 0, 0, 10)
+topHud.Size = UDim2.new(0.94, 0, 0, 68)
 topHud.BackgroundColor3 = Color3.fromRGB(16, 18, 28)
 topHud.BackgroundTransparency = 0.08
 topHud.ZIndex = 10
 Instance.new("UICorner", topHud).CornerRadius = UDim.new(0, 14)
+
+local topConstraint = Instance.new("UISizeConstraint", topHud)
+topConstraint.MaxSize = Vector2.new(700, 68)
+topConstraint.MinSize = Vector2.new(320, 62)
 
 local topStroke = Instance.new("UIStroke", topHud)
 topStroke.Color = Color3.fromRGB(255, 195, 65)
 topStroke.Thickness = 1.6
 
 local pointsLbl = Instance.new("TextLabel", topHud)
-pointsLbl.Position = UDim2.fromOffset(14, 6)
-pointsLbl.Size = UDim2.fromOffset(260, 24)
+pointsLbl.Position = UDim2.fromOffset(14, 7)
+pointsLbl.Size = UDim2.fromOffset(290, 28)
 pointsLbl.BackgroundTransparency = 1
 pointsLbl.Text = "🔥 0 Light Points"
-pointsLbl.TextColor3 = Color3.fromRGB(255, 215, 80)
+pointsLbl.TextColor3 = Color3.fromRGB(255, 220, 90)
 pointsLbl.TextXAlignment = Enum.TextXAlignment.Left
 pointsLbl.Font = Enum.Font.GothamBlack
-pointsLbl.TextSize = 16
+pointsLbl.TextSize = 18
 pointsLbl.ZIndex = 11
 
 local rateLbl = Instance.new("TextLabel", topHud)
-rateLbl.Position = UDim2.fromOffset(14, 32)
-rateLbl.Size = UDim2.fromOffset(290, 18)
+rateLbl.Position = UDim2.fromOffset(14, 38)
+rateLbl.Size = UDim2.fromOffset(310, 20)
 rateLbl.BackgroundTransparency = 1
 rateLbl.Text = "+1 / click (0.50s)  •  +0 / sec"
-rateLbl.TextColor3 = Color3.fromRGB(175, 190, 215)
+rateLbl.TextColor3 = Color3.fromRGB(210, 222, 245)
 rateLbl.TextXAlignment = Enum.TextXAlignment.Left
 rateLbl.Font = Enum.Font.GothamBold
-rateLbl.TextSize = 12
+rateLbl.TextSize = 13
 rateLbl.ZIndex = 11
 
 local zoneBadge = Instance.new("TextLabel", topHud)
 zoneBadge.AnchorPoint = Vector2.new(1, 0)
-zoneBadge.Position = UDim2.new(1, -64, 0, 7)
-zoneBadge.Size = UDim2.fromOffset(290, 20)
+zoneBadge.Position = UDim2.new(1, -96, 0, 9)
+zoneBadge.Size = UDim2.fromOffset(280, 22)
 zoneBadge.BackgroundTransparency = 1
 zoneBadge.Text = "ZONES 1/5 • Spark Bearer (4%)"
-zoneBadge.TextColor3 = Color3.fromRGB(90, 225, 255)
+zoneBadge.TextColor3 = Color3.fromRGB(95, 230, 255)
 zoneBadge.TextXAlignment = Enum.TextXAlignment.Right
 zoneBadge.Font = Enum.Font.GothamBold
-zoneBadge.TextSize = 12
+zoneBadge.TextSize = 13
 zoneBadge.ZIndex = 11
 
 local heatAndAlbaLbl = Instance.new("TextLabel", topHud)
 heatAndAlbaLbl.AnchorPoint = Vector2.new(1, 0)
-heatAndAlbaLbl.Position = UDim2.new(1, -64, 0, 31)
-heatAndAlbaLbl.Size = UDim2.fromOffset(300, 18)
+heatAndAlbaLbl.Position = UDim2.new(1, -96, 0, 38)
+heatAndAlbaLbl.Size = UDim2.fromOffset(290, 20)
 heatAndAlbaLbl.BackgroundTransparency = 1
-heatAndAlbaLbl.Text = "Heat x1.00 • 🌅Dawn: 0 • Upg. 0/21"
-heatAndAlbaLbl.TextColor3 = Color3.fromRGB(255, 175, 95)
+heatAndAlbaLbl.Text = "Heat x1.00 • 🌅Dawn: 0 • Upg. 0/22"
+heatAndAlbaLbl.TextColor3 = Color3.fromRGB(255, 195, 115)
 heatAndAlbaLbl.TextXAlignment = Enum.TextXAlignment.Right
-heatAndAlbaLbl.Font = Enum.Font.Gotham
-heatAndAlbaLbl.TextSize = 11
+heatAndAlbaLbl.Font = Enum.Font.GothamBold
+heatAndAlbaLbl.TextSize = 12
 heatAndAlbaLbl.ZIndex = 11
 
 local langBtn = Instance.new("TextButton", topHud)
 langBtn.Name = "LanguageToggleBtn"
 langBtn.AnchorPoint = Vector2.new(1, 0.5)
 langBtn.Position = UDim2.new(1, -10, 0.5, 0)
-langBtn.Size = UDim2.fromOffset(44, 34)
-langBtn.BackgroundColor3 = Color3.fromRGB(28, 34, 50)
+langBtn.Size = UDim2.fromOffset(76, 48)
+langBtn.BackgroundColor3 = Color3.fromRGB(28, 34, 52)
 langBtn.Text = "🌐 EN"
-langBtn.TextColor3 = Color3.fromRGB(255, 215, 85)
+langBtn.TextColor3 = Color3.fromRGB(255, 220, 95)
 langBtn.Font = Enum.Font.GothamBlack
-langBtn.TextSize = 11
+langBtn.TextSize = 15
 langBtn.ZIndex = 12
-Instance.new("UICorner", langBtn).CornerRadius = UDim.new(0, 8)
-Instance.new("UIStroke", langBtn).Color = Color3.fromRGB(90, 225, 255)
+Instance.new("UICorner", langBtn).CornerRadius = UDim.new(0, 10)
+local langStroke = Instance.new("UIStroke", langBtn)
+langStroke.Color = Color3.fromRGB(90, 225, 255)
+langStroke.Thickness = 1.5
 
 langBtn.MouseButton1Click:Connect(function()
 	currentLang = (currentLang == "en") and "it" or "en"
@@ -129,13 +143,13 @@ end)
 local trialBanner = Instance.new("TextLabel", gui)
 trialBanner.Name = "Regno1Banner"
 trialBanner.AnchorPoint = Vector2.new(0.5, 0)
-trialBanner.Position = UDim2.new(0.5, 0, 0, 112)
-trialBanner.Size = UDim2.fromOffset(390, 26)
+trialBanner.Position = UDim2.new(0.5, 0, 0, 126)
+trialBanner.Size = UDim2.fromOffset(420, 30)
 trialBanner.BackgroundColor3 = Color3.fromRGB(38, 24, 14)
 trialBanner.Text = ""
 trialBanner.TextColor3 = Color3.fromRGB(255, 225, 95)
 trialBanner.Font = Enum.Font.GothamBold
-trialBanner.TextSize = 12
+trialBanner.TextSize = 13
 trialBanner.Visible = false
 trialBanner.ZIndex = 12
 Instance.new("UICorner", trialBanner).CornerRadius = UDim.new(0, 10)
@@ -143,13 +157,13 @@ Instance.new("UICorner", trialBanner).CornerRadius = UDim.new(0, 10)
 local toastLbl = Instance.new("TextLabel", gui)
 toastLbl.Name = "PopupToast"
 toastLbl.AnchorPoint = Vector2.new(0.5, 0)
-toastLbl.Position = UDim2.new(0.5, 0, 0, 144)
-toastLbl.Size = UDim2.fromOffset(450, 28)
+toastLbl.Position = UDim2.new(0.5, 0, 0, 162)
+toastLbl.Size = UDim2.fromOffset(470, 32)
 toastLbl.BackgroundColor3 = Color3.fromRGB(22, 26, 40)
 toastLbl.Text = ""
 toastLbl.TextColor3 = Color3.fromRGB(255, 235, 130)
 toastLbl.Font = Enum.Font.GothamBold
-toastLbl.TextSize = 12
+toastLbl.TextSize = 13
 toastLbl.Visible = false
 toastLbl.ZIndex = 30
 Instance.new("UICorner", toastLbl).CornerRadius = UDim.new(0, 10)
@@ -307,7 +321,7 @@ remotes.StateSync.OnClientEvent:Connect(function(st)
 		st.HeatMult or 1,
 		st.AlbaPoints or 0,
 		st.CompletedUpgradesCount or 0,
-		st.TotalUpgradesCount or 21,
+		st.TotalUpgradesCount or 22,
 		buffSuffix
 	)
 

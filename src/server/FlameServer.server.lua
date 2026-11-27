@@ -82,6 +82,7 @@ pcall(function()
 end)
 
 local PlayerData = {}
+local PlayerLoadedMap = {}
 local PlayerPlotMap = {}
 local ClickHeat = {}
 local ActiveEmbers = {}
@@ -251,48 +252,70 @@ local function updatePlotBrazierVisuals(plot, stats)
 end
 
 local function updatePlotGroundButtons(plot, data)
-	if not plot or not plot.AltarsFolder then return end
-	local altars = (data and data.Altars) or {}
+	if not plot then return end
 	local albaCount = (data and data.AlbaCount) or 0
 	local lang = getLang(data)
 	local lightUnit = Localization.T(lang, "LIGHT_UNIT")
+	local ownedWeapons = (data and data.OwnedWeapons) or {}
+	local upgrades = (data and data.Upgrades) or {}
 
-	for _, alt in ipairs(GameConfig.Altars) do
-		local pad = plot.AltarsFolder:FindFirstChild(alt.Id)
-		if pad then
-			local maxLvl = alt.MaxLevel or 1
-			local lvl = EconomyEngine.GetLevel(altars, alt.Id)
-			local maxed = lvl >= maxLvl
-			local cost = GameConfig.GetAltarCost(alt, lvl, albaCount)
-			local altName = Localization.Pick(lang, alt.Name, alt.Name_it)
-			local benefit = Localization.Pick(lang, alt.BenefitTag, alt.BenefitTag_it) or Localization.Pick(lang, alt.Desc, alt.Desc_it)
+	if plot.WeaponPadRefs then
+		for _, wep in ipairs(GameConfig.Weapons) do
+			local ref = plot.WeaponPadRefs[wep.Id]
+			if ref then
+				local owned = ownedWeapons[wep.Id] == true
+				local reqAlba = wep.ReqAlba or 0
+				local locked = (not owned) and (albaCount < reqAlba)
+				local cost = GameConfig.GetWeaponCost(wep, albaCount)
+				local wName = Localization.Pick(lang, wep.Name, wep.Name_it)
+				local wTag = Localization.Pick(lang, wep.Tag, wep.Tag_it)
 
-			local bbg = pad:FindFirstChildOfClass("BillboardGui")
-			local container = bbg and (bbg:FindFirstChildOfClass("Frame") or bbg)
-			if container then
-				local t1 = container:FindFirstChild("TitleLabel")
-				local td = container:FindFirstChild("DescLabel")
-				local t2 = container:FindFirstChild("CostLabel")
-
-				if td then
-					td.Text = benefit
+				if ref.TitleLabel then
+					ref.TitleLabel.Text = (locked and "🔒 " or (wep.Icon .. " ")) .. wName
 				end
-
-				if alt.IsColorButton then
-					if t1 then
-						t1.Text = maxed and ("✅ " .. altName) or ("🎨 " .. altName)
-					end
-					if t2 then
-						t2.Text = maxed and Localization.T(lang, "ACTIVE_GROUND_PAD") or (NumberFormat.Format(cost) .. " " .. lightUnit)
-					end
-				else
-					if t1 then
-						t1.Text = string.format("%s [%d/%d]", altName, lvl, maxLvl)
-					end
-					if t2 then
-						t2.Text = maxed and Localization.T(lang, "MAX_GROUND_PAD") or (NumberFormat.Format(cost) .. " " .. lightUnit)
+				if ref.DescLabel then
+					ref.DescLabel.Text = wTag
+				end
+				if ref.CostLabel then
+					if owned then
+						ref.CostLabel.Text = Localization.T(lang, "PAD_WEP_EQUIPPED")
+					elseif locked then
+						ref.CostLabel.Text = Localization.T(lang, "PAD_WEP_LOCKED_FMT", reqAlba)
+					else
+						ref.CostLabel.Text = NumberFormat.Format(cost) .. " " .. lightUnit
 					end
 				end
+			end
+		end
+	end
+
+	if plot.WispStationRefs then
+		local ws = plot.WispStationRefs
+		local wispsUnlocked = EconomyEngine.GetUpgradeLevel(data or {}, "u_unlock_wisps") > 0
+		local unitCost = GameConfig.GetWispCost(albaCount)
+		if ws.ShrineTitle then
+			ws.ShrineTitle.Text = Localization.T(lang, "PAD_WISP_SHRINE_TITLE")
+		end
+		if ws.Pad1 then
+			if ws.Pad1.TitleLabel then
+				ws.Pad1.TitleLabel.Text = Localization.T(lang, "PAD_WISP_1_TITLE")
+			end
+			if ws.Pad1.DescLabel then
+				ws.Pad1.DescLabel.Text = wispsUnlocked and Localization.T(lang, "PAD_WISP_READY_DESC") or Localization.T(lang, "PAD_WISP_LOCKED_DESC")
+			end
+			if ws.Pad1.CostLabel then
+				ws.Pad1.CostLabel.Text = wispsUnlocked and (NumberFormat.Format(unitCost) .. " " .. lightUnit) or Localization.T(lang, "BTN_LOCKED")
+			end
+		end
+		if ws.Pad5 then
+			if ws.Pad5.TitleLabel then
+				ws.Pad5.TitleLabel.Text = Localization.T(lang, "PAD_WISP_5_TITLE")
+			end
+			if ws.Pad5.DescLabel then
+				ws.Pad5.DescLabel.Text = wispsUnlocked and Localization.T(lang, "PAD_WISP_READY_DESC") or Localization.T(lang, "PAD_WISP_LOCKED_DESC")
+			end
+			if ws.Pad5.CostLabel then
+				ws.Pad5.CostLabel.Text = wispsUnlocked and (NumberFormat.Format(unitCost * 5) .. " " .. lightUnit) or Localization.T(lang, "BTN_LOCKED")
 			end
 		end
 	end
@@ -310,6 +333,7 @@ local function updatePlotGroundButtons(plot, data)
 		local vCost = GameConfig.GetVictoryCost(albaCount)
 		plot.VictoryStatusLabel.Text = NumberFormat.Format(vCost) .. " " .. lightUnit
 	end
+	local _ = upgrades
 end
 
 local function updatePlotAlbaZones(plot, data)
@@ -330,6 +354,9 @@ local function updatePlotAlbaZones(plot, data)
 			zRef.GateBarrier.Transparency = isUnlocked and 1 or 0.35
 			zRef.GateBarrier.CanCollide = not isUnlocked
 			zRef.GatePad.Transparency = isUnlocked and 0.78 or 0.20
+			if zRef.GatePadRim then
+				zRef.GatePadRim.Transparency = isUnlocked and 0.85 or 0.06
+			end
 
 			if zRef.GateLabel then
 				if isUnlocked then
@@ -469,7 +496,8 @@ local function syncPlayer(player, extra)
 
 	local payload = {
 		Language = lang,
-		TutorialCompleted = true,
+		DataLoaded = (PlayerLoadedMap[player.UserId] == true),
+		TutorialCompleted = (data.TutorialCompleted == true),
 		PlotIndex = plot and plot.Index or 1,
 		PlotOrigin = plot and plot.Origin or Vector3.zero,
 		ShadowGraceRemaining = plot and ShadowDefenseService.GetGraceRemaining(plot.Index) or 0,
@@ -541,8 +569,20 @@ end)
 CompleteTutorial.OnServerEvent:Connect(function(player)
 	local data = PlayerData[player.UserId]
 	if not data then return end
+	local wasCompleted = (data.TutorialCompleted == true)
 	data.TutorialCompleted = true
-	syncPlayer(player)
+
+	if not wasCompleted then
+		local plot = PlayerPlotMap[player.UserId]
+		if plot then
+			ShadowDefenseService.StartGracePeriod(plot.Index, GameConfig.InitialShadowGraceSeconds or 180, true)
+		end
+		syncPlayer(player, {
+			PopupText = Localization.T(getLang(data), "POP_TUTORIAL_DONE"),
+		})
+	else
+		syncPlayer(player)
+	end
 end)
 
 TeleportHome.OnServerEvent:Connect(function(player)
@@ -618,10 +658,101 @@ end
 
 ClickFlameEvent.OnServerEvent:Connect(handleFlameClick)
 
-local TouchingByPlot = {}
-local ColorNotifyCooldown = {}
+local WeaponPadCooldown = {}
+local WispPadCooldown = {}
 local VictoryCooldown = {}
 local ZonePadCooldown = {}
+
+local function handleWeaponPurchaseOrEquip(player, wepId, equipIfOwned)
+	local data = PlayerData[player.UserId]
+	if not data or type(wepId) ~= "string" then return end
+
+	local target
+	for _, w in ipairs(GameConfig.Weapons) do
+		if w.Id == wepId then target = w; break end
+	end
+	if not target then return end
+
+	local lang = getLang(data)
+	local wName = Localization.Pick(lang, target.Name, target.Name_it)
+
+	if data.OwnedWeapons[target.Id] == true then
+		if equipIfOwned then
+			pcall(function() ShadowDefenseService.EquipWeaponTool(player, target.Id) end)
+			syncPlayer(player, {
+				SoundCue = "Click",
+				PopupText = Localization.T(lang, "POP_WEAPON_EQUIPPED", wName),
+			})
+		end
+		return
+	end
+
+	local albaCount = data.AlbaCount or 0
+	if target.ReqAlba and albaCount < target.ReqAlba then
+		local reqMsg = lang == "it"
+			and string.format("Serve almeno Rinascita %d dell'Alba!", target.ReqAlba)
+			or string.format("Requires at least Dawn Rebirth %d!", target.ReqAlba)
+		syncPlayer(player, { PopupText = reqMsg })
+		return
+	end
+
+	local cost = GameConfig.GetWeaponCost(target, albaCount)
+	if data.Points >= cost then
+		data.Points -= cost
+		data.OwnedWeapons[target.Id] = true
+		pcall(function() ShadowDefenseService.SyncPlayerTools(player, data) end)
+		pcall(function() ShadowDefenseService.EquipWeaponTool(player, target.Id) end)
+
+		local plot = PlayerPlotMap[player.UserId]
+		if plot then
+			updatePlotGroundButtons(plot, data)
+		end
+
+		syncPlayer(player, {
+			SoundCue = "Upgrade",
+			PopupText = Localization.T(lang, "POP_WEAPON_BOUGHT", wName),
+		})
+	else
+		syncPlayer(player, {
+			PopupText = Localization.T(lang, "POP_NEED_LIGHT", NumberFormat.Format(cost)),
+		})
+	end
+end
+
+local function handleSummonWisp(player, amount)
+	local data = PlayerData[player.UserId]
+	if not data then return end
+	local lang = getLang(data)
+
+	if EconomyEngine.GetUpgradeLevel(data, "u_unlock_wisps") <= 0 then
+		syncPlayer(player, { PopupText = Localization.T(lang, "POP_WISPS_LOCKED") })
+		return
+	end
+
+	amount = math.clamp(math.floor(amount or 1), 1, 5)
+	local unitCost = GameConfig.GetWispCost(data.AlbaCount or 0)
+	local totalCost = unitCost * amount
+	if data.Points < totalCost then
+		syncPlayer(player, { PopupText = Localization.T(lang, "POP_NEED_LIGHT", NumberFormat.Format(totalCost)) })
+		return
+	end
+	data.Points -= totalCost
+	local best = nil
+	for _ = 1, amount do
+		local roll, acc, chosen = math.random(1, 1000), 0, GameConfig.Wisps[1]
+		for _, w in ipairs(GameConfig.Wisps) do
+			acc += w.Weight
+			if roll <= acc then chosen = w; break end
+		end
+		table.insert(data.Wisps, chosen.Id)
+		if not best or chosen.ClickMult > best.ClickMult then best = chosen end
+	end
+	local bestName = Localization.Pick(lang, best.Name, best.Name_it)
+	syncPlayer(player, {
+		SoundCue = "Upgrade",
+		PopupText = amount == 1 and Localization.T(lang, "POP_WISP_1", bestName) or Localization.T(lang, "POP_WISP_5", amount, bestName),
+	})
+end
 
 for _, plot in ipairs(plots) do
 	if plot.FlameHitbox then
@@ -635,43 +766,42 @@ for _, plot in ipairs(plots) do
 		end)
 	end
 
-	TouchingByPlot[plot.Index] = {}
-	for _, alt in ipairs(GameConfig.Altars) do
-		local pad = plot.AltarsFolder and plot.AltarsFolder:FindFirstChild(alt.Id)
-		if pad then
-			TouchingByPlot[plot.Index][alt.Id] = false
-			pad.Touched:Connect(function(hit)
+	if plot.WeaponPadRefs then
+		for _, wep in ipairs(GameConfig.Weapons) do
+			local ref = plot.WeaponPadRefs[wep.Id]
+			if ref and ref.Pad then
+				ref.Pad.Touched:Connect(function(hit)
+					local plr = Players:GetPlayerFromCharacter(hit.Parent)
+					if not plr or plot.Owner ~= plr then return end
+					local now = os.clock()
+					local key = plr.UserId .. "_" .. wep.Id
+					if WeaponPadCooldown[key] and (now - WeaponPadCooldown[key] < 1.0) then
+						return
+					end
+					WeaponPadCooldown[key] = now
+					handleWeaponPurchaseOrEquip(plr, wep.Id, true)
+				end)
+			end
+		end
+	end
+
+	if plot.WispStationRefs then
+		local function bindWispPad(padObj, amount)
+			if not padObj or not padObj.Pad then return end
+			padObj.Pad.Touched:Connect(function(hit)
 				local plr = Players:GetPlayerFromCharacter(hit.Parent)
 				if not plr or plot.Owner ~= plr then return end
-				TouchingByPlot[plot.Index][alt.Id] = true
-
-				if alt.IsColorButton then
-					local data = PlayerData[plr.UserId]
-					if data and EconomyEngine.GetLevel(data.Altars, alt.Id) >= 1 then
-						local now = os.clock()
-						local key = plr.UserId .. "_" .. alt.Id
-						if not ColorNotifyCooldown[key] or (now - ColorNotifyCooldown[key] > 2.5) then
-							ColorNotifyCooldown[key] = now
-							local lang = getLang(data)
-							syncPlayer(plr, {
-								PopupText = Localization.T(
-									lang,
-									"POP_COLOR_ALREADY",
-									Localization.Pick(lang, alt.Name, alt.Name_it),
-									Localization.Pick(lang, alt.BenefitTag, alt.BenefitTag_it) or ""
-								),
-							})
-						end
-					end
+				local now = os.clock()
+				local key = plr.UserId .. "_wisp_" .. tostring(amount)
+				if WispPadCooldown[key] and (now - WispPadCooldown[key] < 0.9) then
+					return
 				end
-			end)
-			pad.TouchEnded:Connect(function(hit)
-				local plr = Players:GetPlayerFromCharacter(hit.Parent)
-				if plr and plot.Owner == plr then
-					TouchingByPlot[plot.Index][alt.Id] = false
-				end
+				WispPadCooldown[key] = now
+				handleSummonWisp(plr, amount)
 			end)
 		end
+		bindWispPad(plot.WispStationRefs.Pad1, 1)
+		bindWispPad(plot.WispStationRefs.Pad5, 5)
 	end
 
 	for _, z in ipairs(GameConfig.AlbaZones) do
@@ -743,17 +873,13 @@ for _, plot in ipairs(plots) do
 
 			local startLvl = EconomyEngine.GetLevel(data.AlbaPerks, "ap_start")
 			data.Points = startLvl > 0 and (10000 * startLvl) or 0
-			data.Altars = startLvl > 0 and { alt_click = 5 * startLvl } or {}
-			data.Upgrades = { u_unlock_alba = 1 }
+			data.Altars = {}
+			data.Upgrades = startLvl > 0 and { alt_click = 5 * startLvl } or {}
 
 			data.OwnedWeapons = {}
 			data.Defenses = {}
 
 			ShadowDefenseService.StartGracePeriod(plot.Index, GameConfig.RebirthShadowGraceSeconds or 120, false)
-
-			for _, alt in ipairs(GameConfig.Altars) do
-				TouchingByPlot[plot.Index][alt.Id] = false
-			end
 
 			local freshStats = EconomyEngine.CalculateStats(data, 0, 1, data.HasDoubleLight)
 			updatePlotBrazierVisuals(plot, freshStats)
@@ -773,72 +899,6 @@ for _, plot in ipairs(plots) do
 		end)
 	end
 end
-
-task.spawn(function()
-	while true do
-		task.wait(0.14)
-		for _, plot in ipairs(plots) do
-			local owner = plot.Owner
-			local data = owner and owner.Parent and PlayerData[owner.UserId]
-			if data then
-				local lang = getLang(data)
-				local albaCount = data.AlbaCount or 0
-				local wasAllDone = EconomyEngine.GetUpgradeCompletion(data)
-				local boughtSomething = false
-				local triggerShockwave = false
-				local customPopup = nil
-				local soundCue = "Buy"
-
-				for _, alt in ipairs(GameConfig.Altars) do
-					if TouchingByPlot[plot.Index][alt.Id] then
-						local maxLvl = alt.MaxLevel or 1
-						local lvl = EconomyEngine.GetLevel(data.Altars, alt.Id)
-						if lvl < maxLvl then
-							local cost = GameConfig.GetAltarCost(alt, lvl, albaCount)
-							if data.Points >= cost then
-								data.Points -= cost
-								data.Altars[alt.Id] = lvl + 1
-								boughtSomething = true
-								if alt.IsColorButton then
-									TouchingByPlot[plot.Index][alt.Id] = false
-									triggerShockwave = true
-									soundCue = "Prestige"
-									customPopup = Localization.T(
-										lang,
-										"POP_COLOR_UNLOCKED",
-										Localization.Pick(lang, alt.Name, alt.Name_it),
-										Localization.Pick(lang, alt.BenefitTag, alt.BenefitTag_it) or ""
-									)
-								elseif alt.RadiusBonus ~= nil then
-									triggerShockwave = true
-								end
-							end
-						end
-					end
-				end
-
-				if boughtSomething then
-					local buffMult = Regno1Service.GetActiveBuff(owner.UserId)
-					local stats = EconomyEngine.CalculateStats(data, getCurrentHeat(owner.UserId), buffMult, data.HasDoubleLight)
-					updatePlotBrazierVisuals(plot, stats)
-					updatePlotGroundButtons(plot, data)
-
-					if (not wasAllDone) and stats.AllUpgradesCompleted then
-						triggerShockwave = true
-						customPopup = Localization.T(lang, "POP_ALL_MAXED")
-						ShadowDefenseService.ClearShadowsForPlot(plot.Index)
-					end
-
-					syncPlayer(owner, {
-						SoundCue = soundCue,
-						Shockwave = triggerShockwave,
-						PopupText = customPopup,
-					})
-				end
-			end
-		end
-	end
-end)
 
 BuyUpgrade.OnServerEvent:Connect(function(player, upgId)
 	local data = PlayerData[player.UserId]
@@ -870,14 +930,34 @@ BuyUpgrade.OnServerEvent:Connect(function(player, upgId)
 			end
 		end
 
+		local plot = PlayerPlotMap[player.UserId]
+		if plot then
+			if target.RadiusBonus ~= nil or target.BrazierColor ~= nil then
+				local buffMult = Regno1Service.GetActiveBuff(player.UserId)
+				local freshStats = EconomyEngine.CalculateStats(data, getCurrentHeat(player.UserId), buffMult, data.HasDoubleLight)
+				updatePlotBrazierVisuals(plot, freshStats)
+			end
+			if target.Id == "u_unlock_wisps" then
+				updatePlotGroundButtons(plot, data)
+			end
+		end
+
 		local nowAllDone = EconomyEngine.GetUpgradeCompletion(data)
 		local popup = nil
+		local soundCue = "Upgrade"
 		if (not wasAllDone) and nowAllDone then
 			popup = Localization.T(lang, "POP_ALL_MAXED")
-			local plot = PlayerPlotMap[player.UserId]
 			if plot then
 				ShadowDefenseService.ClearShadowsForPlot(plot.Index)
 			end
+		elseif target.IsColorButton then
+			soundCue = "Prestige"
+			popup = Localization.T(
+				lang,
+				"POP_COLOR_UNLOCKED",
+				Localization.Pick(lang, target.Name, target.Name_it),
+				Localization.Pick(lang, target.Tag, target.Tag_it) or ""
+			)
 		elseif target.Id == "u_braziers" then
 			popup = Localization.T(lang, "POP_R1_UNLOCKED")
 			pcall(function() Regno1Service.SyncPlayer(player) end)
@@ -885,51 +965,21 @@ BuyUpgrade.OnServerEvent:Connect(function(player, upgId)
 			popup = Localization.T(lang, "POP_NEW_UNLOCK", table.concat(newlyUnlocked, " & "))
 		end
 
+		local doShockwave = (not wasAllDone and nowAllDone)
+			or (#newlyUnlocked > 0)
+			or (target.IsColorButton == true)
+			or (target.RadiusBonus ~= nil)
+
 		syncPlayer(player, {
-			SoundCue = "Upgrade",
-			Shockwave = (not wasAllDone and nowAllDone) or (#newlyUnlocked > 0),
+			SoundCue = soundCue,
+			Shockwave = doShockwave,
 			PopupText = popup,
 		})
 	end
 end)
 
 BuyWeapon.OnServerEvent:Connect(function(player, wepId)
-	local data = PlayerData[player.UserId]
-	if not data or type(wepId) ~= "string" then return end
-
-	local target
-	for _, w in ipairs(GameConfig.Weapons) do
-		if w.Id == wepId then target = w; break end
-	end
-	if not target then return end
-
-	if data.OwnedWeapons[target.Id] == true then return end
-	local lang = getLang(data)
-	local albaCount = data.AlbaCount or 0
-
-	if target.ReqAlba and albaCount < target.ReqAlba then
-		local reqMsg = lang == "it"
-			and string.format("Serve almeno Rinascita %d dell'Alba!", target.ReqAlba)
-			or string.format("Requires at least Dawn Rebirth %d!", target.ReqAlba)
-		syncPlayer(player, { PopupText = reqMsg })
-		return
-	end
-
-	local cost = GameConfig.GetWeaponCost(target, albaCount)
-	if data.Points >= cost then
-		data.Points -= cost
-		data.OwnedWeapons[target.Id] = true
-		pcall(function() ShadowDefenseService.SyncPlayerTools(player, data) end)
-
-		syncPlayer(player, {
-			SoundCue = "Upgrade",
-			PopupText = Localization.T(lang, "POP_WEAPON_BOUGHT", Localization.Pick(lang, target.Name, target.Name_it)),
-		})
-	else
-		syncPlayer(player, {
-			PopupText = Localization.T(lang, "POP_NEED_LIGHT", NumberFormat.Format(cost)),
-		})
-	end
+	handleWeaponPurchaseOrEquip(player, wepId, false)
 end)
 
 BuyDefense.OnServerEvent:Connect(function(player, defId)
@@ -1056,32 +1106,7 @@ UnlockAlbaZone.OnServerEvent:Connect(function(player, zoneId)
 end)
 
 SummonWisp.OnServerEvent:Connect(function(player, amount)
-	local data = PlayerData[player.UserId]
-	if not data then return end
-	local lang = getLang(data)
-	amount = math.clamp(math.floor(amount or 1), 1, 5)
-	local unitCost = GameConfig.GetWispCost(data.AlbaCount or 0)
-	local totalCost = unitCost * amount
-	if data.Points < totalCost then
-		syncPlayer(player, { PopupText = Localization.T(lang, "POP_NEED_LIGHT", NumberFormat.Format(totalCost)) })
-		return
-	end
-	data.Points -= totalCost
-	local best = nil
-	for _ = 1, amount do
-		local roll, acc, chosen = math.random(1, 1000), 0, GameConfig.Wisps[1]
-		for _, w in ipairs(GameConfig.Wisps) do
-			acc += w.Weight
-			if roll <= acc then chosen = w; break end
-		end
-		table.insert(data.Wisps, chosen.Id)
-		if not best or chosen.ClickMult > best.ClickMult then best = chosen end
-	end
-	local bestName = Localization.Pick(lang, best.Name, best.Name_it)
-	syncPlayer(player, {
-		SoundCue = "Upgrade",
-		PopupText = amount == 1 and Localization.T(lang, "POP_WISP_1", bestName) or Localization.T(lang, "POP_WISP_5", amount, bestName),
-	})
+	handleSummonWisp(player, amount)
 end)
 
 FuseWisp.OnServerEvent:Connect(function(player, baseWispId)
@@ -1238,6 +1263,7 @@ local function savePlayer(player, removeCache)
 	end
 	if removeCache then
 		PlayerData[player.UserId] = nil
+		PlayerLoadedMap[player.UserId] = nil
 		releasePlotFromPlayer(player)
 	end
 end
@@ -1261,13 +1287,10 @@ local function onPlayerAdded(player)
 	-- 1. Assegna subito uno slot libero e imposta lo spawn
 	local assignedPlot = assignPlotToPlayer(player, "en")
 	local data = EconomyEngine.DefaultData()
-	data.TutorialCompleted = true
+	PlayerLoadedMap[player.UserId] = false
 	PlayerData[player.UserId] = data
 
 	if assignedPlot then
-		pcall(function()
-			ShadowDefenseService.StartGracePeriod(assignedPlot.Index, GameConfig.InitialShadowGraceSeconds or 180, true)
-		end)
 		local initStats = EconomyEngine.CalculateStats(data, 0, 1, false)
 		pcall(function() updatePlotBrazierVisuals(assignedPlot, initStats) end)
 		pcall(function() updatePlotGroundButtons(assignedPlot, data) end)
@@ -1321,11 +1344,18 @@ local function onPlayerAdded(player)
 			data.Regno1 = { Completed = false, Completions = 0, BestTime = nil }
 		end
 		data.HasDoubleLight = (data.HasDoubleLight == true)
-		data.TutorialCompleted = true
+		data.TutorialCompleted = (data.TutorialCompleted == true)
+		PlayerLoadedMap[player.UserId] = true
+		EconomyEngine.MigrateData(data)
 
 		verifyDoubleLightOwnership(player, data)
 
 		if assignedPlot then
+			if data.TutorialCompleted == true and ShadowDefenseService.GetGraceRemaining(assignedPlot.Index) <= 0 then
+				pcall(function()
+					ShadowDefenseService.StartGracePeriod(assignedPlot.Index, GameConfig.InitialShadowGraceSeconds or 180, true)
+				end)
+			end
 			local loadedStats = EconomyEngine.CalculateStats(data, 0, 1, data.HasDoubleLight)
 			pcall(function() updatePlotBrazierVisuals(assignedPlot, loadedStats) end)
 			pcall(function() updatePlotGroundButtons(assignedPlot, data) end)

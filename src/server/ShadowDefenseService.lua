@@ -552,6 +552,30 @@ function ShadowDefenseService.SyncPlayerTools(player, data)
 	end
 end
 
+function ShadowDefenseService.EquipWeaponTool(player, wepId)
+	if not player or type(wepId) ~= "string" then return false end
+	local char = player.Character
+	local hum = char and char:FindFirstChildOfClass("Humanoid")
+	if not hum then return false end
+
+	for _, item in ipairs(char:GetChildren()) do
+		if item:IsA("Tool") and item:GetAttribute("WeaponId") == wepId then
+			return true
+		end
+	end
+
+	local backpack = player:FindFirstChildOfClass("Backpack")
+	if backpack then
+		for _, item in ipairs(backpack:GetChildren()) do
+			if item:IsA("Tool") and item:GetAttribute("WeaponId") == wepId then
+				hum:EquipTool(item)
+				return true
+			end
+		end
+	end
+	return false
+end
+
 local function pickShadowType(data)
 	local alba = (data and data.AlbaCount) or 0
 	local roll = math.random(1, 100)
@@ -582,6 +606,7 @@ end
 
 function ShadowDefenseService.SpawnShadowForPlot(plot, data)
 	if not plot or not plot.Owner or not WorldRef then return end
+	if not data or data.TutorialCompleted ~= true then return end
 
 	if ShadowDefenseService.GetGraceRemaining(plot.Index) > 0 then
 		return
@@ -705,7 +730,7 @@ function ShadowDefenseService.Init(world, remotesFolder, plots, playerData, play
 			for _, plot in ipairs(PlotsRef) do
 				if plot.Owner and ShadowDefenseService.GetGraceRemaining(plot.Index) <= 0 then
 					local data = PlayerDataRef[plot.Owner.UserId]
-					if data and not isBrazierComplete(data) then
+					if data and data.TutorialCompleted == true and not isBrazierComplete(data) then
 						ShadowDefenseService.SpawnShadowForPlot(plot, data)
 						local extraChance = ((data.AlbaCount or 0) >= 1) and 0.45 or 0.25
 						if math.random() < extraChance then
@@ -727,7 +752,7 @@ function ShadowDefenseService.Tick(dt, clickHeatTable)
 		local owner = plot and plot.Owner
 		local data = owner and PlayerDataRef[owner.UserId]
 
-		if not sh or not sh.Part or not sh.Part.Parent or not plot or not owner or isBrazierComplete(data) or ShadowDefenseService.GetGraceRemaining(sh.PlotIndex) > 0 then
+		if not sh or not sh.Part or not sh.Part.Parent or not plot or not owner or not data or data.TutorialCompleted ~= true or isBrazierComplete(data) or ShadowDefenseService.GetGraceRemaining(sh.PlotIndex) > 0 then
 			if sh then destroyShadowEntry(sh) end
 		else
 			local targetPos = Vector3.new(plot.Origin.X, sh.Part.Position.Y, plot.Origin.Z)
