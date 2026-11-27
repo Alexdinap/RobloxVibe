@@ -355,8 +355,8 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 
 	local treeScroll = Instance.new("ScrollingFrame", treeContainer)
 	treeScroll.Name = "UpgradeTreeScroll"
-	treeScroll.Position = UDim2.fromOffset(0, 36)
-	treeScroll.Size = UDim2.new(1, 0, 1, -36)
+	treeScroll.Position = UDim2.fromOffset(0, 34)
+	treeScroll.Size = UDim2.new(1, 0, 1, -60)
 	treeScroll.BackgroundColor3 = Color3.fromRGB(12, 14, 22)
 	treeScroll.BorderSizePixel = 0
 	treeScroll.ScrollingDirection = Enum.ScrollingDirection.XY
@@ -364,6 +364,17 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 	treeScroll.CanvasSize = UDim2.new(0, 0, 0, 0)
 	treeScroll.ZIndex = 21
 	Instance.new("UICorner", treeScroll).CornerRadius = UDim.new(0, 12)
+
+	local treeHintLabel = Instance.new("TextLabel", treeContainer)
+	treeHintLabel.AnchorPoint = Vector2.new(0, 1)
+	treeHintLabel.Position = UDim2.new(0, 0, 1, 0)
+	treeHintLabel.Size = UDim2.new(1, 0, 0, 22)
+	treeHintLabel.BackgroundTransparency = 1
+	treeHintLabel.Text = Localization.T("en", "TREE_HOVER_HINT")
+	treeHintLabel.TextColor3 = Color3.fromRGB(190, 204, 232)
+	treeHintLabel.Font = Enum.Font.GothamBold
+	treeHintLabel.TextSize = 12
+	treeHintLabel.ZIndex = 22
 
 	local treeLinesLayer = Instance.new("Frame", treeScroll)
 	treeLinesLayer.Name = "TreeLinesLayer"
@@ -376,6 +387,154 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 	treeNodesLayer.Size = UDim2.fromScale(1, 1)
 	treeNodesLayer.BackgroundTransparency = 1
 	treeNodesLayer.ZIndex = 23
+
+	-- === TOOLTIP FLUTTUANTE AL PASSAGGIO DEL CURSORE ===
+	local hoveredNodeId = nil
+	local hoverTooltip = Instance.new("Frame", modal)
+	hoverTooltip.Name = "TreeHoverTooltip"
+	hoverTooltip.Size = UDim2.fromOffset(276, 0)
+	hoverTooltip.AutomaticSize = Enum.AutomaticSize.Y
+	hoverTooltip.BackgroundColor3 = Color3.fromRGB(14, 17, 28)
+	hoverTooltip.BackgroundTransparency = 0.03
+	hoverTooltip.Visible = false
+	hoverTooltip.ZIndex = 35
+	Instance.new("UICorner", hoverTooltip).CornerRadius = UDim.new(0, 12)
+
+	local ttStroke = Instance.new("UIStroke", hoverTooltip)
+	ttStroke.Color = THEME.Gold
+	ttStroke.Thickness = 1.8
+
+	local ttPad = Instance.new("UIPadding", hoverTooltip)
+	ttPad.PaddingTop = UDim.new(0, 10)
+	ttPad.PaddingBottom = UDim.new(0, 10)
+	ttPad.PaddingLeft = UDim.new(0, 12)
+	ttPad.PaddingRight = UDim.new(0, 12)
+
+	local ttLayout = Instance.new("UIListLayout", hoverTooltip)
+	ttLayout.Padding = UDim.new(0, 5)
+	ttLayout.SortOrder = Enum.SortOrder.LayoutOrder
+
+	local ttTitle = Instance.new("TextLabel", hoverTooltip)
+	ttTitle.LayoutOrder = 1
+	ttTitle.Size = UDim2.new(1, 0, 0, 0)
+	ttTitle.AutomaticSize = Enum.AutomaticSize.Y
+	ttTitle.BackgroundTransparency = 1
+	ttTitle.TextColor3 = THEME.TextMain
+	ttTitle.TextXAlignment = Enum.TextXAlignment.Left
+	ttTitle.TextWrapped = true
+	ttTitle.Font = Enum.Font.GothamBlack
+	ttTitle.TextSize = 14
+	ttTitle.ZIndex = 36
+
+	local ttTag = Instance.new("TextLabel", hoverTooltip)
+	ttTag.LayoutOrder = 2
+	ttTag.Size = UDim2.new(1, 0, 0, 0)
+	ttTag.AutomaticSize = Enum.AutomaticSize.Y
+	ttTag.BackgroundTransparency = 1
+	ttTag.TextColor3 = THEME.Cyan
+	ttTag.TextXAlignment = Enum.TextXAlignment.Left
+	ttTag.TextWrapped = true
+	ttTag.Font = Enum.Font.GothamBold
+	ttTag.TextSize = 13
+	ttTag.ZIndex = 36
+
+	local ttDesc = Instance.new("TextLabel", hoverTooltip)
+	ttDesc.LayoutOrder = 3
+	ttDesc.Size = UDim2.new(1, 0, 0, 0)
+	ttDesc.AutomaticSize = Enum.AutomaticSize.Y
+	ttDesc.BackgroundTransparency = 1
+	ttDesc.TextColor3 = THEME.TextSub
+	ttDesc.TextXAlignment = Enum.TextXAlignment.Left
+	ttDesc.TextWrapped = true
+	ttDesc.Font = Enum.Font.Gotham
+	ttDesc.TextSize = 13
+	ttDesc.ZIndex = 36
+
+	local ttFooter = Instance.new("TextLabel", hoverTooltip)
+	ttFooter.LayoutOrder = 4
+	ttFooter.Size = UDim2.new(1, 0, 0, 0)
+	ttFooter.AutomaticSize = Enum.AutomaticSize.Y
+	ttFooter.BackgroundTransparency = 1
+	ttFooter.TextColor3 = THEME.Gold
+	ttFooter.TextXAlignment = Enum.TextXAlignment.Left
+	ttFooter.TextWrapped = true
+	ttFooter.Font = Enum.Font.GothamBlack
+	ttFooter.TextSize = 12
+	ttFooter.ZIndex = 36
+
+	local function positionHoverTooltip(anchorBtn)
+		if not anchorBtn or not anchorBtn.Parent then return end
+		local modalPos = modal.AbsolutePosition
+		local modalSize = modal.AbsoluteSize
+		local btnPos = anchorBtn.AbsolutePosition - modalPos
+		local btnSize = anchorBtn.AbsoluteSize
+		local ttW = 276
+		local ttH = math.max(108, hoverTooltip.AbsoluteSize.Y)
+
+		local x = btnPos.X + btnSize.X + 10
+		if x + ttW > modalSize.X - 10 then
+			x = btnPos.X - ttW - 10
+		end
+		x = math.clamp(x, 10, math.max(10, modalSize.X - ttW - 10))
+
+		local y = math.clamp(btnPos.Y - 6, 48, math.max(48, modalSize.Y - ttH - 10))
+		hoverTooltip.Position = UDim2.fromOffset(x, y)
+	end
+
+	local function updateHoverTooltip()
+		if not hoveredNodeId or not latestState or activeTab ~= "Character" or not isOpen then
+			hoverTooltip.Visible = false
+			return
+		end
+		local targetRef = nil
+		for _, ref in ipairs(treeNodeRefs) do
+			if ref.Config.Id == hoveredNodeId then
+				targetRef = ref
+				break
+			end
+		end
+		if not targetRef then
+			hoverTooltip.Visible = false
+			return
+		end
+
+		local st = latestState
+		local lang = getLang()
+		local lightUnit = Localization.T(lang, "LIGHT_UNIT")
+		local dataProxy = { Upgrades = st.Upgrades or {}, Altars = st.Altars or {} }
+		local u = targetRef.Config
+		local lvl = EconomyEngine.GetUpgradeLevel(dataProxy, u.Id)
+		local maxLvl = u.MaxLevel or 1
+		local maxed = lvl >= maxLvl
+		local cost = GameConfig.GetUpgradeCost(u, lvl, st.AlbaCount or 0)
+		local canBuy = (not maxed) and ((st.Points or 0) >= cost)
+
+		local uName = Localization.Pick(lang, u.Name, u.Name_it)
+		local uTag = Localization.Pick(lang, u.Tag, u.Tag_it)
+		local uDesc = Localization.Pick(lang, u.Desc, u.Desc_it)
+
+		ttTitle.Text = string.format("%s %s  [%d/%d]", u.Icon or "🔥", uName, lvl, maxLvl)
+		ttTag.Text = uTag
+		ttTag.TextColor3 = u.Color or THEME.Cyan
+		ttDesc.Text = uDesc
+
+		if maxed then
+			ttFooter.Text = "✅ " .. Localization.T(lang, "BTN_MAXED")
+			ttFooter.TextColor3 = THEME.Green
+			ttStroke.Color = THEME.Green
+		elseif canBuy then
+			ttFooter.Text = string.format("💰 %s %s  •  %s", NumberFormat.Format(cost), lightUnit, Localization.T(lang, "TREE_TIP_CLICK"))
+			ttFooter.TextColor3 = THEME.Gold
+			ttStroke.Color = THEME.Gold
+		else
+			ttFooter.Text = string.format("🔒 %s %s", NumberFormat.Format(cost), lightUnit)
+			ttFooter.TextColor3 = THEME.TextSub
+			ttStroke.Color = u.Color or THEME.Cyan
+		end
+
+		hoverTooltip.Visible = true
+		positionHoverTooltip(targetRef.Card)
+	end
 
 	local function clearScroll()
 		defenseRefs = nil
@@ -457,26 +616,24 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 		local dataProxy = { Upgrades = st.Upgrades or {}, Altars = st.Altars or {} }
 
 		local visibleNodes = {}
-		local visibleById = {}
 		local sigParts = { lang }
 		for _, u in ipairs(GameConfig.Upgrades) do
 			local lvl = EconomyEngine.GetUpgradeLevel(dataProxy, u.Id)
 			local unlocked = EconomyEngine.IsUpgradeUnlocked(dataProxy, u)
 			if lvl > 0 or unlocked then
 				table.insert(visibleNodes, u)
-				visibleById[u.Id] = u
 				table.insert(sigParts, u.Id)
 			end
 		end
 		renderedTreeSig = table.concat(sigParts, ",")
 
-		local NODE_W = 204
-		local NODE_H = 136
-		local GAP_X = 22
-		local GAP_Y = 36
+		local NODE_W = 88
+		local NODE_H = 92
+		local GAP_X = 16
+		local GAP_Y = 28
 		local STEP_X = NODE_W + GAP_X
 		local STEP_Y = NODE_H + GAP_Y
-		local PAD = 24
+		local PAD = 18
 
 		local minCol, maxCol = 999, -999
 		local minRow, maxRow = 999, -999
@@ -496,7 +653,7 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 		local rawH = (maxRow - minRow + 1) * NODE_H + (maxRow - minRow) * GAP_Y + PAD * 2
 		local absW = treeScroll.AbsoluteSize.X
 		local absH = treeScroll.AbsoluteSize.Y
-		local viewW = (absW > 120) and absW or 680
+		local viewW = (absW > 120) and absW or 740
 		local viewH = (absH > 120) and absH or 320
 		local canvasW = math.max(viewW, rawW)
 		local canvasH = math.max(viewH, rawH)
@@ -522,55 +679,71 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 			end
 
 			local p = posById[u.Id]
-			local card = Instance.new("Frame", treeNodesLayer)
-			card.Name = "TreeNode_" .. u.Id
-			card.Position = UDim2.fromOffset(p.X, p.Y)
-			card.Size = UDim2.fromOffset(NODE_W, NODE_H)
-			card.BackgroundColor3 = THEME.Card
-			card.ZIndex = 23
-			Instance.new("UICorner", card).CornerRadius = UDim.new(0, 12)
+			local nodeBtn = Instance.new("TextButton", treeNodesLayer)
+			nodeBtn.Name = "TreeNode_" .. u.Id
+			nodeBtn.Position = UDim2.fromOffset(p.X, p.Y)
+			nodeBtn.Size = UDim2.fromOffset(NODE_W, NODE_H)
+			nodeBtn.BackgroundColor3 = THEME.Card
+			nodeBtn.Text = ""
+			nodeBtn.AutoButtonColor = true
+			nodeBtn.ZIndex = 23
+			Instance.new("UICorner", nodeBtn).CornerRadius = UDim.new(0, 14)
 
-			local stroke = Instance.new("UIStroke", card)
+			local stroke = Instance.new("UIStroke", nodeBtn)
 			stroke.Color = u.Color or THEME.Cyan
-			stroke.Thickness = 1.6
+			stroke.Thickness = 2.0
 
-			local title = Instance.new("TextLabel", card)
-			title.Position = UDim2.fromOffset(10, 6)
-			title.Size = UDim2.new(1, -20, 0, 32)
-			title.BackgroundTransparency = 1
-			title.TextColor3 = THEME.TextMain
-			title.TextXAlignment = Enum.TextXAlignment.Left
-			title.TextYAlignment = Enum.TextYAlignment.Top
-			title.TextWrapped = true
-			title.Font = Enum.Font.GothamBlack
-			title.TextSize = 13
-			title.ZIndex = 24
+			local iconBg = Instance.new("Frame", nodeBtn)
+			iconBg.AnchorPoint = Vector2.new(0.5, 0)
+			iconBg.Position = UDim2.new(0.5, 0, 0, 14)
+			iconBg.Size = UDim2.fromOffset(48, 48)
+			iconBg.BackgroundColor3 = (u.Color or THEME.Cyan):Lerp(Color3.fromRGB(16, 18, 28), 0.72)
+			iconBg.ZIndex = 24
+			Instance.new("UICorner", iconBg).CornerRadius = UDim.new(1, 0)
 
-			local desc = Instance.new("TextLabel", card)
-			desc.Position = UDim2.fromOffset(10, 38)
-			desc.Size = UDim2.new(1, -20, 0, 56)
-			desc.BackgroundTransparency = 1
-			desc.TextColor3 = THEME.TextSub
-			desc.TextXAlignment = Enum.TextXAlignment.Left
-			desc.TextYAlignment = Enum.TextYAlignment.Top
-			desc.TextWrapped = true
-			desc.Font = Enum.Font.Gotham
-			desc.TextSize = 12
-			desc.ZIndex = 24
+			local iconLbl = Instance.new("TextLabel", iconBg)
+			iconLbl.Size = UDim2.fromScale(1, 1)
+			iconLbl.BackgroundTransparency = 1
+			iconLbl.Text = u.Icon or "🔥"
+			iconLbl.TextSize = 28
+			iconLbl.ZIndex = 25
 
-			local buyBtn = Instance.new("TextButton", card)
-			buyBtn.AnchorPoint = Vector2.new(0, 1)
-			buyBtn.Position = UDim2.new(0, 10, 1, -8)
-			buyBtn.Size = UDim2.new(1, -20, 0, 32)
-			buyBtn.BackgroundColor3 = Color3.fromRGB(36, 40, 56)
-			buyBtn.TextColor3 = THEME.TextMain
-			buyBtn.Font = Enum.Font.GothamBlack
-			buyBtn.TextSize = 13
-			buyBtn.AutoButtonColor = true
-			buyBtn.ZIndex = 24
-			Instance.new("UICorner", buyBtn).CornerRadius = UDim.new(0, 8)
+			local lvlBadge = Instance.new("TextLabel", nodeBtn)
+			lvlBadge.AnchorPoint = Vector2.new(1, 0)
+			lvlBadge.Position = UDim2.new(1, -4, 0, 4)
+			lvlBadge.Size = UDim2.fromOffset(42, 17)
+			lvlBadge.BackgroundColor3 = Color3.fromRGB(14, 16, 26)
+			lvlBadge.TextColor3 = THEME.TextMain
+			lvlBadge.Font = Enum.Font.GothamBlack
+			lvlBadge.TextSize = 11
+			lvlBadge.ZIndex = 26
+			Instance.new("UICorner", lvlBadge).CornerRadius = UDim.new(0, 6)
 
-			buyBtn.MouseButton1Click:Connect(function()
+			local costLbl = Instance.new("TextLabel", nodeBtn)
+			costLbl.AnchorPoint = Vector2.new(0.5, 1)
+			costLbl.Position = UDim2.new(0.5, 0, 1, -5)
+			costLbl.Size = UDim2.new(1, -10, 0, 20)
+			costLbl.BackgroundColor3 = Color3.fromRGB(18, 22, 34)
+			costLbl.TextColor3 = THEME.TextMain
+			costLbl.Font = Enum.Font.GothamBlack
+			costLbl.TextSize = 11
+			costLbl.TextTruncate = Enum.TextTruncate.AtEnd
+			costLbl.ZIndex = 25
+			Instance.new("UICorner", costLbl).CornerRadius = UDim.new(0, 6)
+
+			nodeBtn.MouseEnter:Connect(function()
+				hoveredNodeId = u.Id
+				updateHoverTooltip()
+			end)
+			nodeBtn.MouseLeave:Connect(function()
+				if hoveredNodeId == u.Id then
+					hoveredNodeId = nil
+					hoverTooltip.Visible = false
+				end
+			end)
+			nodeBtn.MouseButton1Click:Connect(function()
+				hoveredNodeId = u.Id
+				updateHoverTooltip()
 				local now = os.clock()
 				if now - lastActionClock < 0.08 then return end
 				lastActionClock = now
@@ -579,11 +752,11 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 
 			table.insert(treeNodeRefs, {
 				Config = u,
-				Card = card,
+				Card = nodeBtn,
 				Stroke = stroke,
-				Title = title,
-				Desc = desc,
-				BuyBtn = buyBtn,
+				IconBg = iconBg,
+				LvlBadge = lvlBadge,
+				CostLbl = costLbl,
 			})
 		end
 	end
@@ -616,6 +789,7 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 			end
 
 			treeProgLabel.Text = Localization.T(lang, "TREE_PROG_FMT", unlockedCnt, totalCnt, maxedCnt, totalCnt)
+			treeHintLabel.Text = Localization.T(lang, "TREE_HOVER_HINT")
 
 			local newSig = table.concat(sigParts, ",")
 			if newSig ~= renderedTreeSig then
@@ -635,35 +809,47 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 			for _, ref in ipairs(treeNodeRefs) do
 				local u = ref.Config
 				local lvl = EconomyEngine.GetUpgradeLevel(dataProxy, u.Id)
-				local maxed = lvl >= (u.MaxLevel or 1)
+				local maxLvl = u.MaxLevel or 1
+				local maxed = lvl >= maxLvl
 				local cost = GameConfig.GetUpgradeCost(u, lvl, albaCount)
 				local canBuy = (not maxed) and points >= cost
 
-				local uName = Localization.Pick(lang, u.Name, u.Name_it)
-				local uTag = Localization.Pick(lang, u.Tag, u.Tag_it)
-				local uDesc = Localization.Pick(lang, u.Desc, u.Desc_it)
-
 				if maxed then
-					ref.Card.BackgroundColor3 = Color3.fromRGB(22, 40, 34)
+					ref.Card.BackgroundColor3 = Color3.fromRGB(22, 44, 36)
 					ref.Stroke.Color = THEME.Green
+					ref.IconBg.BackgroundColor3 = THEME.Green:Lerp(Color3.fromRGB(16, 26, 22), 0.72)
+					ref.CostLbl.BackgroundColor3 = Color3.fromRGB(35, 72, 54)
+					ref.CostLbl.Text = Localization.T(lang, "BTN_MAXED")
+					ref.CostLbl.TextColor3 = THEME.Green
 				elseif canBuy then
-					ref.Card.BackgroundColor3 = Color3.fromRGB(32, 34, 48)
+					ref.Card.BackgroundColor3 = Color3.fromRGB(36, 36, 48)
 					ref.Stroke.Color = THEME.Gold
+					ref.IconBg.BackgroundColor3 = (u.Color or THEME.Gold):Lerp(Color3.fromRGB(24, 24, 32), 0.62)
+					ref.CostLbl.BackgroundColor3 = THEME.Gold
+					ref.CostLbl.Text = NumberFormat.Format(cost)
+					ref.CostLbl.TextColor3 = Color3.fromRGB(16, 18, 24)
 				elseif lvl >= 1 then
 					ref.Card.BackgroundColor3 = THEME.Card
 					ref.Stroke.Color = u.Color or THEME.Cyan
+					ref.IconBg.BackgroundColor3 = (u.Color or THEME.Cyan):Lerp(Color3.fromRGB(16, 18, 28), 0.70)
+					ref.CostLbl.BackgroundColor3 = Color3.fromRGB(28, 34, 50)
+					ref.CostLbl.Text = NumberFormat.Format(cost)
+					ref.CostLbl.TextColor3 = THEME.TextMain
 				else
-					ref.Card.BackgroundColor3 = Color3.fromRGB(22, 26, 38)
+					ref.Card.BackgroundColor3 = Color3.fromRGB(20, 24, 36)
 					ref.Stroke.Color = Color3.fromRGB(85, 130, 175)
+					ref.IconBg.BackgroundColor3 = Color3.fromRGB(28, 34, 50)
+					ref.CostLbl.BackgroundColor3 = Color3.fromRGB(28, 34, 50)
+					ref.CostLbl.Text = NumberFormat.Format(cost)
+					ref.CostLbl.TextColor3 = THEME.TextSub
 				end
 
-				ref.Title.Text = string.format("%s %s [%d/%d]", u.Icon or "🔥", uName, lvl, u.MaxLevel or 1)
-				ref.Title.TextColor3 = maxed and THEME.Green or THEME.TextMain
-				ref.Desc.Text = uTag .. "\n" .. uDesc
+				ref.LvlBadge.Text = string.format("%d/%d", lvl, maxLvl)
+				ref.LvlBadge.TextColor3 = maxed and THEME.Green or THEME.TextMain
+			end
 
-				ref.BuyBtn.BackgroundColor3 = maxed and Color3.fromRGB(35, 65, 52) or (canBuy and THEME.Gold or Color3.fromRGB(40, 46, 66))
-				ref.BuyBtn.Text = maxed and Localization.T(lang, "BTN_MAXED") or (NumberFormat.Format(cost) .. " " .. lightUnit)
-				ref.BuyBtn.TextColor3 = canBuy and Color3.fromRGB(16, 18, 24) or THEME.TextMain
+			if hoveredNodeId then
+				updateHoverTooltip()
 			end
 
 		elseif renderedTab == "Defense" and defenseRefs then
@@ -1251,6 +1437,10 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 	for id, btn in pairs(tabButtons) do
 		btn.MouseButton1Click:Connect(function()
 			activeTab = id
+			if activeTab ~= "Character" then
+				hoveredNodeId = nil
+				hoverTooltip.Visible = false
+			end
 			buildTabStructure()
 		end)
 	end
@@ -1258,7 +1448,10 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 	local function setOpen(val)
 		isOpen = val
 		modal.Visible = isOpen
-		if isOpen then
+		if not isOpen then
+			hoveredNodeId = nil
+			hoverTooltip.Visible = false
+		else
 			if renderedTab ~= activeTab or renderedLang ~= getLang() then
 				buildTabStructure()
 			else

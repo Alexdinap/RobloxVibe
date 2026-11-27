@@ -22,16 +22,21 @@ local RaidAnnounceCooldown = {}
 local PlotGraceUntil = {}
 local PlotGraceInitial = {}
 
+-- Comportamenti mob:
+--   IsKamikaze = true  → carica il braciere ed esplode al contatto (danno burst)
+--   IsMelee    = true  → si ferma vicino al braciere e colpisce a intervalli regolari
+--   StopRange / DrainInterval / DrainPct → usati dal siphon (attacco a distanza)
 local SHADOW_TYPES = {
 	{
 		Id = "wisp",
 		Name_en = "Void Wisp",
 		Name_it = "Ombra Errante",
+		IsKamikaze = true,         -- esplode al contatto con il braciere
 		MaxHP = 18,
-		Speed = 5.6,
+		Speed = 6.5,               -- leggermente più veloce per la carica
 		Size = 3.4,
-		DrainPct = 0.08,
-		MinDrain = 55,
+		DrainPct = 0.14,           -- danno burst maggiorato (era 0.08)
+		MinDrain = 110,            -- danno minimo maggiorato (era 55)
 		RewardMult = 18,
 		Color = Color3.fromRGB(32, 14, 58),
 		LightColor = Color3.fromRGB(165, 65, 255),
@@ -40,12 +45,15 @@ local SHADOW_TYPES = {
 		Id = "stalker",
 		Name_en = "Dusk Stalker",
 		Name_it = "Ombra Predatrice",
-		MaxHP = 10,
+		IsMelee = true,            -- si ferma vicino e colpisce in melee
+		MeleeRange = 9.0,          -- distanza a cui si ferma
+		MeleeInterval = 1.4,       -- secondi tra un colpo e l'altro
+		MaxHP = 60,                -- più resistente per il melee (era 10)
 		Speed = 9.0,
 		Size = 3.6,
-		DrainPct = 0.06,
-		MinDrain = 35,
-		RewardMult = 15,
+		DrainPct = 0.05,
+		MinDrain = 45,
+		RewardMult = 20,
 		Color = Color3.fromRGB(55, 12, 42),
 		LightColor = Color3.fromRGB(235, 55, 140),
 	},
@@ -53,6 +61,9 @@ local SHADOW_TYPES = {
 		Id = "brute",
 		Name_en = "Abyssal Brute",
 		Name_it = "Colosso d'Ombra",
+		IsMelee = true,            -- si ferma vicino e colpisce in melee
+		MeleeRange = 11.0,         -- più grande → si ferma un po' più lontano
+		MeleeInterval = 2.2,       -- colpisce più lento ma più forte
 		MaxHP = 95,
 		Speed = 2.8,
 		Size = 5.8,
@@ -713,6 +724,29 @@ function ShadowDefenseService.SpawnShadowForPlot(plot, data)
 	end
 end
 
+-- Stato raid per plot: { RaidUntil = os.clock(), NextRaidAt = os.clock() }
+local PlotRaidState = {}
+
+-- Parametri sistema raid
+local RAID_WAVE_MIN        = 30     -- durata minima raid (secondi)
+local RAID_WAVE_MAX        = 60     -- durata massima raid (secondi)
+local RAID_COOLDOWN_MIN    = 120    -- pausa minima tra raid (secondi)  [2 min]
+local RAID_COOLDOWN_MAX    = 420    -- pausa massima tra raid (secondi)  [7 min]
+local RAID_SPAWN_INTERVAL  = 2.5    -- secondi tra uno spawn e il successivo durante il raid
+local RAID_MAX_ON_PLOT     = 8      -- cap mob simultanei per plot
+
+local function getRaidState(plotIndex)
+	if not PlotRaidState[plotIndex] then
+		-- primo raid: inizia dopo un cooldown casuale ridotto (30-90s)
+		PlotRaidState[plotIndex] = {
+			RaidUntil  = 0,
+			NextRaidAt = os.clock() + math.random(30, 90),
+			SpawnTimer = 0,
+		}
+	end
+	return PlotRaidState[plotIndex]
+end
+
 function ShadowDefenseService.Init(world, remotesFolder, plots, playerData, playerPlotMap, syncPlayerFn, calcStatsFn)
 	WorldRef = world
 	PlotsRef = plots
@@ -723,41 +757,69 @@ function ShadowDefenseService.Init(world, remotesFolder, plots, playerData, play
 
 	DefenseFxEvent = Instance.new("RemoteEvent", remotesFolder)
 	DefenseFxEvent.Name = "DefenseFx"
-
-	task.spawn(function()
-		while true do
-			task.wait(7.5)
-			for _, plot in ipairs(PlotsRef) do
-				if plot.Owner and ShadowDefenseService.GetGraceRemaining(plot.Index) <= 0 then
-					local data = PlayerDataRef[plot.Owner.UserId]
-					if data and data.TutorialCompleted == true and not isBrazierComplete(data) then
-						ShadowDefenseService.SpawnShadowForPlot(plot, data)
-						local extraChance = ((data.AlbaCount or 0) >= 1) and 0.45 or 0.25
-						if math.random() < extraChance then
-							ShadowDefenseService.SpawnShadowForPlot(plot, data)
-						end
-					end
-				end
-			end
-		end
-	end)
 end
 
 function ShadowDefenseService.Tick(dt, clickHeatTable)
 	local now = os.clock()
 
+	-- ── Gestione raid a ondate ───────────────────────────────────────────────
+	for _, plot in ipairs(PlotsRef) do
+		if not plot.Owner then continue end
+		local data = PlayerDataRef[plot.Owner.UserId]
+		if not data or data.TutorialCompleted ~= true or isBrazierComplete(data) then continue end
+		if ShadowDefenseService.GetGraceRemaining(plot.Index) > 0 then continue end
+
+		local rs = getRaidState(plot.Index)
+
+		if now < rs.RaidUntil then
+			-- ── RAID ATTIVO: spawna mob a intervalli ─────────────────────────
+			rs.SpawnTimer = (rs.SpawnTimer or 0) + dt
+			if rs.SpawnTimer >= RAID_SPAWN_INTERVAL then
+				rs.SpawnTimer = 0
+				local countOnPlot = 0
+				for _, sh in ipairs(ActiveShadows) do
+					if sh.PlotIndex == plot.Index then countOnPlot += 1 end
+				end
+				if countOnPlot < RAID_MAX_ON_PLOT then
+					ShadowDefenseService.SpawnShadowForPlot(plot, data)
+					-- con Alba >= 1, doppio spawn con 50% di chance
+					local extraChance = ((data.AlbaCount or 0) >= 1) and 0.50 or 0
+					if extraChance > 0 and math.random() < extraChance then
+						ShadowDefenseService.SpawnShadowForPlot(plot, data)
+					end
+				end
+			end
+		elseif now >= rs.NextRaidAt then
+			-- ── INIZIO NUOVO RAID ────────────────────────────────────────────
+			local waveDur = math.random(RAID_WAVE_MIN, RAID_WAVE_MAX)
+			local cooldown = math.random(RAID_COOLDOWN_MIN, RAID_COOLDOWN_MAX)
+			rs.RaidUntil  = now + waveDur
+			rs.NextRaidAt = now + waveDur + cooldown
+			rs.SpawnTimer = RAID_SPAWN_INTERVAL -- spawna subito al primo tick
+
+			if SyncPlayerFn then
+				SyncPlayerFn(plot.Owner, {
+					PopupText = Localization.T(getLang(data), "POP_SHADOW_RAID"),
+				})
+			end
+		end
+	end
+
+	-- ── Movimento e attacco mob ──────────────────────────────────────────────
 	for i = #ActiveShadows, 1, -1 do
 		local sh = ActiveShadows[i]
 		local plot = sh and PlotsRef[sh.PlotIndex]
 		local owner = plot and plot.Owner
 		local data = owner and PlayerDataRef[owner.UserId]
 
-		if not sh or not sh.Part or not sh.Part.Parent or not plot or not owner or not data or data.TutorialCompleted ~= true or isBrazierComplete(data) or ShadowDefenseService.GetGraceRemaining(sh.PlotIndex) > 0 then
+		if not sh or not sh.Part or not sh.Part.Parent or not plot or not owner or not data
+		   or data.TutorialCompleted ~= true or isBrazierComplete(data)
+		   or ShadowDefenseService.GetGraceRemaining(sh.PlotIndex) > 0 then
 			if sh then destroyShadowEntry(sh) end
 		else
 			local targetPos = Vector3.new(plot.Origin.X, sh.Part.Position.Y, plot.Origin.Z)
-			local toCenter = targetPos - sh.Part.Position
-			local dist = toCenter.Magnitude
+			local toCenter  = targetPos - sh.Part.Position
+			local dist      = toCenter.Magnitude
 
 			local speedMult = 1.0
 			if now < (sh.SlowUntil or 0) then
@@ -766,11 +828,39 @@ function ShadowDefenseService.Tick(dt, clickHeatTable)
 				sh.Part:SetAttribute("IsSlowed", false)
 			end
 
+			-- ── SIPHON (attacco a distanza) ──────────────────────────────────
 			if sh.Type.StopRange and dist <= sh.Type.StopRange then
 				sh.SiphonTimer = (sh.SiphonTimer or 0) + dt
 				if sh.SiphonTimer >= (sh.Type.DrainInterval or 1.6) then
 					sh.SiphonTimer = 0
-					if data then
+					local currentPts = math.floor(data.Points or 0)
+					if currentPts > 0 then
+						local drain = math.min(currentPts, math.max(sh.MinDrain, math.floor(currentPts * sh.DrainPct)))
+						data.Points = math.max(0, currentPts - drain)
+						if SyncPlayerFn then
+							SyncPlayerFn(owner, {
+								PopupText = Localization.T(getLang(data), "POP_SHADOW_HIT", NumberFormat.Format(drain)),
+							})
+						end
+					end
+					if DefenseFxEvent then
+						DefenseFxEvent:FireClient(owner, {
+							Kind  = "Beam",
+							From  = sh.Part.Position,
+							To    = plot.Origin + Vector3.new(0, 4.5, 0),
+							Color = sh.Type.LightColor,
+						})
+					end
+				end
+
+			-- ── MOB MELEE (Stalker, Brute) ───────────────────────────────────
+			elseif sh.Type.IsMelee then
+				local meleeRange = sh.Type.MeleeRange or 9.0
+				if dist <= meleeRange then
+					-- fermo davanti al braciere: attacca a intervalli
+					sh.MeleeTimer = (sh.MeleeTimer or 0) + dt
+					if sh.MeleeTimer >= (sh.Type.MeleeInterval or 1.5) then
+						sh.MeleeTimer = 0
 						local currentPts = math.floor(data.Points or 0)
 						if currentPts > 0 then
 							local drain = math.min(currentPts, math.max(sh.MinDrain, math.floor(currentPts * sh.DrainPct)))
@@ -783,21 +873,72 @@ function ShadowDefenseService.Tick(dt, clickHeatTable)
 						end
 						if DefenseFxEvent then
 							DefenseFxEvent:FireClient(owner, {
-								Kind = "Beam",
-								From = sh.Part.Position,
-								To = plot.Origin + Vector3.new(0, 4.5, 0),
+								Kind  = "Beam",
+								From  = sh.Part.Position,
+								To    = plot.Origin + Vector3.new(0, 3.0, 0),
 								Color = sh.Type.LightColor,
 							})
 						end
 					end
+				else
+					-- avanza verso il braciere
+					sh.MeleeTimer = 0
+					sh.Part.CFrame = CFrame.lookAt(sh.Part.Position, targetPos)
+						+ toCenter.Unit * (sh.Speed * speedMult * dt)
 				end
-			elseif dist <= 7.2 then
-				destroyShadowEntry(sh)
 
-				if data then
+			-- ── WISP KAMIKAZE (esplode al contatto) ──────────────────────────
+			elseif sh.Type.IsKamikaze then
+				if dist <= 7.2 then
+					-- impatto con il braciere
+					destroyShadowEntry(sh)
 					local currentPts = math.floor(data.Points or 0)
 					local drain = 0
 					if currentPts > 0 then
+						drain = math.min(currentPts, math.max(sh.MinDrain, math.floor(currentPts * sh.DrainPct)))
+						data.Points = math.max(0, currentPts - drain)
+					end
+					if clickHeatTable and clickHeatTable[owner.UserId] then
+						clickHeatTable[owner.UserId].Heat = math.max(0, (clickHeatTable[owner.UserId].Heat or 0) - 0.35)
+					end
+					if SyncPlayerFn then
+						SyncPlayerFn(owner, {
+							Shockwave = true,
+							PopupText = Localization.T(getLang(data), "POP_SHADOW_HIT", NumberFormat.Format(drain)),
+						})
+					end
+				else
+					-- carica verso il braciere
+					sh.Part.CFrame = CFrame.lookAt(sh.Part.Position, targetPos)
+						+ toCenter.Unit * (sh.Speed * speedMult * dt)
+				end
+
+			-- ── FALLBACK: comportamento generico (avanza ed esplode) ──────────
+			else
+				if dist <= 7.2 then
+					destroyShadowEntry(sh)
+					local currentPts = math.floor(data.Points or 0)
+					local drain = 0
+					if currentPts > 0 then
+						drain = math.min(currentPts, math.max(sh.MinDrain, math.floor(currentPts * sh.DrainPct)))
+						data.Points = math.max(0, currentPts - drain)
+					end
+					if clickHeatTable and clickHeatTable[owner.UserId] then
+						clickHeatTable[owner.UserId].Heat = math.max(0, (clickHeatTable[owner.UserId].Heat or 0) - 0.35)
+					end
+					if SyncPlayerFn then
+						SyncPlayerFn(owner, {
+							Shockwave = true,
+							PopupText = Localization.T(getLang(data), "POP_SHADOW_HIT", NumberFormat.Format(drain)),
+						})
+					end
+				else
+					sh.Part.CFrame = CFrame.lookAt(sh.Part.Position, targetPos)
+						+ toCenter.Unit * (sh.Speed * speedMult * dt)
+				end
+			end
+		end
+	end
 						drain = math.min(currentPts, math.max(sh.MinDrain, math.floor(currentPts * sh.DrainPct)))
 						data.Points = math.max(0, currentPts - drain)
 					end

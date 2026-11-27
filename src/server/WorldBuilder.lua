@@ -195,9 +195,9 @@ local function createPadBillboard(pad, titleText, descText, costText, accentColo
 	local bbg = Instance.new("BillboardGui")
 	bbg.Name = "PadGui"
 	bbg.Adornee = pad
-	bbg.Size = UDim2.fromOffset(230, 74)
-	bbg.StudsOffset = Vector3.new(0, 3.8, 0)
-	bbg.MaxDistance = 55
+	bbg.Size = UDim2.fromOffset(184, 62)
+	bbg.StudsOffset = Vector3.new(0, 3.0, 0)
+	bbg.MaxDistance = 48
 	bbg.AlwaysOnTop = false
 	bbg.Parent = pad
 
@@ -205,28 +205,28 @@ local function createPadBillboard(pad, titleText, descText, costText, accentColo
 	bg.Size = UDim2.fromScale(1, 1)
 	bg.BackgroundColor3 = Color3.fromRGB(12, 15, 24)
 	bg.BackgroundTransparency = 0.14
-	Instance.new("UICorner", bg).CornerRadius = UDim.new(0, 10)
+	Instance.new("UICorner", bg).CornerRadius = UDim.new(0, 8)
 
 	local stroke = Instance.new("UIStroke", bg)
 	stroke.Color = accentColor or Color3.fromRGB(255, 200, 75)
-	stroke.Thickness = 1.6
+	stroke.Thickness = 1.5
 
 	local titleLbl = Instance.new("TextLabel", bg)
 	titleLbl.Name = "TitleLabel"
-	titleLbl.Position = UDim2.fromOffset(8, 4)
-	titleLbl.Size = UDim2.new(1, -16, 0, 22)
+	titleLbl.Position = UDim2.fromOffset(7, 3)
+	titleLbl.Size = UDim2.new(1, -14, 0, 19)
 	titleLbl.BackgroundTransparency = 1
 	titleLbl.Text = titleText
 	titleLbl.TextColor3 = Color3.fromRGB(255, 250, 235)
 	titleLbl.Font = Enum.Font.GothamBlack
-	titleLbl.TextSize = 14
+	titleLbl.TextSize = 13
 	titleLbl.TextScaled = false
 	titleLbl.TextTruncate = Enum.TextTruncate.AtEnd
 
 	local descLbl = Instance.new("TextLabel", bg)
 	descLbl.Name = "DescLabel"
-	descLbl.Position = UDim2.fromOffset(8, 26)
-	descLbl.Size = UDim2.new(1, -16, 0, 22)
+	descLbl.Position = UDim2.fromOffset(7, 22)
+	descLbl.Size = UDim2.new(1, -14, 0, 18)
 	descLbl.BackgroundTransparency = 1
 	descLbl.Text = descText or ""
 	descLbl.TextColor3 = Color3.fromRGB(214, 226, 248)
@@ -237,13 +237,13 @@ local function createPadBillboard(pad, titleText, descText, costText, accentColo
 
 	local costLbl = Instance.new("TextLabel", bg)
 	costLbl.Name = "CostLabel"
-	costLbl.Position = UDim2.fromOffset(8, 48)
-	costLbl.Size = UDim2.new(1, -16, 0, 20)
+	costLbl.Position = UDim2.fromOffset(7, 40)
+	costLbl.Size = UDim2.new(1, -14, 0, 18)
 	costLbl.BackgroundTransparency = 1
 	costLbl.Text = costText
 	costLbl.TextColor3 = accentColor or Color3.fromRGB(255, 215, 80)
 	costLbl.Font = Enum.Font.GothamBlack
-	costLbl.TextSize = 13
+	costLbl.TextSize = 12
 	costLbl.TextTruncate = Enum.TextTruncate.AtEnd
 
 	return titleLbl, descLbl, costLbl
@@ -253,9 +253,9 @@ local function createRoundGroundPad(parent, name, groundPos, diameter, color, ti
 	local pad = makeUprightCylinder(
 		parent,
 		name,
-		0.52,
+		0.42,
 		diameter,
-		groundPos + Vector3.new(0, 0.26, 0),
+		groundPos + Vector3.new(0, 0.21, 0),
 		color or Color3.fromRGB(255, 200, 80),
 		Enum.Material.Neon,
 		0.18,
@@ -264,9 +264,9 @@ local function createRoundGroundPad(parent, name, groundPos, diameter, color, ti
 	local rim = makeUprightCylinder(
 		pad,
 		name .. "_Rim",
-		0.28,
-		diameter + 1.0,
-		groundPos + Vector3.new(0, 0.14, 0),
+		0.22,
+		diameter + 0.7,
+		groundPos + Vector3.new(0, 0.11, 0),
 		color or Color3.fromRGB(255, 200, 80),
 		Enum.Material.Neon,
 		0.05,
@@ -830,18 +830,18 @@ function WorldBuilder.Build()
 		weaponsFolder.Parent = plotModel
 
 		local weaponPadRefs = {}
-		local weaponOffsets = { -16.5, -5.5, 5.5, 16.5 }
+		local weaponOffsets = { -13.5, -4.5, 4.5, 13.5 }
 		for idx, wep in ipairs(GameConfig.Weapons) do
-			local offZ = weaponOffsets[idx] or ((idx - 2.5) * 11)
-			local standPos = origin - rightDir * 31.5 + outwardDir * offZ
-			local padPos = origin - rightDir * 25.0 + outwardDir * offZ
+			local offZ = weaponOffsets[idx] or ((idx - 2.5) * 9)
+			local standPos = origin - rightDir * 31.0 + outwardDir * offZ
+			local padPos = origin - rightDir * 25.5 + outwardDir * offZ
 			buildWeaponDisplayStand(weaponsFolder, wep, standPos, rightDir)
 
 			local pad, rim, tLbl, dLbl, cLbl = createRoundGroundPad(
 				weaponsFolder,
 				wep.Id,
 				padPos,
-				5.4,
+				3.8,
 				wep.Color or Color3.fromRGB(255, 185, 70),
 				wep.Icon .. " " .. wep.Name,
 				wep.Tag or wep.Desc or "",
@@ -867,8 +867,8 @@ function WorldBuilder.Build()
 		local wispPad1, wispRim1, w1Title, w1Desc, w1Cost = createRoundGroundPad(
 			wispFolder,
 			"WispPad_1",
-			origin + rightDir * 23.0 + inwardDir * 5.8,
-			5.6,
+			origin + rightDir * 24.0 + inwardDir * 4.5,
+			4.0,
 			Color3.fromRGB(80, 225, 255),
 			Localization.T("en", "PAD_WISP_1_TITLE"),
 			Localization.T("en", "PAD_WISP_LOCKED_DESC"),
@@ -878,8 +878,8 @@ function WorldBuilder.Build()
 		local wispPad5, wispRim5, w5Title, w5Desc, w5Cost = createRoundGroundPad(
 			wispFolder,
 			"WispPad_5",
-			origin + rightDir * 23.0 + outwardDir * 5.8,
-			5.6,
+			origin + rightDir * 24.0 + outwardDir * 4.5,
+			4.0,
 			Color3.fromRGB(205, 115, 255),
 			Localization.T("en", "PAD_WISP_5_TITLE"),
 			Localization.T("en", "PAD_WISP_LOCKED_DESC"),
@@ -898,7 +898,7 @@ function WorldBuilder.Build()
 			plotModel,
 			"VictoryPad",
 			victoryPos,
-			8.2,
+			5.8,
 			Color3.fromRGB(255, 215, 75),
 			"🌅 " .. GameConfig.VictoryButton.Name,
 			"+1 Dawn Pt (Prestige)",
@@ -933,8 +933,8 @@ function WorldBuilder.Build()
 
 			local gatePos = origin + zDir * (edgeDist - 2.4)
 			local gateCF = CFrame.lookAt(gatePos, gatePos + zDir)
-			local gatePad = makeUprightCylinder(zFolder, "GatePad", 0.48, 5.6, gatePos + Vector3.new(0, 0.24, 0), z.Color, Enum.Material.Neon, 0.20, false)
-			local gatePadRim = makeUprightCylinder(gatePad, "GatePad_Rim", 0.26, 6.5, gatePos + Vector3.new(0, 0.13, 0), z.Color, Enum.Material.Neon, 0.06, false)
+			local gatePad = makeUprightCylinder(zFolder, "GatePad", 0.40, 4.2, gatePos + Vector3.new(0, 0.20, 0), z.Color, Enum.Material.Neon, 0.20, false)
+			local gatePadRim = makeUprightCylinder(gatePad, "GatePad_Rim", 0.22, 4.9, gatePos + Vector3.new(0, 0.11, 0), z.Color, Enum.Material.Neon, 0.06, false)
 			gatePadRim.CanTouch = false
 			gatePadRim.CanQuery = false
 
@@ -942,9 +942,9 @@ function WorldBuilder.Build()
 
 			local gateBbg = Instance.new("BillboardGui", gatePad)
 			gateBbg.Adornee = gatePad
-			gateBbg.Size = UDim2.fromOffset(240, 44)
-			gateBbg.StudsOffset = Vector3.new(0, 4.1, 0)
-			gateBbg.MaxDistance = 75
+			gateBbg.Size = UDim2.fromOffset(200, 38)
+			gateBbg.StudsOffset = Vector3.new(0, 3.4, 0)
+			gateBbg.MaxDistance = 70
 
 			local gateLabel = Instance.new("TextLabel", gateBbg)
 			gateLabel.Size = UDim2.fromScale(1, 1)
@@ -953,7 +953,7 @@ function WorldBuilder.Build()
 			gateLabel.Text = Localization.T("en", "ZONE_GATE_LOCKED_FMT", z.Name, z.Cost)
 			gateLabel.TextColor3 = z.Color
 			gateLabel.Font = Enum.Font.GothamBlack
-			gateLabel.TextSize = 13
+			gateLabel.TextSize = 12
 			gateLabel.TextWrapped = true
 			Instance.new("UICorner", gateLabel).CornerRadius = UDim.new(0, 10)
 			local gateStroke = Instance.new("UIStroke", gateLabel)
