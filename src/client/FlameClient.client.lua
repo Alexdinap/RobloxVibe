@@ -47,6 +47,7 @@ ClientWorldVisuals.StartWispRenderer()
 
 local currentLang = "en"
 local currentClickCooldown = 0.50
+local canHoldClickCore = false
 
 local gui = Instance.new("ScreenGui")
 gui.Name = "LastFlameHUD"
@@ -264,24 +265,56 @@ local function tryClickMyFlame()
 	remotes.ClickFlame:FireServer()
 end
 
-mouse.Button1Down:Connect(function()
-	local target = mouse.Target
-	if not target then return end
-	local myPlot = ClientWorldVisuals.GetMyPlotModel()
-	local brazier = myPlot and myPlot:FindFirstChild("Brazier")
-	if brazier and target:IsDescendantOf(brazier) then
-		tryClickMyFlame()
+local flameHoldSource = nil
+local flameHoldGeneration = 0
+local function startFlameHold(source)
+	if not canHoldClickCore or flameHoldSource then return end
+	flameHoldGeneration += 1
+	local generation = flameHoldGeneration
+	flameHoldSource = source
+	task.spawn(function()
+		while flameHoldGeneration == generation and flameHoldSource and canHoldClickCore do
+			tryClickMyFlame()
+			task.wait(math.clamp(currentClickCooldown, 0.05, 0.10))
+		end
+		if flameHoldGeneration == generation then
+			flameHoldSource = nil
+		end
+	end)
+end
+
+local function stopFlameHold(source)
+	if flameHoldSource == source then
+		flameHoldGeneration += 1
+		flameHoldSource = nil
 	end
-end)
+end
 
 UserInputService.InputBegan:Connect(function(inp, gp)
 	if gp then return end
-	if inp.KeyCode == Enum.KeyCode.E or inp.KeyCode == Enum.KeyCode.F then
+	if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
+		local target = mouse.Target
+		local myPlot = ClientWorldVisuals.GetMyPlotModel()
+		local brazier = myPlot and myPlot:FindFirstChild("Brazier")
+		if target and brazier and target:IsDescendantOf(brazier) then
+			tryClickMyFlame()
+			startFlameHold("pointer")
+		end
+	elseif inp.KeyCode == Enum.KeyCode.E or inp.KeyCode == Enum.KeyCode.F then
 		local core = ClientWorldVisuals.GetMyFlameCore()
 		local hrp = player.Character and player.Character:FindFirstChild("HumanoidRootPart")
 		if core and hrp and (core.Position - hrp.Position).Magnitude <= 32 then
 			tryClickMyFlame()
+			startFlameHold("key")
 		end
+	end
+end)
+
+UserInputService.InputEnded:Connect(function(inp)
+	if inp.UserInputType == Enum.UserInputType.MouseButton1 or inp.UserInputType == Enum.UserInputType.Touch then
+		stopFlameHold("pointer")
+	elseif inp.KeyCode == Enum.KeyCode.E or inp.KeyCode == Enum.KeyCode.F then
+		stopFlameHold("key")
 	end
 end)
 
@@ -300,6 +333,8 @@ remotes.StateSync.OnClientEvent:Connect(function(st)
 	if type(st.ClickCooldown) == "number" then
 		currentClickCooldown = math.max(0.05, st.ClickCooldown)
 	end
+	local autoClickLevel = (st.AlbaPerks and st.AlbaPerks.ap_auto_click) or 0
+	canHoldClickCore = type(autoClickLevel) == "number" and autoClickLevel > 0
 
 	pointsLbl.Text = "🔥 " .. NumberFormat.Format(math.floor(st.Points or 0)) .. " " .. Localization.T(currentLang, "POINTS_SUFFIX")
 	rateLbl.Text = Localization.T(

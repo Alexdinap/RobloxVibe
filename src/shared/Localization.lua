@@ -39,7 +39,7 @@ local STRINGS = {
 
 		TUT_1_TITLE = "1. Kindle the Central Brazier",
 		TUT_1_BODY = "• Click your central Brazier (or press E / F nearby) to generate Light Points.\n• Clicking rapidly builds Flame Heat, multiplying your Light gain.\n• Touch golden Wandering Embers around your plot for instant Light bursts.",
-		TUT_1_TIP = "💡 Tip: Keep clicking fast to keep your Heat multiplier at maximum!",
+		TUT_1_TIP = "💡 Tip: Keep clicking to build Heat! After a Dawn upgrade, you can hold the button on the Brazier Core.",
 
 		TUT_2_TITLE = "2. Upgrade Tree & Flame Powers",
 		TUT_2_BODY = "• Open 'Character & Flame' [B] to grow your incremental Upgrade Tree, starting from Kindle Flame.\n• Reaching Lv. 1 on any node reveals and unlocks its connected branches, including Flame Colors and multipliers.",
@@ -192,7 +192,7 @@ local STRINGS = {
 
 		TUT_1_TITLE = "1. Alimenta il Braciere Centrale",
 		TUT_1_BODY = "• Clicca sul tuo Braciere centrale (o premi E / F vicino ad esso) per generare Punti Luce.\n• Cliccando velocemente aumenti il Calore della Fiamma, moltiplicando la Luce ottenuta.\n• Raccogli le Braci Vaganti dorate nel tuo plot per ottenere Luce istantanea.",
-		TUT_1_TIP = "💡 Consiglio: Clicca con ritmo rapido per tenere al massimo il moltiplicatore Calore!",
+		TUT_1_TIP = "💡 Consiglio: Clicca per aumentare il Calore! Dopo un potenziamento dell'Alba, puoi tenere premuto sul Nucleo.",
 
 		TUT_2_TITLE = "2. Albero dei Potenziamenti e Fiamma",
 		TUT_2_BODY = "• Apri 'Personaggio & Fiamma' [B] per far crescere l'Albero dei Potenziamenti partendo da Alimenta Fiamma.\n• Comprando il Livello 1 di un nodo sblocchi e riveli i rami collegati, inclusi Colori Fiamma e moltiplicatori.",

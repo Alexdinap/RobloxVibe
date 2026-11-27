@@ -22,6 +22,24 @@ local THEME = {
 	TextSub = Color3.fromRGB(212, 222, 244),
 }
 
+local function styleTreeCard(card, accent)
+	card.BackgroundColor3 = accent:Lerp(THEME.Bg, 0.88)
+	card.BorderSizePixel = 0
+	local stroke = Instance.new("UIStroke", card)
+	stroke.Color = accent
+	stroke.Thickness = 1.5
+	stroke.Transparency = 0.18
+	return stroke
+end
+
+local function styleTreeButton(button, accent)
+	local stroke = Instance.new("UIStroke", button)
+	stroke.Color = accent
+	stroke.Thickness = 1.2
+	stroke.Transparency = 0.2
+	return stroke
+end
+
 local function createCloseImageButton(parent, zIndex)
 	local btn = Instance.new("TextButton", parent)
 	btn.AnchorPoint = Vector2.new(1, 0.5)
@@ -343,6 +361,7 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 		{ Id = "Codes",     Key = "TAB_CODES" },
 	}
 	local tabButtons = {}
+	local tabStrokes = {}
 
 	for idx, td in ipairs(tabDefs) do
 		local b = Instance.new("TextButton", tabsBar)
@@ -355,6 +374,7 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 		b.TextSize = 13
 		b.ZIndex = 22
 		Instance.new("UICorner", b).CornerRadius = UDim.new(0, 8)
+		tabStrokes[td.Id] = styleTreeButton(b, THEME.Cyan)
 		tabButtons[td.Id] = b
 	end
 
@@ -972,7 +992,12 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 				local cost = math.floor(ap.Cost * (ap.CostMult ^ lvl))
 				local canBuy = (not maxed) and albaPts >= cost
 
-				apRef.Title.Text = string.format("🌅 %s  [Lv.%d/%d]", Localization.Pick(lang, ap.Name, ap.Name_it), lvl, ap.MaxLevel)
+				apRef.Card.BackgroundColor3 = maxed
+					and Color3.fromRGB(22, 42, 36)
+					or (canBuy and Color3.fromRGB(42, 36, 24) or THEME.Card)
+				apRef.CardStroke.Color = maxed and THEME.Green or THEME.Gold
+				apRef.CardStroke.Transparency = canBuy and 0 or 0.18
+				apRef.Title.Text = string.format("%s %s  [Lv.%d/%d]", ap.Icon or "🌅", Localization.Pick(lang, ap.Name, ap.Name_it), lvl, ap.MaxLevel)
 				apRef.Desc.Text = Localization.Pick(lang, ap.Desc, ap.Desc_it)
 				apRef.Btn.BackgroundColor3 = maxed and Color3.fromRGB(35, 55, 45) or (canBuy and THEME.Gold or Color3.fromRGB(36, 40, 56))
 				apRef.Btn.Text = maxed and Localization.T(lang, "BTN_MAXED") or (cost .. " " .. dawnUnit)
@@ -986,6 +1011,8 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 				local canUnlock = (not isUnlocked) and albaPts >= z.Cost
 
 				zRef.Card.BackgroundColor3 = isUnlocked and Color3.fromRGB(24, 42, 36) or THEME.Card
+				zRef.CardStroke.Color = isUnlocked and THEME.Green or THEME.Cyan
+				zRef.CardStroke.Transparency = canUnlock and 0 or 0.18
 				zRef.Title.Text = string.format("%s %s", z.Icon, Localization.Pick(lang, z.Name, z.Name_it))
 				zRef.Desc.Text = Localization.Pick(lang, z.Desc, z.Desc_it)
 				zRef.Btn.BackgroundColor3 = isUnlocked and Color3.fromRGB(35, 65, 52) or (canUnlock and THEME.Cyan or Color3.fromRGB(36, 40, 56))
@@ -1021,6 +1048,8 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 				btn.Text = Localization.T(lang, td.Key)
 				btn.BackgroundColor3 = (td.Id == activeTab) and Color3.fromRGB(58, 46, 22) or THEME.Card
 				btn.TextColor3 = (td.Id == activeTab) and THEME.Gold or THEME.TextSub
+				tabStrokes[td.Id].Color = (td.Id == activeTab) and THEME.Gold or THEME.Cyan
+				tabStrokes[td.Id].Transparency = (td.Id == activeTab) and 0 or 0.3
 			end
 		end
 
@@ -1038,7 +1067,7 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 			tipCard.BackgroundColor3 = Color3.fromRGB(30, 22, 42)
 			tipCard.ZIndex = 22
 			Instance.new("UICorner", tipCard).CornerRadius = UDim.new(0, 10)
-			Instance.new("UIStroke", tipCard).Color = THEME.Purple
+			styleTreeCard(tipCard, THEME.Purple)
 
 			local tipLbl = Instance.new("TextLabel", tipCard)
 			tipLbl.Position = UDim2.fromOffset(14, 6)
@@ -1049,7 +1078,7 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 			tipLbl.TextXAlignment = Enum.TextXAlignment.Left
 			tipLbl.TextWrapped = true
 			tipLbl.Font = Enum.Font.GothamBold
-			tipLbl.TextSize = 13
+			tipLbl.TextSize = 15
 			tipLbl.ZIndex = 23
 
 			local sec2 = Instance.new("TextLabel", scroll)
@@ -1062,47 +1091,53 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 			sec2.Font = Enum.Font.GothamBlack
 			sec2.TextSize = 14
 			sec2.ZIndex = 22
+			sec2.Position = UDim2.fromOffset(4, 0)
+			sec2.Size = UDim2.new(1, -10, 0, 28)
+			sec2.BackgroundColor3 = Color3.fromRGB(22, 26, 40)
+			Instance.new("UICorner", sec2).CornerRadius = UDim.new(0, 8)
 
 			local defList = {}
 			for idx, d in ipairs(GameConfig.Defenses) do
 				local row = Instance.new("Frame", scroll)
 				row.LayoutOrder = 10 + idx
-				row.Size = UDim2.new(1, -6, 0, 68)
+				row.Size = UDim2.new(1, -6, 0, 78)
 				row.BackgroundColor3 = THEME.Card
 				row.ZIndex = 22
 				Instance.new("UICorner", row).CornerRadius = UDim.new(0, 10)
+				styleTreeCard(row, THEME.Cyan)
 
 				local tLbl = Instance.new("TextLabel", row)
 				tLbl.Position = UDim2.fromOffset(14, 8)
-				tLbl.Size = UDim2.new(1, -166, 0, 22)
+				tLbl.Size = UDim2.new(1, -166, 0, 26)
 				tLbl.BackgroundTransparency = 1
 				tLbl.TextColor3 = THEME.Cyan
 				tLbl.TextXAlignment = Enum.TextXAlignment.Left
 				tLbl.Font = Enum.Font.GothamBlack
-				tLbl.TextSize = 15
+				tLbl.TextSize = 16
 				tLbl.ZIndex = 23
 
 				local dLbl = Instance.new("TextLabel", row)
-				dLbl.Position = UDim2.fromOffset(14, 30)
-				dLbl.Size = UDim2.new(1, -166, 0, 34)
+				dLbl.Position = UDim2.fromOffset(14, 36)
+				dLbl.Size = UDim2.new(1, -166, 0, 36)
 				dLbl.BackgroundTransparency = 1
 				dLbl.TextColor3 = THEME.TextSub
 				dLbl.TextXAlignment = Enum.TextXAlignment.Left
 				dLbl.TextYAlignment = Enum.TextYAlignment.Top
 				dLbl.TextWrapped = true
 				dLbl.Font = Enum.Font.Gotham
-				dLbl.TextSize = 13
+				dLbl.TextSize = 14
 				dLbl.ZIndex = 23
 
 				local b = Instance.new("TextButton", row)
 				b.AnchorPoint = Vector2.new(1, 0.5)
 				b.Position = UDim2.new(1, -12, 0.5, 0)
-				b.Size = UDim2.fromOffset(138, 44)
+				b.Size = UDim2.fromOffset(138, 50)
 				b.Font = Enum.Font.GothamBlack
-				b.TextSize = 12
+				b.TextSize = 14
 				b.TextWrapped = true
 				b.ZIndex = 23
 				Instance.new("UICorner", b).CornerRadius = UDim.new(0, 8)
+				styleTreeButton(b, THEME.Cyan)
 				b.MouseButton1Click:Connect(function()
 					remotes.BuyDefense:FireServer(d.Id)
 				end)
@@ -1125,6 +1160,7 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 			lockLbl.Visible = false
 			lockLbl.ZIndex = 22
 			Instance.new("UICorner", lockLbl).CornerRadius = UDim.new(0, 10)
+			styleTreeCard(lockLbl, THEME.Gold)
 			wispLockRef = lockLbl
 
 			local sumCard = Instance.new("Frame", scroll)
@@ -1133,6 +1169,7 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 			sumCard.BackgroundColor3 = THEME.Card
 			sumCard.ZIndex = 22
 			Instance.new("UICorner", sumCard).CornerRadius = UDim.new(0, 10)
+			styleTreeCard(sumCard, THEME.Purple)
 
 			local sumInfo = Instance.new("TextLabel", sumCard)
 			sumInfo.Position = UDim2.fromOffset(14, 10)
@@ -1142,7 +1179,7 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 			sumInfo.TextXAlignment = Enum.TextXAlignment.Left
 			sumInfo.TextWrapped = true
 			sumInfo.Font = Enum.Font.GothamBold
-			sumInfo.TextSize = 13
+			sumInfo.TextSize = 15
 			sumInfo.ZIndex = 23
 
 			local btn1 = Instance.new("TextButton", sumCard)
@@ -1152,6 +1189,7 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 			btn1.TextSize = 13
 			btn1.ZIndex = 23
 			Instance.new("UICorner", btn1).CornerRadius = UDim.new(0, 8)
+			styleTreeButton(btn1, THEME.Cyan)
 			btn1.MouseButton1Click:Connect(function()
 				remotes.SummonWisp:FireServer(1)
 			end)
@@ -1163,6 +1201,7 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 			btn5.TextSize = 13
 			btn5.ZIndex = 23
 			Instance.new("UICorner", btn5).CornerRadius = UDim.new(0, 8)
+			styleTreeButton(btn5, THEME.Gold)
 			btn5.MouseButton1Click:Connect(function()
 				remotes.SummonWisp:FireServer(5)
 			end)
@@ -1176,6 +1215,7 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 				row.BackgroundColor3 = THEME.Card
 				row.ZIndex = 22
 				Instance.new("UICorner", row).CornerRadius = UDim.new(0, 10)
+				styleTreeCard(row, w.Color)
 
 				local lbl = Instance.new("TextLabel", row)
 				lbl.Position = UDim2.fromOffset(14, 8)
@@ -1185,7 +1225,7 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 				lbl.TextXAlignment = Enum.TextXAlignment.Left
 				lbl.TextWrapped = true
 				lbl.Font = Enum.Font.GothamBold
-				lbl.TextSize = 13
+				lbl.TextSize = 15
 				lbl.ZIndex = 23
 
 				local fuseBtn = Instance.new("TextButton", row)
@@ -1197,6 +1237,7 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 				fuseBtn.TextSize = 12
 				fuseBtn.ZIndex = 23
 				Instance.new("UICorner", fuseBtn).CornerRadius = UDim.new(0, 8)
+				styleTreeButton(fuseBtn, THEME.Purple)
 				fuseBtn.MouseButton1Click:Connect(function()
 					remotes.FuseWisp:FireServer(w.Id)
 				end)
@@ -1216,6 +1257,8 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 			intro.TextSize = 15
 			intro.ZIndex = 22
 			Instance.new("UICorner", intro).CornerRadius = UDim.new(0, 10)
+			styleTreeCard(intro, THEME.Gold)
+			intro.TextSize = 17
 
 			local calendar = Instance.new("Frame", scroll)
 			calendar.Name = "DailyRewardCalendar"
@@ -1237,6 +1280,7 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 				card.BackgroundColor3 = THEME.Card
 				card.ZIndex = 23
 				Instance.new("UICorner", card).CornerRadius = UDim.new(0, 10)
+				styleTreeCard(card, day == 7 and THEME.Gold or THEME.Cyan)
 
 				local dayLabel = Instance.new("TextLabel", card)
 				dayLabel.Size = UDim2.new(1, -8, 0, 28)
@@ -1245,7 +1289,7 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 				dayLabel.Text = Localization.T(lang, "DAILY_DAY") .. " " .. day
 				dayLabel.TextColor3 = THEME.Gold
 				dayLabel.Font = Enum.Font.GothamBlack
-				dayLabel.TextSize = 14
+				dayLabel.TextSize = 15
 				dayLabel.ZIndex = 24
 
 				local rewardLabel = Instance.new("TextLabel", card)
@@ -1256,7 +1300,7 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 				rewardLabel.TextColor3 = THEME.TextSub
 				rewardLabel.Font = Enum.Font.Gotham
 				rewardLabel.TextWrapped = true
-				rewardLabel.TextSize = 12
+				rewardLabel.TextSize = 13
 				rewardLabel.ZIndex = 24
 			end
 
@@ -1267,7 +1311,7 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 			hCard.BackgroundColor3 = Color3.fromRGB(34, 28, 22)
 			hCard.ZIndex = 22
 			Instance.new("UICorner", hCard).CornerRadius = UDim.new(0, 10)
-			Instance.new("UIStroke", hCard).Color = THEME.Gold
+			styleTreeCard(hCard, THEME.Gold)
 
 			local hInfo = Instance.new("TextLabel", hCard)
 			hInfo.Position = UDim2.fromOffset(14, 8)
@@ -1277,7 +1321,7 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 			hInfo.TextXAlignment = Enum.TextXAlignment.Left
 			hInfo.TextWrapped = true
 			hInfo.Font = Enum.Font.GothamBold
-			hInfo.TextSize = 13
+			hInfo.TextSize = 15
 			hInfo.ZIndex = 23
 
 			local sec1 = Instance.new("TextLabel", scroll)
@@ -1290,51 +1334,58 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 			sec1.Font = Enum.Font.GothamBlack
 			sec1.TextSize = 14
 			sec1.ZIndex = 22
+			sec1.Position = UDim2.fromOffset(4, 0)
+			sec1.Size = UDim2.new(1, -10, 0, 28)
+			sec1.BackgroundColor3 = Color3.fromRGB(22, 26, 40)
+			sec1.BackgroundTransparency = 0
+			Instance.new("UICorner", sec1).CornerRadius = UDim.new(0, 8)
 
 			local perksList = {}
 			for idx, ap in ipairs(GameConfig.AlbaPerks) do
 				local row = Instance.new("Frame", scroll)
 				row.LayoutOrder = 10 + idx
-				row.Size = UDim2.new(1, -6, 0, 68)
+				row.Size = UDim2.new(1, -6, 0, 82)
 				row.BackgroundColor3 = THEME.Card
 				row.ZIndex = 22
 				Instance.new("UICorner", row).CornerRadius = UDim.new(0, 10)
+				local cardStroke = styleTreeCard(row, THEME.Gold)
 
 				local tLbl = Instance.new("TextLabel", row)
 				tLbl.Position = UDim2.fromOffset(14, 8)
-				tLbl.Size = UDim2.new(1, -166, 0, 22)
+				tLbl.Size = UDim2.new(1, -166, 0, 26)
 				tLbl.BackgroundTransparency = 1
 				tLbl.TextColor3 = THEME.TextMain
 				tLbl.TextXAlignment = Enum.TextXAlignment.Left
 				tLbl.Font = Enum.Font.GothamBlack
-				tLbl.TextSize = 15
+				tLbl.TextSize = 16
 				tLbl.ZIndex = 23
 
 				local dLbl = Instance.new("TextLabel", row)
-				dLbl.Position = UDim2.fromOffset(14, 30)
-				dLbl.Size = UDim2.new(1, -166, 0, 34)
+				dLbl.Position = UDim2.fromOffset(14, 36)
+				dLbl.Size = UDim2.new(1, -166, 0, 40)
 				dLbl.BackgroundTransparency = 1
 				dLbl.TextColor3 = THEME.TextSub
 				dLbl.TextXAlignment = Enum.TextXAlignment.Left
 				dLbl.TextYAlignment = Enum.TextYAlignment.Top
 				dLbl.TextWrapped = true
 				dLbl.Font = Enum.Font.Gotham
-				dLbl.TextSize = 13
+				dLbl.TextSize = 14
 				dLbl.ZIndex = 23
 
 				local b = Instance.new("TextButton", row)
 				b.AnchorPoint = Vector2.new(1, 0.5)
 				b.Position = UDim2.new(1, -12, 0.5, 0)
-				b.Size = UDim2.fromOffset(138, 44)
+				b.Size = UDim2.fromOffset(138, 50)
 				b.Font = Enum.Font.GothamBlack
 				b.TextSize = 13
 				b.ZIndex = 23
 				Instance.new("UICorner", b).CornerRadius = UDim.new(0, 8)
+				styleTreeButton(b, THEME.Gold)
 				b.MouseButton1Click:Connect(function()
 					remotes.BuyAlbaPerk:FireServer(ap.Id)
 				end)
 
-				table.insert(perksList, { Config = ap, Title = tLbl, Desc = dLbl, Btn = b })
+				table.insert(perksList, { Config = ap, Card = row, CardStroke = cardStroke, Title = tLbl, Desc = dLbl, Btn = b })
 			end
 
 			local sec2 = Instance.new("TextLabel", scroll)
@@ -1347,15 +1398,21 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 			sec2.Font = Enum.Font.GothamBlack
 			sec2.TextSize = 14
 			sec2.ZIndex = 22
+			sec2.Position = UDim2.fromOffset(4, 0)
+			sec2.Size = UDim2.new(1, -10, 0, 28)
+			sec2.BackgroundColor3 = Color3.fromRGB(22, 26, 40)
+			sec2.BackgroundTransparency = 0
+			Instance.new("UICorner", sec2).CornerRadius = UDim.new(0, 8)
 
 			local zonesList = {}
 			for idx, z in ipairs(GameConfig.AlbaZones) do
 				local row = Instance.new("Frame", scroll)
 				row.LayoutOrder = 40 + idx
-				row.Size = UDim2.new(1, -6, 0, 68)
+				row.Size = UDim2.new(1, -6, 0, 82)
 				row.BackgroundColor3 = THEME.Card
 				row.ZIndex = 22
 				Instance.new("UICorner", row).CornerRadius = UDim.new(0, 10)
+				local cardStroke = styleTreeCard(row, THEME.Cyan)
 
 				local tLbl = Instance.new("TextLabel", row)
 				tLbl.Position = UDim2.fromOffset(14, 8)
@@ -1364,7 +1421,7 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 				tLbl.TextColor3 = THEME.Cyan
 				tLbl.TextXAlignment = Enum.TextXAlignment.Left
 				tLbl.Font = Enum.Font.GothamBlack
-				tLbl.TextSize = 15
+				tLbl.TextSize = 16
 				tLbl.ZIndex = 23
 
 				local dLbl = Instance.new("TextLabel", row)
@@ -1376,67 +1433,71 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 				dLbl.TextYAlignment = Enum.TextYAlignment.Top
 				dLbl.TextWrapped = true
 				dLbl.Font = Enum.Font.Gotham
-				dLbl.TextSize = 13
+				dLbl.TextSize = 14
 				dLbl.ZIndex = 23
 
 				local b = Instance.new("TextButton", row)
 				b.AnchorPoint = Vector2.new(1, 0.5)
 				b.Position = UDim2.new(1, -12, 0.5, 0)
-				b.Size = UDim2.fromOffset(138, 44)
+				b.Size = UDim2.fromOffset(138, 50)
 				b.Font = Enum.Font.GothamBlack
 				b.TextSize = 13
 				b.ZIndex = 23
 				Instance.new("UICorner", b).CornerRadius = UDim.new(0, 8)
+				styleTreeButton(b, THEME.Cyan)
 				b.MouseButton1Click:Connect(function()
 					remotes.UnlockAlbaZone:FireServer(z.Id)
 				end)
 
-				table.insert(zonesList, { Config = z, Card = row, Title = tLbl, Desc = dLbl, Btn = b })
+				table.insert(zonesList, { Config = z, Card = row, CardStroke = cardStroke, Title = tLbl, Desc = dLbl, Btn = b })
 			end
 
 			albaRefs = { HeaderInfo = hInfo, Perks = perksList, Zones = zonesList }
 
 		elseif activeTab == "Codes" then
 			local cCard = Instance.new("Frame", scroll)
-			cCard.Size = UDim2.new(1, -6, 0, 124)
+			cCard.LayoutOrder = 1
+			cCard.Size = UDim2.new(1, -6, 0, 144)
 			cCard.BackgroundColor3 = THEME.Card
 			cCard.ZIndex = 22
 			Instance.new("UICorner", cCard).CornerRadius = UDim.new(0, 10)
+			styleTreeCard(cCard, THEME.Purple)
 
 			local box = Instance.new("TextBox", cCard)
 			box.Position = UDim2.fromOffset(14, 14)
-			box.Size = UDim2.new(1, -172, 0, 44)
+			box.Size = UDim2.new(1, -172, 0, 50)
 			box.BackgroundColor3 = Color3.fromRGB(16, 18, 28)
 			box.PlaceholderText = Localization.T(lang, "CODE_PLACEHOLDER")
 			box.Text = ""
 			box.TextColor3 = THEME.TextMain
 			box.Font = Enum.Font.GothamBold
-			box.TextSize = 14
+			box.TextSize = 16
 			box.ZIndex = 23
 			Instance.new("UICorner", box).CornerRadius = UDim.new(0, 8)
 
 			local statusLbl = Instance.new("TextLabel", cCard)
-			statusLbl.Position = UDim2.fromOffset(14, 70)
-			statusLbl.Size = UDim2.new(1, -28, 0, 38)
+			statusLbl.Position = UDim2.fromOffset(14, 76)
+			statusLbl.Size = UDim2.new(1, -28, 0, 48)
 			statusLbl.BackgroundTransparency = 1
 			statusLbl.Text = Localization.T(lang, "CODE_HINT")
 			statusLbl.TextColor3 = THEME.TextSub
 			statusLbl.TextXAlignment = Enum.TextXAlignment.Left
 			statusLbl.Font = Enum.Font.Gotham
-			statusLbl.TextSize = 13
+			statusLbl.TextSize = 15
 			statusLbl.ZIndex = 23
 
 			local redeemBtn = Instance.new("TextButton", cCard)
 			redeemBtn.AnchorPoint = Vector2.new(1, 0)
 			redeemBtn.Position = UDim2.new(1, -14, 0, 14)
-			redeemBtn.Size = UDim2.fromOffset(138, 44)
+			redeemBtn.Size = UDim2.fromOffset(138, 50)
 			redeemBtn.BackgroundColor3 = THEME.Green
 			redeemBtn.Text = Localization.T(lang, "CODE_REDEEM")
 			redeemBtn.TextColor3 = Color3.fromRGB(16, 18, 24)
 			redeemBtn.Font = Enum.Font.GothamBlack
-			redeemBtn.TextSize = 13
+			redeemBtn.TextSize = 15
 			redeemBtn.ZIndex = 23
 			Instance.new("UICorner", redeemBtn).CornerRadius = UDim.new(0, 8)
+			styleTreeButton(redeemBtn, THEME.Green)
 
 			redeemBtn.MouseButton1Click:Connect(function()
 				local ok, msg = remotes.RedeemCode:InvokeServer(box.Text)
@@ -1482,16 +1543,20 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 		end
 	end
 
-	toggleBtn.MouseButton1Click:Connect(function()
-		setOpen(not isOpen)
-	end)
+	local function toggleCharacterMenu()
+		local wasCharacterOpen = isOpen and activeTab == "Character"
+		activeTab = "Character"
+		setOpen(not wasCharacterOpen)
+	end
+
+	toggleBtn.MouseButton1Click:Connect(toggleCharacterMenu)
 	closeBtn.MouseButton1Click:Connect(function()
 		setOpen(false)
 	end)
 	UserInputService.InputBegan:Connect(function(inp, gp)
 		if gp then return end
 		if inp.KeyCode == Enum.KeyCode.B then
-			setOpen(not isOpen)
+			toggleCharacterMenu()
 		end
 	end)
 

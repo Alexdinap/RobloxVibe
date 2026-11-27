@@ -538,6 +538,7 @@ GameConfig.VictoryButton = {
 GameConfig.AlbaPerks = {
 	{
 		Id = "ap_mult",
+		Icon = "🌟",
 		Name = "Dawn Blessing",
 		Name_it = "Benedizione dell'Alba",
 		Desc = "+50% permanent global Light multiplier per level.",
@@ -547,7 +548,19 @@ GameConfig.AlbaPerks = {
 		MaxLevel = 20,
 	},
 	{
+		Id = "ap_auto_click",
+		Icon = "👆",
+		Name = "Flamekeeper's Focus",
+		Name_it = "Concentrazione del Custode",
+		Desc = "Hold the mouse button on your Brazier Core to keep clicking automatically.",
+		Desc_it = "Tieni premuto sul Nucleo del Braciere per continuare a cliccare automaticamente.",
+		Cost = 1,
+		CostMult = 1,
+		MaxLevel = 1,
+	},
+	{
 		Id = "ap_start",
+		Icon = "🔥",
 		Name = "Inherited Spark",
 		Name_it = "Scintilla Ereditata",
 		Desc = "Start after Rebirth with 10,000 Light & +5 Kindle levels per lv.",
@@ -558,6 +571,7 @@ GameConfig.AlbaPerks = {
 	},
 	{
 		Id = "ap_discount",
+		Icon = "📜",
 		Name = "Ancient Wisdom",
 		Name_it = "Saggezza Antica",
 		Desc = "Reduces all Light purchase costs by 8% per level.",
@@ -568,6 +582,7 @@ GameConfig.AlbaPerks = {
 	},
 	{
 		Id = "ap_alba_gain",
+		Icon = "🌅",
 		Name = "Dawn Harvest",
 		Name_it = "Raccolto dell'Alba",
 		Desc = "+1 extra Dawn Point earned on every Rebirth.",
