@@ -498,8 +498,8 @@ local function createWeaponTool(wepCfg, lang)
 			lookDir = Vector3.new(0, 0, -1)
 		end
 
-		local isCosmicArc = (wepCfg.Id == "wep_zenith_scythe")
-		local isCleave = (wepCfg.Id == "wep_sunblade")
+		local isCosmicArc = wepCfg.IsCosmicArc == true or (wepCfg.Id == "wep_zenith_scythe")
+		local isCleave = wepCfg.IsCleave == true or (wepCfg.Id == "wep_sunblade")
 		local minDot = isCosmicArc and -1.0 or (isCleave and -0.35 or 0.1)
 		local kbForce = isCosmicArc and 11.0 or (isCleave and 7.0 or 4.5)
 

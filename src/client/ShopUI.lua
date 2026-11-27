@@ -66,6 +66,7 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 	local wispHeaderRefs = nil
 	local wispLockRef = nil
 	local albaRefs = nil
+	local setOpen
 
 	local function getLang()
 		return (latestState and latestState.Language) or "en"
@@ -99,12 +100,12 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 	leftDock.Name = "LeftSideActionBar"
 	leftDock.AnchorPoint = Vector2.new(0, 0.5)
 	leftDock.Position = UDim2.new(0, 14, 0.52, 0)
-	leftDock.Size = UDim2.fromOffset(216, 134)
+	leftDock.Size = UDim2.fromOffset(216, 300)
 	leftDock.BackgroundTransparency = 1
 	leftDock.ZIndex = 15
 
 	local leftLayout = Instance.new("UIListLayout", leftDock)
-	leftLayout.Padding = UDim.new(0, 10)
+	leftLayout.Padding = UDim.new(0, 8)
 	leftLayout.SortOrder = Enum.SortOrder.LayoutOrder
 
 	local toggleBtn = Instance.new("TextButton", leftDock)
@@ -169,9 +170,48 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 	readyBadge.ZIndex = 18
 	Instance.new("UICorner", readyBadge).CornerRadius = UDim.new(1, 0)
 
+	local function createQuickMenuButton(name, layoutOrder, color, callback)
+		local button = Instance.new("TextButton", leftDock)
+		button.Name = name
+		button.LayoutOrder = layoutOrder
+		button.Size = UDim2.new(1, 0, 0, 48)
+		button.BackgroundColor3 = Color3.fromRGB(22, 30, 44)
+		button.BackgroundTransparency = 0.06
+		button.TextColor3 = color
+		button.Font = Enum.Font.GothamBlack
+		button.TextSize = 15
+		button.ZIndex = 15
+		Instance.new("UICorner", button).CornerRadius = UDim.new(0, 12)
+
+		local stroke = Instance.new("UIStroke", button)
+		stroke.Color = color
+		stroke.Thickness = 1.4
+		button.MouseButton1Click:Connect(callback)
+		return button
+	end
+
+	local turretMenuBtn = createQuickMenuButton("OpenTurretsButton", 2, THEME.Cyan, function()
+		if setOpen then
+			activeTab = "Defense"
+			setOpen(true)
+		end
+	end)
+	local wispsMenuBtn = createQuickMenuButton("OpenWispsButton", 3, THEME.Purple, function()
+		if setOpen then
+			activeTab = "Wisps"
+			setOpen(true)
+		end
+	end)
+	local dailyRewardsBtn = createQuickMenuButton("OpenDailyRewardsButton", 4, THEME.Gold, function()
+		if setOpen then
+			activeTab = "Daily"
+			setOpen(true)
+		end
+	end)
+
 	local homeBtn = Instance.new("TextButton", leftDock)
 	homeBtn.Name = "TeleportHomeButton"
-	homeBtn.LayoutOrder = 2
+	homeBtn.LayoutOrder = 5
 	homeBtn.Size = UDim2.new(1, 0, 0, 54)
 	homeBtn.BackgroundColor3 = Color3.fromRGB(22, 30, 44)
 	homeBtn.BackgroundTransparency = 0.06
@@ -299,8 +339,6 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 
 	local tabDefs = {
 		{ Id = "Character", Key = "TAB_CHAR" },
-		{ Id = "Defense",   Key = "TAB_DEFENSE" },
-		{ Id = "Wisps",     Key = "TAB_WISPS" },
 		{ Id = "Alba",      Key = "TAB_DAWN" },
 		{ Id = "Codes",     Key = "TAB_CODES" },
 	}
@@ -308,8 +346,8 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 
 	for idx, td in ipairs(tabDefs) do
 		local b = Instance.new("TextButton", tabsBar)
-		b.Position = UDim2.new((idx - 1) * 0.2, 2, 0, 0)
-		b.Size = UDim2.new(0.2, -4, 1, 0)
+		b.Position = UDim2.new((idx - 1) / #tabDefs, 2, 0, 0)
+		b.Size = UDim2.new(1 / #tabDefs, -4, 1, 0)
 		b.BackgroundColor3 = THEME.Card
 		b.Text = Localization.T("en", td.Key)
 		b.TextColor3 = THEME.TextMain
@@ -855,37 +893,6 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 			end
 
 		elseif renderedTab == "Defense" and defenseRefs then
-			local ownedWeapons = st.OwnedWeapons or {}
-			for _, wRef in ipairs(defenseRefs.Weapons) do
-				local w = wRef.Config
-				local owned = ownedWeapons[w.Id] == true
-				local reqAlba = w.ReqAlba or 0
-				local albaLocked = (not owned) and (albaCount < reqAlba)
-				local wepCost = GameConfig.GetWeaponCost(w, albaCount, discountLvl)
-				local canBuy = (not owned) and (not albaLocked) and points >= wepCost
-				local wName = Localization.Pick(lang, w.Name, w.Name_it)
-				local wTag = Localization.Pick(lang, w.Tag, w.Tag_it)
-				local wDesc = Localization.Pick(lang, w.Desc, w.Desc_it)
-
-				if albaLocked then
-					wRef.Card.BackgroundColor3 = THEME.CardLocked
-					wRef.Title.Text = string.format("🔒 %s (%s)", wName, wTag)
-					wRef.Desc.Text = wDesc
-					wRef.Btn.BackgroundColor3 = Color3.fromRGB(36, 40, 56)
-					wRef.Btn.Text = (lang == "it")
-						and ("🔒 Rinascita " .. reqAlba)
-						or ("🔒 Rebirth " .. reqAlba)
-					wRef.Btn.TextColor3 = THEME.TextSub
-				else
-					wRef.Card.BackgroundColor3 = owned and Color3.fromRGB(24, 42, 36) or THEME.Card
-					wRef.Title.Text = string.format("%s %s (%s)", w.Icon, wName, wTag)
-					wRef.Desc.Text = wDesc
-					wRef.Btn.BackgroundColor3 = owned and Color3.fromRGB(35, 65, 52) or (canBuy and THEME.Gold or Color3.fromRGB(36, 40, 56))
-					wRef.Btn.Text = owned and Localization.T(lang, "BTN_EQUIPPED") or (NumberFormat.Format(wepCost) .. " " .. lightUnit)
-					wRef.Btn.TextColor3 = canBuy and Color3.fromRGB(16, 18, 24) or THEME.TextMain
-				end
-			end
-
 			for _, dRef in ipairs(defenseRefs.Structures) do
 				local d = dRef.Config
 
@@ -993,6 +1000,20 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 		local lang = getLang()
 		renderedTab = activeTab
 		renderedLang = lang
+		local isQuickPage = activeTab == "Defense" or activeTab == "Wisps" or activeTab == "Daily"
+		tabsBar.Visible = not isQuickPage
+		local contentTop = isQuickPage and 58 or 92
+		local contentBottom = isQuickPage and 72 or 106
+		scroll.Position = UDim2.fromOffset(14, contentTop)
+		scroll.Size = UDim2.new(1, -28, 1, -contentBottom)
+		treeContainer.Position = UDim2.fromOffset(14, contentTop)
+		treeContainer.Size = UDim2.new(1, -28, 1, -contentBottom)
+		local titleKey = ({
+			Defense = "TURRET_MODAL_TITLE",
+			Wisps = "WISPS_MODAL_TITLE",
+			Daily = "DAILY_MODAL_TITLE",
+		})[activeTab] or "MODAL_TITLE"
+		headerTitle.Text = Localization.T(lang, titleKey)
 
 		for _, td in ipairs(tabDefs) do
 			local btn = tabButtons[td.Id]
@@ -1031,65 +1052,8 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 			tipLbl.TextSize = 13
 			tipLbl.ZIndex = 23
 
-			local sec1 = Instance.new("TextLabel", scroll)
-			sec1.LayoutOrder = 2
-			sec1.Size = UDim2.new(1, -6, 0, 26)
-			sec1.BackgroundTransparency = 1
-			sec1.Text = Localization.T(lang, "SEC_WEAPONS")
-			sec1.TextColor3 = THEME.Gold
-			sec1.TextXAlignment = Enum.TextXAlignment.Left
-			sec1.Font = Enum.Font.GothamBlack
-			sec1.TextSize = 14
-			sec1.ZIndex = 22
-
-			local wepList = {}
-			for idx, w in ipairs(GameConfig.Weapons) do
-				local row = Instance.new("Frame", scroll)
-				row.LayoutOrder = 10 + idx
-				row.Size = UDim2.new(1, -6, 0, 68)
-				row.BackgroundColor3 = THEME.Card
-				row.ZIndex = 22
-				Instance.new("UICorner", row).CornerRadius = UDim.new(0, 10)
-
-				local tLbl = Instance.new("TextLabel", row)
-				tLbl.Position = UDim2.fromOffset(14, 8)
-				tLbl.Size = UDim2.new(1, -166, 0, 22)
-				tLbl.BackgroundTransparency = 1
-				tLbl.TextColor3 = w.Color
-				tLbl.TextXAlignment = Enum.TextXAlignment.Left
-				tLbl.Font = Enum.Font.GothamBlack
-				tLbl.TextSize = 15
-				tLbl.ZIndex = 23
-
-				local dLbl = Instance.new("TextLabel", row)
-				dLbl.Position = UDim2.fromOffset(14, 30)
-				dLbl.Size = UDim2.new(1, -166, 0, 34)
-				dLbl.BackgroundTransparency = 1
-				dLbl.TextColor3 = THEME.TextSub
-				dLbl.TextXAlignment = Enum.TextXAlignment.Left
-				dLbl.TextYAlignment = Enum.TextYAlignment.Top
-				dLbl.TextWrapped = true
-				dLbl.Font = Enum.Font.Gotham
-				dLbl.TextSize = 13
-				dLbl.ZIndex = 23
-
-				local b = Instance.new("TextButton", row)
-				b.AnchorPoint = Vector2.new(1, 0.5)
-				b.Position = UDim2.new(1, -12, 0.5, 0)
-				b.Size = UDim2.fromOffset(138, 44)
-				b.Font = Enum.Font.GothamBlack
-				b.TextSize = 13
-				b.ZIndex = 23
-				Instance.new("UICorner", b).CornerRadius = UDim.new(0, 8)
-				b.MouseButton1Click:Connect(function()
-					remotes.BuyWeapon:FireServer(w.Id)
-				end)
-
-				table.insert(wepList, { Config = w, Card = row, Title = tLbl, Desc = dLbl, Btn = b })
-			end
-
 			local sec2 = Instance.new("TextLabel", scroll)
-			sec2.LayoutOrder = 30
+			sec2.LayoutOrder = 2
 			sec2.Size = UDim2.new(1, -6, 0, 26)
 			sec2.BackgroundTransparency = 1
 			sec2.Text = Localization.T(lang, "SEC_STRUCTURES")
@@ -1102,7 +1066,7 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 			local defList = {}
 			for idx, d in ipairs(GameConfig.Defenses) do
 				local row = Instance.new("Frame", scroll)
-				row.LayoutOrder = 40 + idx
+				row.LayoutOrder = 10 + idx
 				row.Size = UDim2.new(1, -6, 0, 68)
 				row.BackgroundColor3 = THEME.Card
 				row.ZIndex = 22
@@ -1146,7 +1110,7 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 				table.insert(defList, { Config = d, Card = row, Title = tLbl, Desc = dLbl, Btn = b })
 			end
 
-			defenseRefs = { Weapons = wepList, Structures = defList }
+			defenseRefs = { Structures = defList }
 
 		elseif activeTab == "Wisps" then
 			local lockLbl = Instance.new("TextLabel", scroll)
@@ -1238,6 +1202,62 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 				end)
 
 				table.insert(wispRowRefs, { Config = w, Row = row, Label = lbl, FuseBtn = fuseBtn })
+			end
+
+		elseif activeTab == "Daily" then
+			local intro = Instance.new("TextLabel", scroll)
+			intro.LayoutOrder = 1
+			intro.Size = UDim2.new(1, -6, 0, 68)
+			intro.BackgroundColor3 = THEME.Card
+			intro.Text = Localization.T(lang, "DAILY_COMING_SOON")
+			intro.TextColor3 = THEME.Gold
+			intro.Font = Enum.Font.GothamBold
+			intro.TextWrapped = true
+			intro.TextSize = 15
+			intro.ZIndex = 22
+			Instance.new("UICorner", intro).CornerRadius = UDim.new(0, 10)
+
+			local calendar = Instance.new("Frame", scroll)
+			calendar.Name = "DailyRewardCalendar"
+			calendar.LayoutOrder = 2
+			calendar.Size = UDim2.new(1, -6, 0, 262)
+			calendar.BackgroundTransparency = 1
+			calendar.ZIndex = 22
+
+			local grid = Instance.new("UIGridLayout", calendar)
+			grid.CellSize = UDim2.new(1 / 3, -8, 0, 80)
+			grid.CellPadding = UDim2.fromOffset(8, 8)
+			grid.FillDirectionMaxCells = 3
+			grid.SortOrder = Enum.SortOrder.LayoutOrder
+
+			for day = 1, 7 do
+				local card = Instance.new("Frame", calendar)
+				card.Name = "Day" .. day
+				card.LayoutOrder = day
+				card.BackgroundColor3 = THEME.Card
+				card.ZIndex = 23
+				Instance.new("UICorner", card).CornerRadius = UDim.new(0, 10)
+
+				local dayLabel = Instance.new("TextLabel", card)
+				dayLabel.Size = UDim2.new(1, -8, 0, 28)
+				dayLabel.Position = UDim2.fromOffset(4, 7)
+				dayLabel.BackgroundTransparency = 1
+				dayLabel.Text = Localization.T(lang, "DAILY_DAY") .. " " .. day
+				dayLabel.TextColor3 = THEME.Gold
+				dayLabel.Font = Enum.Font.GothamBlack
+				dayLabel.TextSize = 14
+				dayLabel.ZIndex = 24
+
+				local rewardLabel = Instance.new("TextLabel", card)
+				rewardLabel.Position = UDim2.fromOffset(5, 36)
+				rewardLabel.Size = UDim2.new(1, -10, 0, 36)
+				rewardLabel.BackgroundTransparency = 1
+				rewardLabel.Text = Localization.T(lang, "DAILY_REWARD_SOON")
+				rewardLabel.TextColor3 = THEME.TextSub
+				rewardLabel.Font = Enum.Font.Gotham
+				rewardLabel.TextWrapped = true
+				rewardLabel.TextSize = 12
+				rewardLabel.ZIndex = 24
 			end
 
 		elseif activeTab == "Alba" then
@@ -1447,7 +1467,7 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 		end)
 	end
 
-	local function setOpen(val)
+	setOpen = function(val)
 		isOpen = val
 		modal.Visible = isOpen
 		if not isOpen then
@@ -1557,8 +1577,16 @@ function ShopUI.Build(parentGui, remotes, onOpenTutorial)
 			homeBtn.Text = Localization.T(lang, "MY_ZONE_BTN")
 			toggleLabel.Text = Localization.T(lang, "CHAR_BTN_TITLE")
 			toggleSub.Text = Localization.T(lang, "CHAR_BTN_SUB")
+			turretMenuBtn.Text = Localization.T(lang, "HUD_TURRETS")
+			wispsMenuBtn.Text = Localization.T(lang, "HUD_WISPS")
+			dailyRewardsBtn.Text = Localization.T(lang, "HUD_DAILY")
 			tutorialBtn.Text = Localization.T(lang, "TUTORIAL_BTN")
-			headerTitle.Text = Localization.T(lang, "MODAL_TITLE")
+			local pageTitleKey = ({
+				Defense = "TURRET_MODAL_TITLE",
+				Wisps = "WISPS_MODAL_TITLE",
+				Daily = "DAILY_MODAL_TITLE",
+			})[activeTab] or "MODAL_TITLE"
+			headerTitle.Text = Localization.T(lang, pageTitleKey)
 			vHead.Text = Localization.T(lang, "VICTORY_TITLE")
 			vOpenAlba.Text = Localization.T(lang, "VICTORY_OPEN_DAWN")
 

@@ -6,7 +6,7 @@ GameConfig.PlotHalfSize = 42
 
 GameConfig.InitialShadowGraceSeconds = 180 -- 3 minuti all'ingresso
 GameConfig.RebirthShadowGraceSeconds = 120 -- 2 minuti dopo ogni Rinascita
-GameConfig.RebirthUpgradeCostGrowth = 0.12
+GameConfig.RebirthUpgradeCostGrowth = 0.18
 
 GameConfig.BaseClickCooldown = 0.50
 GameConfig.MinClickCooldown = 0.06
@@ -531,7 +531,7 @@ GameConfig.VictoryButton = {
 	Desc = "Requires ALL tree upgrades maxed. Resets Light for Dawn Points!",
 	Desc_it = "Richiede TUTTI i potenziamenti dell'albero al MAX. Azzera la Luce per Punti Alba!",
 	BaseCost = 1000000000,
-	CostMult = 2.0,
+	CostMult = 2.5,
 	BaseAlbaReward = 1,
 }
 
@@ -702,6 +702,138 @@ GameConfig.Weapons = {
 		Range = 22,
 		Color = Color3.fromRGB(255, 245, 165),
 	},
+	{
+		Id = "wep_dawn_saber",
+		Icon = "🗡️",
+		Name = "Dawnfire Saber",
+		Name_it = "Sciabola del Fuoco dell'Alba",
+		Tag = "95 DMG • Quick Slash",
+		Tag_it = "95 DANNI • Fendente Rapido",
+		Desc = "A quick blade forged from the first Dawn Point.",
+		Desc_it = "Lama rapida forgiata con il primo Punto Alba.",
+		BaseCost = 0,
+		AlbaCost = 1,
+		Damage = 95,
+		Cooldown = 0.38,
+		Range = 13,
+		Color = Color3.fromRGB(255, 120, 65),
+	},
+	{
+		Id = "wep_aether_pike",
+		Icon = "🔱",
+		Name = "Aether Pike",
+		Name_it = "Picca dell'Etere",
+		Tag = "280 DMG • Reach",
+		Tag_it = "280 DANNI • Portata",
+		Desc = "A long-reaching spear that keeps fast Shadows at bay.",
+		Desc_it = "Lancia dalla lunga portata che tiene a distanza le Ombre veloci.",
+		BaseCost = 0,
+		AlbaCost = 2,
+		Damage = 280,
+		Cooldown = 0.55,
+		Range = 21,
+		Color = Color3.fromRGB(75, 235, 220),
+	},
+	{
+		Id = "wep_solar_chakram",
+		Icon = "☀️",
+		Name = "Solar Chakram",
+		Name_it = "Chakram Solare",
+		Tag = "520 DMG • Wide Cleave",
+		Tag_it = "520 DANNI • Fendente Ampio",
+		Desc = "A broad circular strike that cuts through nearby Shadows.",
+		Desc_it = "Un ampio colpo circolare che falcia le Ombre vicine.",
+		BaseCost = 0,
+		AlbaCost = 4,
+		Damage = 520,
+		Cooldown = 0.68,
+		Range = 18,
+		IsCleave = true,
+		Color = Color3.fromRGB(255, 205, 70),
+	},
+	{
+		Id = "wep_eclipse_claws",
+		Icon = "🐾",
+		Name = "Eclipse Claws",
+		Name_it = "Artigli dell'Eclissi",
+		Tag = "760 DMG • Rapid",
+		Tag_it = "760 DANNI • Rapidi",
+		Desc = "Twin blades strike rapidly at close range.",
+		Desc_it = "Lame gemelle che colpiscono rapidamente a distanza ravvicinata.",
+		BaseCost = 0,
+		AlbaCost = 8,
+		Damage = 760,
+		Cooldown = 0.34,
+		Range = 14,
+		Color = Color3.fromRGB(180, 90, 255),
+	},
+	{
+		Id = "wep_storm_hammer",
+		Icon = "🔨",
+		Name = "Stormforged Hammer",
+		Name_it = "Martello della Tempesta",
+		Tag = "1,200 DMG • Heavy Cleave",
+		Tag_it = "1.200 DANNI • Fendente Pesante",
+		Desc = "A crushing blow with enough force to stagger a group.",
+		Desc_it = "Un colpo devastante capace di respingere un gruppo di Ombre.",
+		BaseCost = 0,
+		AlbaCost = 11,
+		Damage = 1200,
+		Cooldown = 0.82,
+		Range = 17,
+		IsCleave = true,
+		Color = Color3.fromRGB(110, 190, 255),
+	},
+	{
+		Id = "wep_astral_glaive",
+		Icon = "⚔️",
+		Name = "Astral Glaive",
+		Name_it = "Alabarda Astrale",
+		Tag = "1,850 DMG • Long Arc",
+		Tag_it = "1.850 DANNI • Arco Lungo",
+		Desc = "A sweeping polearm that reaches distant targets.",
+		Desc_it = "Arma ad asta dal fendente ampio che raggiunge bersagli lontani.",
+		BaseCost = 0,
+		AlbaCost = 15,
+		Damage = 1850,
+		Cooldown = 0.62,
+		Range = 24,
+		IsCleave = true,
+		Color = Color3.fromRGB(100, 245, 190),
+	},
+	{
+		Id = "wep_celestial_bow",
+		Icon = "🏹",
+		Name = "Celestial Bow",
+		Name_it = "Arco Celestiale",
+		Tag = "2,800 DMG • Long Range",
+		Tag_it = "2.800 DANNI • Lunga Portata",
+		Desc = "A focused radiant shot that strikes from far away.",
+		Desc_it = "Un colpo radioso concentrato che raggiunge i nemici da lontano.",
+		BaseCost = 0,
+		AlbaCost = 20,
+		Damage = 2800,
+		Cooldown = 0.72,
+		Range = 32,
+		Color = Color3.fromRGB(115, 205, 255),
+	},
+	{
+		Id = "wep_infinity_edge",
+		Icon = "🌌",
+		Name = "Edge of Infinity",
+		Name_it = "Lama dell'Infinito",
+		Tag = "8,000 DMG • Cosmic Arc",
+		Tag_it = "8.000 DANNI • Arco Cosmico",
+		Desc = "A mythical arc of light that sweeps the entire battlefield.",
+		Desc_it = "Arco mitico di luce che attraversa l'intero campo di battaglia.",
+		BaseCost = 0,
+		AlbaCost = 50,
+		Damage = 8000,
+		Cooldown = 0.55,
+		Range = 48,
+		IsCosmicArc = true,
+		Color = Color3.fromRGB(255, 245, 190),
+	},
 }
 
 GameConfig.Defenses = {
@@ -800,35 +932,44 @@ local function applyLightCostDiscount(cost, discountLvl)
 	return math.max(1, math.floor(cost * discountMult))
 end
 
+local function applyProgressionPrice(cost)
+	local logCost = math.log(math.max(1, cost) / 1000) / math.log(10)
+	local progressionScale = 1 + math.max(0, logCost) * 0.75
+	return cost * progressionScale
+end
+
 function GameConfig.GetAltarCost(alt, lvl, albaCount, discountLvl)
 	local raw = computeSteepCurve(alt.BaseCost, alt.CostMult or 1.5, lvl, alt.SteepAfterLevel, alt.SteepFactor)
-	return applyLightCostDiscount(raw * getRebirthCostScale(albaCount), discountLvl)
+	return applyLightCostDiscount(applyProgressionPrice(raw * getRebirthCostScale(albaCount)), discountLvl)
 end
 
 function GameConfig.GetUpgradeCost(upg, lvl, albaCount, discountLvl)
 	local raw = computeSteepCurve(upg.BaseCost, upg.CostMult or 1.8, lvl, upg.SteepAfterLevel, upg.SteepFactor)
-	return applyLightCostDiscount(raw * getRebirthCostScale(albaCount), discountLvl)
+	return applyLightCostDiscount(applyProgressionPrice(raw * getRebirthCostScale(albaCount)), discountLvl)
 end
 
 function GameConfig.GetVictoryCost(albaCount, discountLvl)
 	local vb = GameConfig.VictoryButton
 	local raw = vb.BaseCost * (vb.CostMult ^ math.max(0, albaCount or 0))
-	return applyLightCostDiscount(raw, discountLvl)
+	return applyLightCostDiscount(applyProgressionPrice(raw), discountLvl)
 end
 
 function GameConfig.GetWeaponCost(wep, albaCount, discountLvl)
-	return applyLightCostDiscount(wep.BaseCost * getRebirthCostScale(albaCount), discountLvl)
+	if wep.AlbaCost then return 0 end
+	local raw = wep.BaseCost * getRebirthCostScale(albaCount)
+	return applyLightCostDiscount(applyProgressionPrice(raw), discountLvl)
 end
 
 function GameConfig.GetDefenseCost(def, lvl, albaCount, discountLvl)
 	local raw = def.BaseCost * ((def.CostMult or 2.0) ^ lvl) * getRebirthCostScale(albaCount)
-	local pts = applyLightCostDiscount(raw, discountLvl)
+	local pts = applyLightCostDiscount(applyProgressionPrice(raw), discountLvl)
 	local alba = (def.AlbaCost and lvl == 0) and def.AlbaCost or 0
 	return { Points = pts, Alba = alba }
 end
 
 function GameConfig.GetWispCost(albaCount, discountLvl)
-	return applyLightCostDiscount(350 * getRebirthCostScale(albaCount), discountLvl)
+	local raw = 350 * getRebirthCostScale(albaCount)
+	return applyLightCostDiscount(applyProgressionPrice(raw), discountLvl)
 end
 
 return GameConfig

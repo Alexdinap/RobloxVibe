@@ -8,6 +8,7 @@ local TutorialUI = {}
 local SLIDES = {
 	{
 		Icon = "🔥",
+		Illustration = "👆   🔥   ✨",
 		Accent = Color3.fromRGB(255, 195, 65),
 		TitleKey = "TUT_1_TITLE",
 		BodyKey = "TUT_1_BODY",
@@ -15,6 +16,7 @@ local SLIDES = {
 	},
 	{
 		Icon = "🟠",
+		Illustration = "🌱   🌳   ⬆️",
 		Accent = Color3.fromRGB(255, 145, 55),
 		TitleKey = "TUT_2_TITLE",
 		BodyKey = "TUT_2_BODY",
@@ -22,6 +24,7 @@ local SLIDES = {
 	},
 	{
 		Icon = "🛡️",
+		Illustration = "🛡️   🗼   👾",
 		Accent = Color3.fromRGB(80, 225, 255),
 		TitleKey = "TUT_3_TITLE",
 		BodyKey = "TUT_3_BODY",
@@ -29,6 +32,7 @@ local SLIDES = {
 	},
 	{
 		Icon = "✨",
+		Illustration = "✨   🌀   🌟",
 		Accent = Color3.fromRGB(195, 110, 255),
 		TitleKey = "TUT_4_TITLE",
 		BodyKey = "TUT_4_BODY",
@@ -36,6 +40,7 @@ local SLIDES = {
 	},
 	{
 		Icon = "🌅",
+		Illustration = "🌅   🔄   🏝️",
 		Accent = Color3.fromRGB(255, 220, 90),
 		TitleKey = "TUT_5_TITLE",
 		BodyKey = "TUT_5_BODY",
@@ -90,14 +95,14 @@ function TutorialUI.Build(parentGui, remotes)
 	modal.Name = "TutorialModal"
 	modal.AnchorPoint = Vector2.new(0.5, 0.5)
 	modal.Position = UDim2.fromScale(0.5, 0.5)
-	modal.Size = UDim2.new(0.92, 0, 0.85, 0)
+	modal.Size = UDim2.new(0.92, 0, 0.88, 0)
 	modal.BackgroundColor3 = Color3.fromRGB(16, 18, 28)
 	modal.ZIndex = 51
 	Instance.new("UICorner", modal).CornerRadius = UDim.new(0, 18)
 
 	local modalConstraint = Instance.new("UISizeConstraint", modal)
-	modalConstraint.MaxSize = Vector2.new(640, 430)
-	modalConstraint.MinSize = Vector2.new(340, 320)
+	modalConstraint.MaxSize = Vector2.new(760, 600)
+	modalConstraint.MinSize = Vector2.new(320, 340)
 
 	local modalStroke = Instance.new("UIStroke", modal)
 	modalStroke.Color = Color3.fromRGB(255, 200, 65)
@@ -110,32 +115,33 @@ function TutorialUI.Build(parentGui, remotes)
 
 	local headerTitle = Instance.new("TextLabel", header)
 	headerTitle.Position = UDim2.fromOffset(18, 12)
-	headerTitle.Size = UDim2.fromOffset(280, 28)
+	headerTitle.Size = UDim2.new(1, -190, 0, 30)
 	headerTitle.BackgroundTransparency = 1
 	headerTitle.Text = Localization.T("en", "TUTORIAL_HEADER")
 	headerTitle.TextColor3 = Color3.fromRGB(255, 215, 85)
 	headerTitle.TextXAlignment = Enum.TextXAlignment.Left
+	headerTitle.TextTruncate = Enum.TextTruncate.AtEnd
 	headerTitle.Font = Enum.Font.GothamBlack
-	headerTitle.TextSize = 17
+	headerTitle.TextSize = 19
 	headerTitle.ZIndex = 52
 
 	local stepBadge = Instance.new("TextLabel", header)
 	stepBadge.AnchorPoint = Vector2.new(1, 0.5)
 	stepBadge.Position = UDim2.new(1, -56, 0.5, 0)
-	stepBadge.Size = UDim2.fromOffset(112, 28)
+	stepBadge.Size = UDim2.fromOffset(122, 32)
 	stepBadge.BackgroundColor3 = Color3.fromRGB(28, 33, 48)
 	stepBadge.Text = "Slide 1 / 5"
 	stepBadge.TextColor3 = Color3.fromRGB(220, 232, 250)
 	stepBadge.Font = Enum.Font.GothamBold
-	stepBadge.TextSize = 13
+	stepBadge.TextSize = 15
 	stepBadge.ZIndex = 52
 	Instance.new("UICorner", stepBadge).CornerRadius = UDim.new(0, 8)
 
 	local closeBtn = createCloseButton(header, 53)
 
 	local contentCard = Instance.new("Frame", modal)
-	contentCard.Position = UDim2.fromOffset(18, 56)
-	contentCard.Size = UDim2.new(1, -36, 1, -148)
+	contentCard.Position = UDim2.fromOffset(14, 56)
+	contentCard.Size = UDim2.new(1, -28, 1, -148)
 	contentCard.BackgroundColor3 = Color3.fromRGB(24, 28, 42)
 	contentCard.ZIndex = 52
 	Instance.new("UICorner", contentCard).CornerRadius = UDim.new(0, 14)
@@ -144,30 +150,50 @@ function TutorialUI.Build(parentGui, remotes)
 	cardStroke.Color = Color3.fromRGB(255, 195, 65)
 	cardStroke.Thickness = 1.4
 
-	local iconBox = Instance.new("TextLabel", contentCard)
-	iconBox.Position = UDim2.fromOffset(16, 14)
-	iconBox.Size = UDim2.fromOffset(50, 50)
-	iconBox.BackgroundColor3 = Color3.fromRGB(36, 32, 24)
-	iconBox.Text = "🔥"
-	iconBox.TextSize = 28
-	iconBox.ZIndex = 53
-	Instance.new("UICorner", iconBox).CornerRadius = UDim.new(0, 12)
+	local illustrationPanel = Instance.new("Frame", contentCard)
+	illustrationPanel.Position = UDim2.fromOffset(12, 12)
+	illustrationPanel.Size = UDim2.new(1, -24, 0, 88)
+	illustrationPanel.BackgroundColor3 = Color3.fromRGB(36, 32, 24)
+	illustrationPanel.ZIndex = 53
+	Instance.new("UICorner", illustrationPanel).CornerRadius = UDim.new(0, 14)
+
+	local illustration = Instance.new("TextLabel", illustrationPanel)
+	illustration.Size = UDim2.new(1, -12, 1, 0)
+	illustration.Position = UDim2.fromOffset(6, 0)
+	illustration.BackgroundTransparency = 1
+	illustration.Text = ""
+	illustration.TextSize = 36
+	illustration.TextScaled = true
+	illustration.Font = Enum.Font.GothamBlack
+	illustration.ZIndex = 54
 
 	local slideTitle = Instance.new("TextLabel", contentCard)
-	slideTitle.Position = UDim2.fromOffset(78, 14)
-	slideTitle.Size = UDim2.new(1, -94, 0, 50)
+	slideTitle.Position = UDim2.fromOffset(16, 108)
+	slideTitle.Size = UDim2.new(1, -32, 0, 48)
 	slideTitle.BackgroundTransparency = 1
 	slideTitle.Text = ""
 	slideTitle.TextColor3 = Color3.fromRGB(255, 225, 105)
 	slideTitle.TextXAlignment = Enum.TextXAlignment.Left
 	slideTitle.TextWrapped = true
 	slideTitle.Font = Enum.Font.GothamBlack
-	slideTitle.TextSize = 18
+	slideTitle.TextSize = 22
 	slideTitle.ZIndex = 53
 
-	local slideBody = Instance.new("TextLabel", contentCard)
-	slideBody.Position = UDim2.fromOffset(18, 72)
-	slideBody.Size = UDim2.new(1, -36, 1, -132)
+	local bodyScroll = Instance.new("ScrollingFrame", contentCard)
+	bodyScroll.Position = UDim2.fromOffset(16, 160)
+	bodyScroll.Size = UDim2.new(1, -32, 1, -242)
+	bodyScroll.BackgroundTransparency = 1
+	bodyScroll.BorderSizePixel = 0
+	bodyScroll.ScrollBarThickness = 8
+	bodyScroll.ScrollBarImageColor3 = Color3.fromRGB(140, 155, 190)
+	bodyScroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
+	bodyScroll.CanvasSize = UDim2.new()
+	bodyScroll.ScrollingDirection = Enum.ScrollingDirection.Y
+	bodyScroll.ZIndex = 53
+
+	local slideBody = Instance.new("TextLabel", bodyScroll)
+	slideBody.Size = UDim2.new(1, -12, 0, 0)
+	slideBody.AutomaticSize = Enum.AutomaticSize.Y
 	slideBody.BackgroundTransparency = 1
 	slideBody.Text = ""
 	slideBody.TextColor3 = Color3.fromRGB(245, 248, 255)
@@ -175,14 +201,14 @@ function TutorialUI.Build(parentGui, remotes)
 	slideBody.TextYAlignment = Enum.TextYAlignment.Top
 	slideBody.TextWrapped = true
 	slideBody.Font = Enum.Font.Gotham
-	slideBody.TextSize = 15
-	slideBody.LineHeight = 1.22
-	slideBody.ZIndex = 53
+	slideBody.TextSize = 19
+	slideBody.LineHeight = 1.18
+	slideBody.ZIndex = 54
 
 	local tipBox = Instance.new("Frame", contentCard)
 	tipBox.AnchorPoint = Vector2.new(0.5, 1)
 	tipBox.Position = UDim2.new(0.5, 0, 1, -12)
-	tipBox.Size = UDim2.new(1, -28, 0, 44)
+	tipBox.Size = UDim2.new(1, -28, 0, 54)
 	tipBox.BackgroundColor3 = Color3.fromRGB(16, 20, 32)
 	tipBox.ZIndex = 53
 	Instance.new("UICorner", tipBox).CornerRadius = UDim.new(0, 8)
@@ -196,7 +222,7 @@ function TutorialUI.Build(parentGui, remotes)
 	tipLabel.TextXAlignment = Enum.TextXAlignment.Left
 	tipLabel.TextWrapped = true
 	tipLabel.Font = Enum.Font.GothamBold
-	tipLabel.TextSize = 13
+	tipLabel.TextSize = 16
 	tipLabel.ZIndex = 54
 
 	local dotsHolder = Instance.new("Frame", modal)
@@ -221,33 +247,60 @@ function TutorialUI.Build(parentGui, remotes)
 	local prevBtn = Instance.new("TextButton", modal)
 	prevBtn.AnchorPoint = Vector2.new(0, 1)
 	prevBtn.Position = UDim2.new(0, 18, 1, -14)
-	prevBtn.Size = UDim2.fromOffset(145, 42)
+	prevBtn.Size = UDim2.fromOffset(150, 48)
 	prevBtn.BackgroundColor3 = Color3.fromRGB(34, 40, 58)
 	prevBtn.Text = Localization.T("en", "TUTORIAL_PREV")
 	prevBtn.TextColor3 = Color3.fromRGB(235, 242, 255)
 	prevBtn.Font = Enum.Font.GothamBold
-	prevBtn.TextSize = 14
+	prevBtn.TextSize = 17
 	prevBtn.ZIndex = 52
 	Instance.new("UICorner", prevBtn).CornerRadius = UDim.new(0, 10)
 
 	local nextBtn = Instance.new("TextButton", modal)
 	nextBtn.AnchorPoint = Vector2.new(1, 1)
 	nextBtn.Position = UDim2.new(1, -18, 1, -14)
-	nextBtn.Size = UDim2.fromOffset(195, 42)
+	nextBtn.Size = UDim2.fromOffset(205, 48)
 	nextBtn.BackgroundColor3 = Color3.fromRGB(255, 200, 65)
 	nextBtn.Text = Localization.T("en", "TUTORIAL_NEXT")
 	nextBtn.TextColor3 = Color3.fromRGB(16, 18, 24)
 	nextBtn.Font = Enum.Font.GothamBlack
-	nextBtn.TextSize = 14
+	nextBtn.TextSize = 17
 	nextBtn.ZIndex = 52
 	Instance.new("UICorner", nextBtn).CornerRadius = UDim.new(0, 10)
+
+	local function updateResponsiveLayout()
+		local compact = modal.AbsoluteSize.Y < 430
+		local cardBottom = compact and 120 or 148
+		local illustrationHeight = compact and 66 or 88
+
+		contentCard.Size = UDim2.new(1, -28, 1, -cardBottom)
+		illustrationPanel.Size = UDim2.new(1, -24, 0, illustrationHeight)
+		slideTitle.Position = UDim2.fromOffset(16, compact and 84 or 108)
+		slideTitle.Size = UDim2.new(1, -32, 0, compact and 42 or 48)
+		slideTitle.TextSize = compact and 19 or 22
+		bodyScroll.Position = UDim2.fromOffset(16, compact and 132 or 160)
+		bodyScroll.Size = UDim2.new(1, -32, 1, compact and -142 or -242)
+		slideBody.TextSize = compact and 17 or 19
+		tipBox.Visible = not compact
+		tipBox.Size = UDim2.new(1, -28, 0, compact and 46 or 54)
+		tipLabel.TextSize = compact and 14 or 16
+		headerTitle.TextSize = compact and 16 or 19
+		stepBadge.Size = UDim2.fromOffset(compact and 102 or 122, 32)
+		local navWidth = math.clamp((modal.AbsoluteSize.X - 56) / 2, 112, 205)
+		prevBtn.Size = UDim2.fromOffset(navWidth, 48)
+		nextBtn.Size = UDim2.fromOffset(navWidth, 48)
+	end
+
+	modal:GetPropertyChangedSignal("AbsoluteSize"):Connect(updateResponsiveLayout)
+	updateResponsiveLayout()
 
 	local function renderSlide()
 		local slide = SLIDES[currentIndex] or SLIDES[1]
 		headerTitle.Text = Localization.T(currentLang, "TUTORIAL_HEADER")
 		stepBadge.Text = Localization.T(currentLang, "TUTORIAL_STEP_FMT", currentIndex, #SLIDES)
 
-		iconBox.Text = slide.Icon
+		illustrationPanel.BackgroundColor3 = slide.Accent:Lerp(Color3.fromRGB(16, 18, 28), 0.78)
+		illustration.Text = slide.Illustration or slide.Icon
 		slideTitle.Text = Localization.T(currentLang, slide.TitleKey)
 		slideTitle.TextColor3 = slide.Accent
 		slideBody.Text = Localization.T(currentLang, slide.BodyKey)

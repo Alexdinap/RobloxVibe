@@ -830,9 +830,12 @@ function WorldBuilder.Build()
 		weaponsFolder.Parent = plotModel
 
 		local weaponPadRefs = {}
-		local weaponOffsets = { -13.5, -4.5, 4.5, 13.5 }
+		local maxWeaponOffset = math.max(0, GameConfig.PlotHalfSize - 7)
+		local weaponSpacing = (#GameConfig.Weapons > 1)
+			and (maxWeaponOffset * 2 / (#GameConfig.Weapons - 1))
+			or 0
 		for idx, wep in ipairs(GameConfig.Weapons) do
-			local offZ = weaponOffsets[idx] or ((idx - 2.5) * 9)
+			local offZ = -maxWeaponOffset + (idx - 1) * weaponSpacing
 			local standPos = origin - rightDir * 31.0 + outwardDir * offZ
 			local padPos = origin - rightDir * 25.5 + outwardDir * offZ
 			buildWeaponDisplayStand(weaponsFolder, wep, standPos, rightDir)
@@ -845,7 +848,7 @@ function WorldBuilder.Build()
 				wep.Color or Color3.fromRGB(255, 185, 70),
 				wep.Icon .. " " .. wep.Name,
 				wep.Tag or wep.Desc or "",
-				tostring(wep.BaseCost) .. " Light"
+				wep.AlbaCost and string.format("%d Dawn Points", wep.AlbaCost) or (tostring(wep.BaseCost) .. " Light")
 			)
 			weaponPadRefs[wep.Id] = {
 				Pad = pad,

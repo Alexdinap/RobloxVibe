@@ -122,6 +122,7 @@ function ClientWorldVisuals.Update(st)
 	local lang = st.Language or "en"
 	local lightUnit = Localization.T(lang, "LIGHT_UNIT")
 	local points = st.Points or 0
+	local albaPoints = st.AlbaPoints or 0
 	local albaCount = st.AlbaCount or 0
 	local discountLvl = EconomyEngine.GetLevel(st.AlbaPerks, "ap_discount")
 	local ownedWeapons = st.OwnedWeapons or {}
@@ -137,7 +138,9 @@ function ClientWorldVisuals.Update(st)
 				local reqAlba = wep.ReqAlba or 0
 				local locked = (not owned) and (albaCount < reqAlba)
 				local cost = GameConfig.GetWeaponCost(wep, albaCount, discountLvl)
-				local canAfford = (not owned) and (not locked) and (points >= cost)
+				local canAfford = (not owned) and (not locked) and (
+					wep.AlbaCost and albaPoints >= wep.AlbaCost or points >= cost
+				)
 				local wName = Localization.Pick(lang, wep.Name, wep.Name_it)
 				local wTag = Localization.Pick(lang, wep.Tag, wep.Tag_it)
 
@@ -181,7 +184,9 @@ function ClientWorldVisuals.Update(st)
 							t2.Text = Localization.T(lang, "PAD_WEP_LOCKED_FMT", reqAlba)
 							t2.TextColor3 = Color3.fromRGB(190, 200, 222)
 						else
-							t2.Text = (canAfford and "✅ " or "") .. NumberFormat.Format(cost) .. " " .. lightUnit
+							t2.Text = wep.AlbaCost
+								and string.format("%d 🌅", wep.AlbaCost)
+								or ((canAfford and "✅ " or "") .. NumberFormat.Format(cost) .. " " .. lightUnit)
 							t2.TextColor3 = canAfford and Color3.fromRGB(95, 255, 155) or Color3.fromRGB(235, 240, 252)
 						end
 					end

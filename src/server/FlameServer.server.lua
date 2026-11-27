@@ -283,7 +283,9 @@ local function updatePlotGroundButtons(plot, data)
 					elseif locked then
 						ref.CostLabel.Text = Localization.T(lang, "PAD_WEP_LOCKED_FMT", reqAlba)
 					else
-						ref.CostLabel.Text = NumberFormat.Format(cost) .. " " .. lightUnit
+						ref.CostLabel.Text = wep.AlbaCost
+							and string.format("%d 🌅", wep.AlbaCost)
+							or (NumberFormat.Format(cost) .. " " .. lightUnit)
 					end
 				end
 			end
@@ -697,10 +699,20 @@ local function handleWeaponPurchaseOrEquip(player, wepId, equipIfOwned)
 		return
 	end
 
+	local albaCost = target.AlbaCost or 0
+	if (data.AlbaPoints or 0) < albaCost then
+		local albaMsg = lang == "it"
+			and string.format("Servono %d Punti Alba!", albaCost)
+			or string.format("Requires %d Dawn Points!", albaCost)
+		syncPlayer(player, { PopupText = albaMsg })
+		return
+	end
+
 	local discountLvl = EconomyEngine.GetLevel(data.AlbaPerks, "ap_discount")
 	local cost = GameConfig.GetWeaponCost(target, albaCount, discountLvl)
 	if data.Points >= cost then
 		data.Points -= cost
+		data.AlbaPoints = (data.AlbaPoints or 0) - albaCost
 		data.OwnedWeapons[target.Id] = true
 		pcall(function() ShadowDefenseService.SyncPlayerTools(player, data) end)
 		pcall(function() ShadowDefenseService.EquipWeaponTool(player, target.Id) end)

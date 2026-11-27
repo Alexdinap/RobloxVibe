@@ -19,6 +19,15 @@ local STRINGS = {
 		ROBUX_X2_BTN = "⚡ x2 Light (Robux)",
 		ROBUX_X2_ACTIVE = "✅ x2 Light Active",
 		MODAL_TITLE = "🔥 Keeper Sanctuary & Upgrades",
+		TURRET_MODAL_TITLE = "🗼 Turret Management",
+		WISPS_MODAL_TITLE = "✨ Spirit Management",
+		DAILY_MODAL_TITLE = "🎁 Daily Rewards",
+		HUD_TURRETS = "🗼 Turrets",
+		HUD_WISPS = "✨ Spirits",
+		HUD_DAILY = "🎁 Daily Rewards",
+		DAILY_COMING_SOON = "The daily reward calendar is coming soon. Rewards will be announced here!",
+		DAILY_DAY = "Day",
+		DAILY_REWARD_SOON = "Reward coming soon",
 
 		TUTORIAL_HEADER = "🔥 KEEPER'S GUIDE",
 		TUTORIAL_STEP_FMT = "Slide %d / %d",
@@ -37,11 +46,11 @@ local STRINGS = {
 		TUT_2_TIP = "💡 Tip: Keep upgrading unlocked nodes up to MAX to unlock Dawn Rebirth!",
 
 		TUT_3_TITLE = "3. Defend Against the Shadows",
-		TUT_3_BODY = "• Once you close this tutorial, a 3:00 Dawn Truce countdown begins.\n• When the timer ends, Shadows will attack your Brazier and drain Light.\n• Step onto the Weapon pads on the left of your plot (or open 'Defense') to buy Weapons and build Turrets.",
+		TUT_3_BODY = "• Once you close this tutorial, a 3:00 Dawn Truce countdown begins.\n• When the timer ends, Shadows will attack your Brazier and drain Light.\n• Step onto the Weapon pads on the left of your plot to buy Weapons, or use the Turrets button in the HUD to build defenses.",
 		TUT_3_TIP = "💡 Tip: Grab the Ember Torch on your plot or build a Sunfire Turret before the 3:00 truce expires!",
 
 		TUT_4_TITLE = "4. Light Wisps & Spirit Shrine",
-		TUT_4_BODY = "• Unlock 'Spirit Awakening' in the Upgrade Tree to activate the Spirit Shrine on your plot.\n• Step onto the round Spirit pads (or use the Wisps tab) to summon orbiting Wisps and forge 3 into a Radiant Wisp.\n• Unlock the Realm 1 Portal for timed brazier trials with temporary multipliers.",
+		TUT_4_BODY = "• Unlock 'Spirit Awakening' in the Upgrade Tree to activate the Spirit Shrine on your plot.\n• Step onto the round Spirit pads or use the Spirits button in the HUD to summon orbiting Wisps and forge 3 into a Radiant Wisp.\n• Unlock the Realm 1 Portal for timed brazier trials with temporary multipliers.",
 		TUT_4_TIP = "💡 Tip: Your strongest Wisps equip automatically around your character.",
 
 		TUT_5_TITLE = "5. Dawn Rebirth & Monument Islands",
@@ -60,8 +69,7 @@ local STRINGS = {
 		BTN_EQUIPPED = "EQUIPPED",
 		BTN_UNLOCKED = "UNLOCKED",
 
-		DEF_TIP = "🛡️ Shadows attack your Brazier! Buy Weapons (auto-equipped in hotbar) and build Turrets.",
-		SEC_WEAPONS = "⚔️ KEEPER WEAPONS",
+		DEF_TIP = "🛡️ Build and improve defenses to protect your Brazier from the Shadows.",
 		SEC_STRUCTURES = "🗼 PLOT DEFENSES",
 
 		WISPS_LOCKED = "🔒 Unlock 'Spirit Awakening' in the Character tab first!",
@@ -164,6 +172,15 @@ local STRINGS = {
 		ROBUX_X2_BTN = "⚡ x2 Luce (Robux)",
 		ROBUX_X2_ACTIVE = "✅ x2 Luce Attivo",
 		MODAL_TITLE = "🔥 Santuario del Custode & Potenziamenti",
+		TURRET_MODAL_TITLE = "🗼 Gestione Torrette",
+		WISPS_MODAL_TITLE = "✨ Gestione Spiriti",
+		DAILY_MODAL_TITLE = "🎁 Ricompense Giornaliere",
+		HUD_TURRETS = "🗼 Torrette",
+		HUD_WISPS = "✨ Spiriti",
+		HUD_DAILY = "🎁 Ricompense",
+		DAILY_COMING_SOON = "Il calendario delle ricompense giornaliere arriverà presto. Le ricompense saranno annunciate qui!",
+		DAILY_DAY = "Giorno",
+		DAILY_REWARD_SOON = "Ricompensa in arrivo",
 
 		TUTORIAL_HEADER = "🔥 GUIDA DEL CUSTODE",
 		TUTORIAL_STEP_FMT = "Slide %d / %d",
@@ -182,11 +199,11 @@ local STRINGS = {
 		TUT_2_TIP = "💡 Consiglio: Potenzia fino al MAX tutti i nodi dell'albero per sbloccare la Rinascita!",
 
 		TUT_3_TITLE = "3. Difendi il Braciere dalle Ombre",
-		TUT_3_BODY = "• Appena chiuderai questo tutorial partirà una Tregua dell'Alba di 3:00.\n• Allo scadere del timer, le Ombre attaccheranno il tuo Braciere rubando Luce.\n• Sali sulle pedane Armi a sinistra del plot (o apri 'Difesa') per comprare Armi e costruire Torrette.",
+		TUT_3_BODY = "• Appena chiuderai questo tutorial partirà una Tregua dell'Alba di 3:00.\n• Allo scadere del timer, le Ombre attaccheranno il tuo Braciere rubando Luce.\n• Sali sulle pedane Armi a sinistra del plot per comprarle, oppure usa il pulsante Torrette nella HUD per costruire difese.",
 		TUT_3_TIP = "💡 Consiglio: Prendi la Torcia di Brace a terra o costruisci una Torretta prima che scadano i 3:00!",
 
 		TUT_4_TITLE = "4. Spiriti di Luce e Altare Spiritico",
-		TUT_4_BODY = "• Sblocca 'Risveglio Spiriti' nell'Albero per attivare l'Altare degli Spiriti nel tuo plot.\n• Sali sulle pedane rotonde Spiriti (o usa la scheda Spiriti) per evocare compagni orbitanti e forgiarli.\n• Attiva il Portale Regno 1 per affrontare sfide a tempo con bonus temporanei.",
+		TUT_4_BODY = "• Sblocca 'Risveglio Spiriti' nell'Albero per attivare l'Altare degli Spiriti nel tuo plot.\n• Sali sulle pedane rotonde Spiriti o usa il pulsante Spiriti nella HUD per evocare compagni orbitanti e forgiarli.\n• Attiva il Portale Regno 1 per affrontare sfide a tempo con bonus temporanei.",
 		TUT_4_TIP = "💡 Consiglio: Gli Spiriti più forti vengono equipaggiati automaticamente attorno a te.",
 
 		TUT_5_TITLE = "5. Rinascita dell'Alba e Isole Monumento",
@@ -205,8 +222,7 @@ local STRINGS = {
 		BTN_EQUIPPED = "EQUIPAGGIATO",
 		BTN_UNLOCKED = "SBLOCCATO",
 
-		DEF_TIP = "🛡️ Le Ombre attaccano il Braciere! Compra Armi (equipaggiate in barra) e costruisci Torrette.",
-		SEC_WEAPONS = "⚔️ ARMI DEL CUSTODE",
+		DEF_TIP = "🛡️ Costruisci e migliora le difese per proteggere il Braciere dalle Ombre.",
 		SEC_STRUCTURES = "🗼 DIFESE DEL PLOT",
 
 		WISPS_LOCKED = "🔒 Sblocca prima 'Risveglio degli Spiriti' nella scheda Personaggio!",
